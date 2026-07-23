@@ -77,6 +77,12 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     }
   };
 
+  // Audit Editable Parameters Drawer State
+  const [showAuditParams, setShowAuditParams] = useState(false);
+  const [focusArea, setFocusArea] = useState('Metadata optimization & keyword placement');
+  const [customListingText, setCustomListingText] = useState('');
+  const [maxTokens, setMaxTokens] = useState('4096');
+
   const handleRunAudit = async () => {
     setAuditLoading(true);
     try {
@@ -86,7 +92,10 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           packageName,
           platform,
           provider: selectedProvider,
-          model: customModel || undefined
+          model: customModel || undefined,
+          focusArea,
+          customListingText: customListingText || undefined,
+          maxTokens: parseInt(maxTokens, 10) || undefined
         })
       }, authToken);
       if (res.ok) {
@@ -213,14 +222,18 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           sublabel="Times listing appeared in search or browse"
           icon={Eye}
           color="blue"
+          tooltipSubheader="Search & Category Visibility"
+          tooltipText="How many total unique times users viewed your app icon or title in search results, featured categories, or top charts."
         />
         <MetricCard
           label="Product Page Views"
           value={formatNumber(pageViews)}
-          sublabel={`Click-through: ${formatRate(viewConversionRate)}`}
+          sublabel={`Tap-through: ${formatRate(viewConversionRate)}`}
           icon={MousePointer}
           color="emerald"
           progress={viewConversionRate * 100}
+          tooltipSubheader="Store Listing Tap-Through Rate"
+          tooltipText="Percentage of users who saw your icon in search or browse and tapped into your full product page to read more."
         />
         <MetricCard
           label="Conversion Rate (ASO)"
@@ -229,25 +242,82 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           icon={Percent}
           color="amber"
           progress={downloadConversionRate * 100}
+          tooltipSubheader="Product Page Install Rate"
+          tooltipText="The percentage of product page visitors who clicked Install. Measures screenshot appeal, short description hook clarity, and rating trust."
         />
       </div>
 
       {/* Section 1: Listing Audit */}
       <div className="glass-card p-6 border border-white/10 space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Shield className="text-emerald-400" size={20} />
             <h2 className="text-lg font-bold text-white">Listing Health & AI Audit</h2>
           </div>
-          <button
-            onClick={handleRunAudit}
-            disabled={auditLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
-          >
-            {auditLoading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            {auditLoading ? 'Auditing Listing...' : 'Run AI Audit'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAuditParams(!showAuditParams)}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-white/10 transition-all"
+            >
+              {showAuditParams ? 'Hide Audit Params' : 'Edit Audit Params'}
+            </button>
+            <button
+              onClick={handleRunAudit}
+              disabled={auditLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-600/30"
+            >
+              {auditLoading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {auditLoading ? 'Auditing Listing...' : 'Run AI Audit'}
+            </button>
+          </div>
         </div>
+
+        {/* Expandable Editable Parameters Drawer */}
+        {showAuditParams && (
+          <div className="bg-slate-900/80 p-4 rounded-2xl border border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <Bot size={14} /> AI Audit Parameters Preview & Overrides
+              </span>
+              <span className="text-[10px] text-slate-400">Target Provider: <strong className="text-white uppercase">{selectedProvider}</strong> ({customModel || 'Default Model'})</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Audit Focus Area</label>
+                <input
+                  type="text"
+                  value={focusArea}
+                  onChange={(e) => setFocusArea(e.target.value)}
+                  placeholder="e.g. Title keyword density vs conversion hook"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Max Output Tokens</label>
+                <input
+                  type="number"
+                  value={maxTokens}
+                  onChange={(e) => setMaxTokens(e.target.value)}
+                  placeholder="4096"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Custom Prompt Context / Listing Override (Optional)</label>
+              <textarea
+                rows={3}
+                value={customListingText}
+                onChange={(e) => setCustomListingText(e.target.value)}
+                placeholder="Leave blank to automatically scrape latest Play/Apple store metadata, or paste raw text override..."
+                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500 custom-scrollbar resize-none"
+              />
+            </div>
+          </div>
+        )}
 
         {asoData?.listingSnapshot && (
           <div className="flex items-center gap-4 bg-slate-900/40 p-4 rounded-2xl border border-white/5">
@@ -324,6 +394,17 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
               Expand (a-z)
             </button>
           </div>
+        </div>
+
+        {/* Help Banner */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 text-xs text-blue-200 space-y-1">
+          <div className="flex items-center gap-2 font-bold text-white">
+            <AlertCircle size={14} className="text-blue-400" />
+            What is Autocomplete Fan-Out?
+          </div>
+          <p className="text-[11px] text-blue-200/80 leading-relaxed">
+            Store autocomplete suggestions (e.g., typing <strong>"tracker a"</strong>, <strong>"tracker b"</strong> in Play Store search) reflect actual high-volume search queries entered by real users. Terms marked <strong className="text-emerald-400">Autocomplete-Verified</strong> represent confirmed search intent without needing expensive 3rd-party rank tracker APIs.
+          </p>
         </div>
 
         {/* Keyword Table */}
@@ -439,6 +520,10 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                 Calculate Coverage
               </button>
             </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Store algorithms index specific metadata fields differently: Google Play indexes <strong>Title &gt; Short Description &gt; Description</strong>, while Apple App Store indexes <strong>Title + Subtitle + Keyword Field</strong> (ignoring main description). This matrix checks exact coverage without spending AI tokens.
+            </p>
 
             <div className="space-y-3">
               <input

@@ -185,26 +185,28 @@ router.post('/aso/keywords/track', (req, res) => {
  * Listing Audit
  */
 router.post('/aso/audit', async (req, res) => {
-  const { packageName, platform = 'play', provider, model } = req.body;
+  const { packageName, platform = 'play', provider, model, customListingText, focusArea, maxTokens } = req.body;
   if (!packageName) return res.status(400).json({ error: 'packageName required' });
 
   try {
-    let listingText = '';
+    let listingText = customListingText || '';
     let detailedData = null;
 
-    if (platform === 'play') {
-      detailedData = await scraper.getPlayListing(packageName);
-      if (detailedData) {
-        listingText = `Title: ${detailedData.title}\nDeveloper: ${detailedData.developer}\nCategory: ${detailedData.category}\nRating: ${detailedData.score} (${detailedData.ratings} ratings)\nContent Rating: ${detailedData.contentRating}\nInstalls: ${detailedData.installs}\nShort Description: ${detailedData.summary}\nDescription: ${detailedData.description}`;
+    if (!listingText) {
+      if (platform === 'play') {
+        detailedData = await scraper.getPlayListing(packageName);
+        if (detailedData) {
+          listingText = `Title: ${detailedData.title}\nDeveloper: ${detailedData.developer}\nCategory: ${detailedData.category}\nRating: ${detailedData.score} (${detailedData.ratings} ratings)\nContent Rating: ${detailedData.contentRating}\nInstalls: ${detailedData.installs}\nShort Description: ${detailedData.summary}\nDescription: ${detailedData.description}`;
+        } else {
+          listingText = `Package: ${packageName}`;
+        }
       } else {
-        listingText = `Package: ${packageName}`;
-      }
-    } else {
-      detailedData = await scraper.getAppleLookup(packageName);
-      if (detailedData) {
-        listingText = `Name: ${detailedData.trackName}\nDeveloper: ${detailedData.developer}\nCategory: ${detailedData.category}\nRating: ${detailedData.score} (${detailedData.ratings} ratings)\nContent Rating: ${detailedData.contentRating}\nPrice: ${detailedData.priceText}\nSubtitle: ${detailedData.subtitle}\nDescription: ${detailedData.description}`;
-      } else {
-        listingText = `App ID: ${packageName}`;
+        detailedData = await scraper.getAppleLookup(packageName);
+        if (detailedData) {
+          listingText = `Name: ${detailedData.trackName}\nDeveloper: ${detailedData.developer}\nCategory: ${detailedData.category}\nRating: ${detailedData.score} (${detailedData.ratings} ratings)\nContent Rating: ${detailedData.contentRating}\nPrice: ${detailedData.priceText}\nSubtitle: ${detailedData.subtitle}\nDescription: ${detailedData.description}`;
+        } else {
+          listingText = `App ID: ${packageName}`;
+        }
       }
     }
 
@@ -235,13 +237,14 @@ router.post('/aso/audit', async (req, res) => {
       );
     }
 
-    const promptText = `Audit the following ${platform} listing:\n\n${listingText}`;
+    const promptText = `Audit the following ${platform} listing:${focusArea ? `\nFocus Area: ${focusArea}` : ''}\n\n${listingText}`;
     const result = await generateJSON({
       system: prompts.auditPrompt.system,
       prompt: promptText,
       schema: prompts.auditPrompt.schema,
       provider,
-      customModel: model
+      customModel: model,
+      maxTokens: maxTokens ? parseInt(maxTokens, 10) : undefined
     });
 
     if (db) {
