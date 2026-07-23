@@ -166,8 +166,26 @@ The application reads app configurations from `data/config/config.json`. Below i
     "keyFilePath": "keys/google_key.json",
     "appleIssuerId": "xxxx-xxxx-xxxx-xxxx",
     "appleKeyId": "XXXXXXXXXX",
+    "appleVendorId": "85000000",
     "keyFilePath_apple": "keys/apple_key.p8",
-    "ignoredPackages": ["com.example.testapp"]
+    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/7018441398256771959",
+    "appMetadata": {
+      "com.example.app": {
+        "consoleAppId": "4976209752217554327"
+      }
+    },
+    "ignoredPackages": [
+      "com.example.testapp"
+    ],
+    "ai": {
+      "defaultProvider": "openai",
+      "providers": {
+        "openai": {
+          "apiKey": "your-openai-api-key",
+          "model": "gpt-4.1-nano"
+        }
+      }
+    }
   }
 ]
 ```
@@ -182,8 +200,12 @@ The application reads app configurations from `data/config/config.json`. Below i
 | `keyFilePath` | Google | Path to service account JSON key relative to `config.json` | Yes (for Google Play) |
 | `appleIssuerId` | Apple | App Store Connect Issuer ID | Yes (for Apple App Store) |
 | `appleKeyId` | Apple | App Store Connect Key ID | Yes (for Apple App Store) |
+| `appleVendorId` | Apple | 8-digit Apple Vendor ID (found in App Store Connect -> Reports) | Optional |
 | `keyFilePath_apple` | Apple | Path to `.p8` key file relative to `config.json` | Yes (for Apple App Store) |
+| `PlaystoreConsoleUrl` | Google | Base URL to your Google Play Console developer account for direct deep-linking | Optional |
+| `appMetadata` | Google | Map of package names to metadata objects (e.g. `consoleAppId` for direct links) | Optional |
 | `ignoredPackages` | Both | Array of package names or bundle IDs to exclude from dashboard | Optional |
+| `ai` | AI / ASO | AI service provider configurations for automated ASO suggestions & analysis | Optional |
 
 ### Environment Variables
 
