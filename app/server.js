@@ -14,6 +14,7 @@ const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
 const { aggregateOverviews } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
+const asoRouter = require("./routes/aso");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -122,6 +123,8 @@ const authenticate = (req, res, next) => {
     res.status(401).json({ error: "Invalid or expired token" });
   }
 };
+
+app.use('/api', authenticate, asoRouter);
 
 // --- Protected Endpoints ---
 

@@ -15,15 +15,22 @@ export function useAppState() {
   const [isStaticMode, setIsStaticMode] = useState(false);
   const [noPass, setNoPass] = useState(false);
 
-  // Parse initial state from URL if present
+  // Parse initial state from URL if present (handling sub-routes like /store/android/g-0)
   const pathParts = location.pathname.split('/').filter(Boolean);
-  const initialPlatform = (pathParts[0] === 'android' || pathParts[0] === 'google') ? 'google'
-    : (pathParts[0] === 'apple' || pathParts[0] === 'ios') ? 'apple'
-    : (pathParts[0] === 'all') ? 'all'
-    : (pathParts.length === 0) ? 'all'
-    : 'google'; // Default to google for other sub-routes
+  const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+  const hasSubRoute = knownSubRoutes.includes(pathParts[0]);
 
-  const initialProject = pathParts[1] ? pathParts[1] : (initialPlatform === 'all' ? 'all' : 'manual');
+  const platIdx = hasSubRoute ? 1 : 0;
+  const projIdx = hasSubRoute ? 2 : 1;
+
+  const rawPlat = pathParts[platIdx];
+  const initialPlatform = (rawPlat === 'android' || rawPlat === 'google') ? 'google'
+    : (rawPlat === 'apple' || rawPlat === 'ios') ? 'apple'
+    : (rawPlat === 'all') ? 'all'
+    : (pathParts.length === 0) ? 'all'
+    : 'google';
+
+  const initialProject = pathParts[projIdx] ? pathParts[projIdx] : (initialPlatform === 'all' ? 'all' : 'manual');
 
   const searchParams = new URLSearchParams(location.search);
   const rangeParam = searchParams.get('range')?.toLowerCase();
@@ -92,11 +99,20 @@ export function useAppState() {
     }
     
     const searchStr = currentSearch.toString() ? `?${currentSearch.toString()}` : '';
-    const newPath = `/${platSegment}/${projSegment}${searchStr}`;
+    
+    // Preserve sub-routes like /store, /retention, /releases while appending platform/project
+    const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+    const currentSubRoute = pathParts.find(part => knownSubRoutes.includes(part));
+
+    let newPath = `/${platSegment}/${projSegment}${searchStr}`;
+    if (currentSubRoute) {
+      newPath = `/${currentSubRoute}/${platSegment}/${projSegment}${searchStr}`;
+    }
+
     if (location.pathname + location.search !== newPath) {
       navigate(newPath, { replace: true });
     }
-  }, [location.pathname, location.search, navigate, isDemoMode]);
+  }, [location.pathname, location.search, navigate, isDemoMode, pathParts]);
 
   const handleSetPlatform = (p) => {
     setPlatform(p);
@@ -243,7 +259,8 @@ export function useAppState() {
         return;
       }
 
-      if (!exists && selectedProjectIndex !== 'manual') {
+      if (!exists && selectedProjectIndex !== 'manual' && filtered.length > 0) {
+        // If current project does not exist under platform, default to first or 'all'
         setSelectedProjectIndex('all');
       }
     }
