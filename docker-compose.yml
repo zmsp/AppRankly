@@ -1,9 +1,9 @@
 services:
-  playstats-dashboard:
+  apprankly-dashboard:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: playstats_analytics_prod
+    container_name: apprankly_analytics_prod
     ports:
       - "3000:3000"
     environment:
@@ -16,9 +16,9 @@ services:
       # Mount host credentials & config directory (contains config.json and key files in ./config/keys/)
       - ./config:/app/data/config:ro
       # Persistent app data storage (auth credentials, releases, statistics cache)
-      - playstats_data:/app/data/
+      - apprankly_data:/app/data/
     restart: unless-stopped
 
 volumes:
-  playstats_data:
+  apprankly_data:
 

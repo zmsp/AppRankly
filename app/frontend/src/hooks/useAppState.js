@@ -36,7 +36,7 @@ export function useAppState() {
   const [granularity, setGranularity] = useState('day'); // 'day' | 'week' | 'month'
   const [projects, setProjects] = useState([]);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(initialProject);
-  const [authToken, setAuthToken] = useState(localStorage.getItem('playstats_token'));
+  const [authToken, setAuthToken] = useState(localStorage.getItem('apprankly_token'));
   
   const calculateInitialRange = () => {
     if (startParam && endParam) {
@@ -201,7 +201,7 @@ export function useAppState() {
             setSetupRequired(true);
             setIsDemoMode(false);
             setAuthToken(null);
-            localStorage.removeItem('playstats_token');
+            localStorage.removeItem('apprankly_token');
           }
         }
       } catch (err) {
@@ -311,7 +311,7 @@ export function useAppState() {
     } catch (err) {
       if (err.message === 'Unauthorized') {
         setAuthToken(null);
-        localStorage.removeItem('playstats_token');
+        localStorage.removeItem('apprankly_token');
       }
       setError(err.message);
     } finally {

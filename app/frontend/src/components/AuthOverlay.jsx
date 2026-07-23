@@ -37,7 +37,7 @@ export default function AuthOverlay({ setupRequired, setAuthToken, fetchProjects
         });
         const loginData = await loginRes.json();
         if (loginRes.ok) {
-          localStorage.setItem('playstats_token', loginData.token);
+          localStorage.setItem('apprankly_token', loginData.token);
           setAuthToken(loginData.token);
           fetchProjects(loginData.token);
           window.location.reload(); // Refresh to clear setup state properly
@@ -45,7 +45,7 @@ export default function AuthOverlay({ setupRequired, setAuthToken, fetchProjects
           window.location.reload();
         }
       } else {
-        localStorage.setItem('playstats_token', data.token);
+        localStorage.setItem('apprankly_token', data.token);
         setAuthToken(data.token);
         fetchProjects(data.token);
       }

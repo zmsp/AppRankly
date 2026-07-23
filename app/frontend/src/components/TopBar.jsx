@@ -42,7 +42,7 @@ export default function TopBar({
   const location = useLocation();
   const handleLogout = () => {
     setAuthToken(null);
-    localStorage.removeItem('playstats_token');
+    localStorage.removeItem('apprankly_token');
   };
 
   const getPageName = () => {

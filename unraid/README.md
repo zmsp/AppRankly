@@ -10,7 +10,7 @@ To add this app to your Unraid "Add Container" list, you need to place the `.xml
 Open the terminal on your Unraid server and run:
 
 ```bash
-curl -o /boot/config/plugins/dockerMan/templates-user/appstore-analytics.xml https://raw.githubusercontent.com/zmsp/AppLens/main/unraid/appstore-analytics.xml
+curl -o /boot/config/plugins/dockerMan/templates-user/appstore-analytics.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/appstore-analytics.xml
 ```
 
 ### Option B: Manual Upload

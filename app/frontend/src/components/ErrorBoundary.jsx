@@ -12,7 +12,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('App Lens Error Boundary caught an error:', error, errorInfo);
+    console.error('AppRankly Error Boundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
   }
 

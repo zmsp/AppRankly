@@ -9,8 +9,7 @@ import {
   Settings,
   BookOpen,
   ChevronLeft,
-  ChevronRight,
-  BarChart3
+  ChevronRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -43,11 +42,9 @@ export default function Sidebar({
     )}>
       {/* Brand */}
       <div className="p-6 flex items-center space-x-3">
-        <div className="w-10 h-10 bg-accent-blue rounded-xl flex items-center justify-center shadow-lg shadow-accent-blue/20 flex-shrink-0">
-          <BarChart3 className="text-slate-950 w-6 h-6 font-bold" />
-        </div>
+        <img src="/logo.png" alt="AppRankly" className="w-10 h-10 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
         {!collapsed && (
-          <span className="font-extrabold text-xl tracking-tight text-white">PlayStats</span>
+          <span className="font-extrabold text-xl tracking-tight text-white">AppRankly</span>
         )}
       </div>
 
