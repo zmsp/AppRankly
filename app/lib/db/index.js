@@ -1,33 +1,40 @@
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+
+let DatabaseSync;
+try {
+  DatabaseSync = require('node:sqlite').DatabaseSync;
+} catch (err) {
+  console.warn('[DB] node:sqlite module not available in this Node.js version (< 22.5). SQLite DB feature disabled.');
+}
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'database.sqlite');
 
-// Ensure directory exists
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+let db = null;
+if (DatabaseSync) {
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
 
-let db;
-try {
-  db = new DatabaseSync(dbPath);
-} catch (err) {
-  console.error(`Failed to open SQLite database at ${dbPath}:`, err);
-  process.exit(1);
+  try {
+    db = new DatabaseSync(dbPath);
+    // Required PRAGMAs
+    db.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = NORMAL;
+      PRAGMA foreign_keys = ON;
+      PRAGMA busy_timeout = 5000;
+      PRAGMA temp_store = MEMORY;
+    `);
+  } catch (err) {
+    console.error(`Failed to open SQLite database at ${dbPath}:`, err);
+    db = null;
+  }
 }
-
-// Required PRAGMAs
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA synchronous = NORMAL;
-  PRAGMA foreign_keys = ON;
-  PRAGMA busy_timeout = 5000;
-  PRAGMA temp_store = MEMORY;
-`);
 
 function migrate() {
+  if (!db) return;
   const migrationsDir = path.join(__dirname, 'migrations');
   if (!fs.existsSync(migrationsDir)) return;
 

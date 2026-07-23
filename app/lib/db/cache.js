@@ -23,6 +23,9 @@ function getCacheKey(canonical) {
 }
 
 async function getOrCompute(req, computeFn) {
+  if (!db) {
+    return await computeFn();
+  }
   const canonical = canonicalize(req);
   const cacheKey = getCacheKey(canonical);
 

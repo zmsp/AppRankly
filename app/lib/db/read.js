@@ -1,6 +1,7 @@
 const { db } = require('./index');
 
 async function sqlRollup(packageName, startDate, endDate) {
+  if (!db) return null;
   const app = db.prepare('SELECT id FROM app WHERE package_name = ?').get(packageName);
   if (!app) return null;
   const appId = app.id;

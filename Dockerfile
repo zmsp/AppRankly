@@ -1,5 +1,5 @@
 # --- Stage 1: Build Frontend ---
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 WORKDIR /build
 COPY package*.json ./
 COPY app/package*.json ./app/
@@ -9,7 +9,7 @@ COPY . ./
 RUN npm run build
 
 # --- Stage 2: Build Backend & Dependencies ---
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /build
 COPY app/package*.json ./
 # Install only production dependencies
@@ -19,7 +19,7 @@ COPY app/ ./
 RUN rm -rf frontend
 
 # --- Stage 3: Minimal Production Runtime ---
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 

@@ -14,6 +14,14 @@ export default defineConfig({
   build: {
     outDir: '../public',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+        },
+      },
+    },
   },
   server: {
     proxy: {
