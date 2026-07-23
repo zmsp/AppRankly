@@ -16,13 +16,13 @@ Includes a single-page analytics web application, a headless CLI for automated c
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 Most users deploy this application using **Docker** or **Unraid**. Pick your preferred deployment method below.
 
-### 🌐 Live Interactive Demo
+### Live Interactive Demo
 Try the dashboard instantly without installing anything:  
-👉 **[Explore the Live Interactive Demo](https://www.zobairshahadat.com/apprankly/)** *(Running in simulated demo mode with sample data)*
+**[Explore the Live Interactive Demo](https://www.zobairshahadat.com/apprankly/)** *(Running in simulated demo mode with sample data)*
 
 ---
 
@@ -99,18 +99,18 @@ npm run dev
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-- 📊 **Unified Cross-Platform Metrics**: Aggregate installs, uninstalls, active devices, and country/device breakdowns across Google Play and Apple App Store in one unified interface.
-- 🕒 **Grafana-Style Date Selector**: Quick relative presets (Last 7 days, 30 days, 90 days, 1 year, Custom Range) with single-day drill-downs.
-- 🎨 **Glassmorphic Dark Dashboard**: Interactive Chart.js graphs, platform filters, country distribution tables, and app version metrics.
-- 🔒 **Privacy & Self-Hosted Security**: Keep your App Store credentials, Google Play Cloud Storage keys, and metric data 100% on your own server. JWT authentication protected.
-- 💻 **Headless CLI Utility**: Command-line tool to pull metrics, backfill databases, or integrate into custom notification bots/cron jobs.
-- 🐳 **Lightweight & Container Ready**: Multi-stage Alpine Docker image optimized for minimal footprint and low resource usage.
+- **Unified Cross-Platform Metrics**: Aggregate installs, uninstalls, active devices, and country/device breakdowns across Google Play and Apple App Store in one unified interface.
+- **Grafana-Style Date Selector**: Quick relative presets (Last 7 days, 30 days, 90 days, 1 year, Custom Range) with single-day drill-downs.
+- **Glassmorphic Dark Dashboard**: Interactive Chart.js graphs, platform filters, country distribution tables, and app version metrics.
+- **Privacy & Self-Hosted Security**: Keep your App Store credentials, Google Play Cloud Storage keys, and metric data 100% on your own server. JWT authentication protected.
+- **Headless CLI Utility**: Command-line tool to pull metrics, backfill databases, or integrate into custom notification bots/cron jobs.
+- **Lightweight & Container Ready**: Multi-stage Alpine Docker image optimized for minimal footprint and low resource usage.
 
 ---
 
-## 🔑 Authentication & Credentials Setup
+## Authentication & Credentials Setup
 
 To fetch live metrics from Google Play Console and Apple App Store Connect, follow the step-by-step setup below.
 
@@ -149,7 +149,7 @@ Google Play Console exports daily CSV reports directly into a private Google Clo
 
 ---
 
-## ⚙️ Configuration Reference
+## Configuration Reference
 
 The application reads app configurations from `data/config/config.json`. Below is a template example:
 
@@ -192,7 +192,7 @@ The application reads app configurations from `data/config/config.json`. Below i
 
 ---
 
-## 💻 Headless CLI Utility
+## Headless CLI Utility
 
 Query app statistics, trigger data syncs, or run headless reporting directly from your terminal:
 
@@ -224,7 +224,7 @@ node app/cli.js \
 
 ---
 
-## 🏗️ Architecture & Tech Stack
+## Architecture & Tech Stack
 
 ### Tech Stack
 - **Backend**: Node.js (v20+), Express.js, JWT Authentication, Fast-CSV, Google Cloud Storage SDK, JWT/ES256 Apple Signer.
@@ -271,7 +271,7 @@ graph TD
 
 ---
 
-## ❓ Troubleshooting & FAQ
+## Troubleshooting & FAQ
 
 <details>
 <summary><b>1. Why does Google Play show 0 stats or permission denied errors?</b></summary>
@@ -291,7 +291,7 @@ Yes! Toggle the **Demo Mode** switch in the web UI sidebar to explore the full d
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request or open an issue for feature requests and bug reports.
 
@@ -303,6 +303,6 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 
 ---
 
-## 📄 License
+## License
 
 This project is open-source and licensed under the **[MIT License](LICENSE)**.

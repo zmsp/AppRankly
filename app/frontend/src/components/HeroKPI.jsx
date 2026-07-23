@@ -175,7 +175,8 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-2 flex items-baseline">
             {value}
             <span className={`ml-3 text-xs sm:text-sm font-bold ${styles.text} flex items-center`}>
-              {band.icon} {band.label}
+              <span className="w-2 h-2 rounded-full bg-current inline-block mr-1.5" />
+              {band.label}
             </span>
           </h1>
           <p className="text-white/60 max-w-md text-sm">

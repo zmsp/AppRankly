@@ -108,7 +108,7 @@ export default function TrendChart({ data, releases = [], platform = 'google', i
             const dateStr = data[index]?.date;
             const release = filteredReleases.find(r => r.date === dateStr);
             if (release) {
-              return [`\n🚀 Release: v${release.version}`, `📝 ${release.notes || ''}`];
+              return [`\nRelease: v${release.version}`, release.notes || ''];
             }
             return '';
           }

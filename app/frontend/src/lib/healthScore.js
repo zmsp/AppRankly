@@ -70,8 +70,8 @@ export function calculateHealthScore(stats) {
 }
 
 export function getHealthBand(score) {
-  if (score >= 90) return { label: 'Excellent', color: 'emerald', icon: '🟢' };
-  if (score >= 70) return { label: 'Good', color: 'blue', icon: '🔵' };
-  if (score >= 50) return { label: 'Needs Work', color: 'amber', icon: '🟡' };
-  return { label: 'At Risk', color: 'rose', icon: '🔴' };
+  if (score >= 90) return { label: 'Excellent', color: 'emerald', icon: '' };
+  if (score >= 70) return { label: 'Good', color: 'blue', icon: '' };
+  if (score >= 50) return { label: 'Needs Work', color: 'amber', icon: '' };
+  return { label: 'At Risk', color: 'rose', icon: '' };
 }

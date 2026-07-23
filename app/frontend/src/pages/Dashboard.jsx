@@ -95,7 +95,7 @@ export default function Dashboard({
       </div>
 
       <div className="text-xs text-slate-400 bg-white/5 p-4 rounded-xl border border-white/5 text-left space-y-1">
-        <p className="font-semibold text-slate-300">💡 Quick Troubleshooting:</p>
+        <p className="font-semibold text-slate-300">Quick Troubleshooting:</p>
         <p>• Verify your API backend is running (`npm run dev` or `node server.js`).</p>
         <p>• Check if JWT authentication or environment key configurations are valid.</p>
         <p>• You can switch to Demo Mode anytime to test all features instantly.</p>
