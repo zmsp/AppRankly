@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="images/logo.png" alt="AppRankly Logo" width="128" />
+</p>
+
 # AppRankly — Mobile App Store Analytics Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

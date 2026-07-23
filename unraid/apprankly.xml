@@ -11,7 +11,7 @@
   <Description>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Description>
   <Category>Tools:Utilities Productivity: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:3020]</WebUI>
-  <Icon>https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/google-play-console.png</Icon>
+  <Icon>https://github.com/zmsp/AppRankly/blob/main/images/logo.png?raw=true</Icon>
   <TemplateURL>https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml</TemplateURL>
   <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="The web interface host port mapped to container port 3000." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
   <Config Name="Appdata Directory" Target="/app/data" Default="/mnt/user/appdata/AppRankly" Mode="rw" Description="Main host path for persistent files (config.json, API keys, and cached stats). Ensure ownership is set to 1000:1000 (chown -R 1000:1000 /mnt/user/appdata/AppRankly)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/AppRankly</Config>
