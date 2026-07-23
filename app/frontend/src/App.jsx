@@ -76,7 +76,6 @@ function App() {
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           <Routes>
             <Route path="/" element={<Dashboard {...state} />} />
-            <Route path="/growth" element={<Dashboard {...state} />} />
             <Route path="/retention" element={<Analytics {...state} />} />
             <Route path="/store" element={<StoreASO {...state} />} />
             <Route path="/releases" element={<Releases {...state} />} />

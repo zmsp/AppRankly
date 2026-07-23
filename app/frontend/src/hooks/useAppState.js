@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
+import { buildCacheKey, getCached, setCached, clearCache } from '../lib/statsCache';
 
 export function useAppState() {
   const location = useLocation();
@@ -20,7 +21,7 @@ export function useAppState() {
     : (pathParts[0] === 'apple' || pathParts[0] === 'ios') ? 'apple'
     : (pathParts[0] === 'all') ? 'all'
     : (pathParts.length === 0) ? 'all'
-    : 'google'; // Default to google for other routes like /growth
+    : 'google'; // Default to google for other sub-routes
 
   const initialProject = pathParts[1] ? pathParts[1] : (initialPlatform === 'all' ? 'all' : 'manual');
 
@@ -100,13 +101,15 @@ export function useAppState() {
   const handleSetPlatform = (p) => {
     setPlatform(p);
     let nextProj = selectedProjectIndex;
-    if (p === 'all') {
+    if (selectedProjectIndex === 'all') {
       nextProj = 'all';
-      setSelectedProjectIndex('all');
-    } else if (selectedProjectIndex === 'all' && projects.length > 0) {
+    } else if (p !== 'all') {
       const filtered = projects.filter(proj => proj.platform === p);
-      nextProj = filtered.length > 0 ? filtered[0].index : projects[0].index;
-      setSelectedProjectIndex(nextProj);
+      const exists = filtered.some(proj => proj.index.toString() === selectedProjectIndex.toString());
+      if (!exists && filtered.length > 0) {
+        nextProj = 'all';
+        setSelectedProjectIndex('all');
+      }
     }
     updateUrl(p, nextProj, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
@@ -237,27 +240,21 @@ export function useAppState() {
       const exists = filtered.some(p => p.index.toString() === selectedProjectIndex?.toString());
 
       if (selectedProjectIndex === 'all') {
-        const defaultProj = filtered.length > 0 ? filtered[0].index : projects[0].index;
-        setSelectedProjectIndex(defaultProj);
         return;
       }
 
       if (!exists && selectedProjectIndex !== 'manual') {
-        if (filtered.length > 0) {
-          setSelectedProjectIndex(filtered[0].index);
-        } else {
-          setSelectedProjectIndex(projects[0].index);
-        }
+        setSelectedProjectIndex('all');
       }
     }
   }, [platform, projects, selectedProjectIndex]);
 
   // Load Main Stats Overview
   const loadOverviewStats = useCallback(async () => {
-    setLoading(true);
     setError(null);
 
     if (isDemoMode) {
+      setLoading(true);
       setTimeout(() => {
         const { dailyTrends, appTrends } = generateDemoTrends(dateRange.start, dateRange.end);
         let currentTrends = dailyTrends;
@@ -292,6 +289,15 @@ export function useAppState() {
         endDate: dateRange.end
       };
 
+      const cacheKey = buildCacheKey({ type: 'overview', ...body });
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setStats(cached);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
       const statsRes = await apiFetch('/api/stats', {
         method: 'POST',
         body: JSON.stringify(body)
@@ -299,6 +305,7 @@ export function useAppState() {
 
       if (!statsRes.ok) throw new Error('Failed to fetch stats');
       const statsData = await statsRes.json();
+      setCached(cacheKey, statsData);
       setStats(statsData);
 
     } catch (err) {
@@ -314,14 +321,11 @@ export function useAppState() {
 
   // Load Dimension Stats separately to avoid blanking whole page on tab switch
   const loadDimensionStats = useCallback(async (dimensionName) => {
-    setDimensionLoading(true);
-
     if (isDemoMode) {
       setDimensionStats(MOCK_DATA.dimensions[dimensionName] || []);
       if (dimensionName === 'device') {
         setDeviceStats(MOCK_DATA.dimensions.device || []);
       }
-      setDimensionLoading(false);
       return;
     }
 
@@ -336,6 +340,15 @@ export function useAppState() {
         dimension: dimensionName
       };
 
+      const cacheKey = buildCacheKey({ type: 'dimension', ...body });
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setDimensionStats(cached);
+        if (dimensionName === 'device') setDeviceStats(cached);
+        return;
+      }
+
+      setDimensionLoading(true);
       const dimRes = await apiFetch('/api/dimension', {
         method: 'POST',
         body: JSON.stringify(body)
@@ -343,6 +356,7 @@ export function useAppState() {
 
       if (dimRes.ok) {
         const dimData = await dimRes.json();
+        setCached(cacheKey, dimData);
         setDimensionStats(dimData);
         if (dimensionName === 'device') {
           setDeviceStats(dimData);
@@ -377,6 +391,14 @@ export function useAppState() {
         endDate: dateRange.end,
         dimension: 'device'
       };
+
+      const cacheKey = buildCacheKey({ type: 'dimension', ...body });
+      const cached = getCached(cacheKey);
+      if (cached) {
+        setDeviceStats(cached);
+        return;
+      }
+
       const dimRes = await apiFetch('/api/dimension', {
         method: 'POST',
         body: JSON.stringify(body)
@@ -384,6 +406,7 @@ export function useAppState() {
 
       if (dimRes.ok) {
         const dimData = await dimRes.json();
+        setCached(cacheKey, dimData);
         setDeviceStats(dimData);
       }
     } catch (err) {
@@ -410,6 +433,11 @@ export function useAppState() {
     }
   }, [fetchDeviceStatsIfNeeded, activeDimension, authToken, isDemoMode, noPass]);
 
+  const forceRefresh = useCallback(() => {
+    clearCache();
+    loadOverviewStats();
+  }, [loadOverviewStats]);
+
   return {
     isDemoMode, setIsDemoMode,
     isStaticMode, noPass,
@@ -425,7 +453,7 @@ export function useAppState() {
     releases, setReleases,
     loading, dimensionLoading, error,
     setupRequired, setSetupRequired,
-    refreshData: loadOverviewStats,
+    refreshData: forceRefresh,
     switchToDemoMode,
     fetchProjects,
     fetchReleases

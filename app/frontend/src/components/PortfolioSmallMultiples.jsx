@@ -5,7 +5,7 @@ import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { formatNumber, formatDelta } from '../lib/format';
 
 export default function PortfolioSmallMultiples({ projects = [], appTrends = {}, onSelectProject }) {
-  if (!projects || projects.length <= 1) return null;
+  if (!projects || projects.length === 0) return null;
 
   return (
     <div className="glass-card p-4 sm:p-6 border border-white/10 space-y-4">

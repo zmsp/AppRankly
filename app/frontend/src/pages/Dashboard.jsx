@@ -135,6 +135,7 @@ export default function Dashboard({
   const healthScore = calculateHealthScore(stats);
 
   const isAllProjects = selectedProjectIndex === 'all' || platform === 'all';
+  const filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
   const activeProject = projects.find(p => p.index === selectedProjectIndex);
   const lastDataDate = stats.lastDate || (stats.dailyTrends?.length > 0 ? stats.dailyTrends[stats.dailyTrends.length - 1].date : null);
 
@@ -274,38 +275,14 @@ export default function Dashboard({
           )}
         </div>
       )}
-      {/* Platform Breakdown Cards for Overview */}
-      {platform === 'all' && (
-        <AllPlatformDashboard
-          projects={projects}
-          stats={stats}
-          setSelectedProjectIndex={setSelectedProjectIndex}
-        />
-      )}
-      {/* App Portfolio Grid Toggle & Component (Filtered by platform tab) */}
-      {platform !== 'all' && filteredProjects.length > 0 && (
-        <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              {platform === 'google' ? 'Google Play Apps' : 'App Store Apps'} ({filteredProjects.length})
-            </h3>
-            <button
-              onClick={() => setShowPortfolio(!showPortfolio)}
-              className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-semibold transition-all text-white/60 hover:text-white border border-white/10"
-            >
-              <LayoutGrid size={14} />
-              <span>{showPortfolio ? 'Hide Portfolio' : 'Show Portfolio'}</span>
-            </button>
-          </div>
-          {showPortfolio && (
-            <PortfolioSmallMultiples
-              projects={filteredProjects}
-              appTrends={stats.appTrends}
-              onSelectProject={setSelectedProjectIndex}
-            />
-          )}
-        </div>
-      )}
+      {/* Platform Breakdown Cards & Portfolio Grid */}
+      <AllPlatformDashboard
+        projects={projects}
+        filteredProjects={filteredProjects}
+        stats={stats}
+        platform={platform}
+        setSelectedProjectIndex={setSelectedProjectIndex}
+      />
 
       {/* Hero KPI Card */}
       <HeroKPI

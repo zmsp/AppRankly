@@ -42,7 +42,7 @@ app.use(helmet({
 // Restricted CORS
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : "*",
-  methods: ["GET", "POST"]
+  methods: ["GET", "POST", "PUT", "DELETE"]
 }));
 
 app.use(express.json({ limit: "10mb" }));
@@ -419,6 +419,92 @@ app.get("/api/integrations/status", authenticate, (req, res) => {
       keyId: baseConfig?.appleKeyId || null
     }
   });
+});
+
+// Endpoint to read config (sanitized - strips private keys from response)
+app.get("/api/config", authenticate, (req, res) => {
+  const activePath = getActualConfigPath();
+  if (!fs.existsSync(activePath)) {
+    return res.status(404).json({ error: "Config file not found" });
+  }
+  try {
+    const raw = fs.readFileSync(activePath, "utf8");
+    const parsed = JSON.parse(raw);
+    res.json({ config: parsed, path: activePath });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to read config", details: err.message });
+  }
+});
+
+// Endpoint to write config
+app.put("/api/config", authenticate, (req, res) => {
+  const activePath = getActualConfigPath();
+  const { config } = req.body;
+  if (!config) {
+    return res.status(400).json({ error: "config body is required" });
+  }
+  try {
+    // Validate it's valid JSON structure (array or object)
+    const serialized = JSON.stringify(config, null, 2);
+    // Safety: backup existing
+    if (fs.existsSync(activePath)) {
+      fs.writeFileSync(activePath + ".bak", fs.readFileSync(activePath));
+    }
+    fs.writeFileSync(activePath, serialized, "utf8");
+    res.json({ success: true, path: activePath });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to write config", details: err.message });
+  }
+});
+
+// Test Apple App Store Connect connection
+app.post("/api/test/apple", authenticate, async (req, res) => {
+  const baseConfig = getBaseConfig();
+  if (!baseConfig) {
+    return res.status(400).json({ success: false, error: "No config found" });
+  }
+  try {
+    const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
+    if (!appleKeyPath || !fs.existsSync(appleKeyPath)) {
+      return res.json({ success: false, error: "Apple private key file not found" });
+    }
+    const privateKey = fs.readFileSync(appleKeyPath, "utf8");
+    const appleStatsViewer = new AppleAppStoreStatsViewer({
+      issuerId: baseConfig.appleIssuerId,
+      keyId: baseConfig.appleKeyId,
+      vendorId: baseConfig.appleVendorId,
+      privateKey,
+      dataDir: DATA_DIR
+    });
+    const apps = await appleStatsViewer.listPackages();
+    res.json({ success: true, appCount: apps.length, apps: apps.slice(0, 5).map(a => ({ name: a.name, bundleId: a.bundleId || a.packageName })) });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Test Google Play Console connection
+app.post("/api/test/google", authenticate, async (req, res) => {
+  const baseConfig = getBaseConfig();
+  if (!baseConfig) {
+    return res.status(400).json({ success: false, error: "No config found" });
+  }
+  try {
+    const googleStatsViewer = new GooglePlayStoreStatsViewer({
+      keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
+      keyJson: baseConfig.keyJson,
+      projectID: baseConfig.projectID,
+      bucketName: baseConfig.bucketName,
+      packageName: "dummy",
+      dataDir: DATA_DIR
+    });
+    let packages = await googleStatsViewer.listPackages();
+    const ignored = baseConfig.ignoredPackages || [];
+    packages = packages.filter(p => !ignored.includes(p.packageName));
+    res.json({ success: true, appCount: packages.length, apps: packages.slice(0, 5).map(p => ({ name: p.name, packageName: p.packageName })) });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
 });
 
 // Endpoint to fetch saved projects (dynamically discovered from bucket)

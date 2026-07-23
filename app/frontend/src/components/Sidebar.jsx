@@ -2,7 +2,6 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
-  TrendingUp,
   Users,
   Eye,
   Tag,
@@ -17,8 +16,6 @@ import { clsx } from 'clsx';
 
 const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/all/all' },
-  { id: 'details', label: 'Details', icon: BarChart3, path: '/android/all' },
-  { id: 'growth', label: 'Growth', icon: TrendingUp, path: '/growth' },
   { id: 'retention', label: 'Retention', icon: Users, path: '/retention' },
   { id: 'store', label: 'Store (ASO)', icon: Eye, path: '/store' },
   { id: 'releases', label: 'Releases', icon: Tag, path: '/releases' },
@@ -37,13 +34,6 @@ export default function Sidebar({
   selectedProjectIndex,
   setSelectedProjectIndex
 }) {
-  const firstProj = projects.length > 0 ? projects[0] : null;
-  const firstProjIndex = firstProj ? firstProj.index : '0';
-  const firstProjPlat = firstProj?.platform === 'apple' ? 'apple' : 'android';
-  const currentDetailsPath = selectedProjectIndex && selectedProjectIndex !== 'all'
-    ? `/${platform === 'apple' ? 'apple' : 'android'}/${selectedProjectIndex}`
-    : `/${firstProjPlat}/${firstProjIndex}`;
-
   return (
     <aside className={clsx(
       "glass-card transition-all duration-300 z-40 shadow-2xl flex flex-col",
@@ -64,31 +54,24 @@ export default function Sidebar({
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
-          const itemPath = item.id === 'details' ? currentDetailsPath : item.path;
           return (
             <NavLink
               key={item.id}
-              to={itemPath}
+              to={item.path}
               end={item.path === '/'}
-              onClick={(e) => {
+              onClick={() => {
                 if (window.innerWidth < 768) setCollapsed(true);
                 if (item.id === 'overview') {
                   if (setSelectedProjectIndex) setSelectedProjectIndex('all');
-                } else if (item.id === 'details') {
-                  if (selectedProjectIndex === 'all' && projects.length > 0 && setSelectedProjectIndex) {
-                    setSelectedProjectIndex(projects[0].index);
-                  }
-                } else if (item.id !== 'overview' && item.id !== 'details' && platform === 'all') {
+                } else if (platform === 'all') {
                   if (setRawPlatform) setRawPlatform('google');
                 }
               }}
               className={({ isActive }) => {
                 const currentPath = window.location.pathname;
                 let isReallyActive = isActive;
-                if (item.id === 'details') {
-                  isReallyActive = (currentPath.startsWith('/android') || currentPath.startsWith('/apple') || currentPath.startsWith('/google')) && selectedProjectIndex !== 'all';
-                } else if (item.id === 'overview') {
-                  isReallyActive = (currentPath === '/' || currentPath.startsWith('/all')) && (selectedProjectIndex === 'all' || platform === 'all');
+                if (item.id === 'overview') {
+                  isReallyActive = currentPath === '/' || currentPath.startsWith('/all') || currentPath.startsWith('/android') || currentPath.startsWith('/apple') || currentPath.startsWith('/google');
                 }
                 return clsx(
                   "nav-link flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold",
