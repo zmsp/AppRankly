@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
-import { buildCacheKey, getCached, setCached, clearCache } from '../lib/statsCache';
+import { buildCacheKey, getCached, setCached, cachedFetch, clearCache } from '../lib/statsCache';
 
 export function useAppState() {
   const location = useLocation();
@@ -290,22 +290,17 @@ export function useAppState() {
       };
 
       const cacheKey = buildCacheKey({ type: 'overview', ...body });
-      const cached = getCached(cacheKey);
-      if (cached) {
-        setStats(cached);
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
-      const statsRes = await apiFetch('/api/stats', {
-        method: 'POST',
-        body: JSON.stringify(body)
-      }, authToken, isStaticMode);
+      const statsData = await cachedFetch(cacheKey, async () => {
+        const statsRes = await apiFetch('/api/stats', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        }, authToken, isStaticMode);
 
-      if (!statsRes.ok) throw new Error('Failed to fetch stats');
-      const statsData = await statsRes.json();
-      setCached(cacheKey, statsData);
+        if (!statsRes.ok) throw new Error('Failed to fetch stats');
+        return await statsRes.json();
+      });
+
       setStats(statsData);
 
     } catch (err) {
@@ -341,26 +336,20 @@ export function useAppState() {
       };
 
       const cacheKey = buildCacheKey({ type: 'dimension', ...body });
-      const cached = getCached(cacheKey);
-      if (cached) {
-        setDimensionStats(cached);
-        if (dimensionName === 'device') setDeviceStats(cached);
-        return;
-      }
-
       setDimensionLoading(true);
-      const dimRes = await apiFetch('/api/dimension', {
-        method: 'POST',
-        body: JSON.stringify(body)
-      }, authToken, isStaticMode);
+      const dimData = await cachedFetch(cacheKey, async () => {
+        const dimRes = await apiFetch('/api/dimension', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        }, authToken, isStaticMode);
 
-      if (dimRes.ok) {
-        const dimData = await dimRes.json();
-        setCached(cacheKey, dimData);
-        setDimensionStats(dimData);
-        if (dimensionName === 'device') {
-          setDeviceStats(dimData);
-        }
+        if (!dimRes.ok) throw new Error(`Failed to fetch dimension ${dimensionName}`);
+        return await dimRes.json();
+      });
+
+      setDimensionStats(dimData);
+      if (dimensionName === 'device') {
+        setDeviceStats(dimData);
       }
     } catch (err) {
       console.error(`Failed to fetch dimension ${dimensionName}:`, err);
@@ -393,22 +382,17 @@ export function useAppState() {
       };
 
       const cacheKey = buildCacheKey({ type: 'dimension', ...body });
-      const cached = getCached(cacheKey);
-      if (cached) {
-        setDeviceStats(cached);
-        return;
-      }
+      const dimData = await cachedFetch(cacheKey, async () => {
+        const dimRes = await apiFetch('/api/dimension', {
+          method: 'POST',
+          body: JSON.stringify(body)
+        }, authToken, isStaticMode);
 
-      const dimRes = await apiFetch('/api/dimension', {
-        method: 'POST',
-        body: JSON.stringify(body)
-      }, authToken, isStaticMode);
+        if (!dimRes.ok) throw new Error('Failed to fetch device stats');
+        return await dimRes.json();
+      });
 
-      if (dimRes.ok) {
-        const dimData = await dimRes.json();
-        setCached(cacheKey, dimData);
-        setDeviceStats(dimData);
-      }
+      setDeviceStats(dimData);
     } catch (err) {
       // ignore
     }

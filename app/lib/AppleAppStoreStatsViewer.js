@@ -4,43 +4,11 @@ const zlib = require('zlib');
 const csv = require('@fast-csv/parse');
 const fs = require('fs');
 const path = require('path');
+const resolver = require('./resolver');
 
 const FIRST_INSTALL_TYPES = new Set(['1', '1E', '1F', '1T', 'F1']);
 const REDOWNLOAD_TYPES = new Set(['7', '7F', '7E', 'F7']);
 const UPDATE_TYPES = new Set(['3', '3F']);
-
-const globalRequestCache = new Map();
-
-async function cacheGetOrFetch(key, fetchFn, ttl = 0) {
-  const cached = globalRequestCache.get(key);
-  const now = Date.now();
-  if (cached) {
-    if (cached.promise) {
-      return cached.promise;
-    }
-    if (ttl === 0 || now - cached.timestamp < ttl) {
-      return cached.value;
-    }
-  }
-
-  const promise = (async () => {
-    try {
-      const result = await fetchFn();
-      if (result === null || result === undefined) {
-        globalRequestCache.delete(key);
-      } else {
-        globalRequestCache.set(key, { value: result, timestamp: Date.now() });
-      }
-      return result;
-    } catch (err) {
-      globalRequestCache.delete(key);
-      throw err;
-    }
-  })();
-
-  globalRequestCache.set(key, { promise, timestamp: now });
-  return promise;
-}
 
 function parseMMDDYYYY(dateStr) {
   if (!dateStr) return '';
@@ -115,8 +83,7 @@ class AppleAppStoreStatsViewer {
       return this.numericAppId;
     }
 
-    const key = `getNumericAppId:${this.issuerId}:${this.keyId}:${this.appId}`;
-    this.numericAppId = await cacheGetOrFetch(key, async () => {
+    this.numericAppId = await resolver.resolve('apple:appid', { issuerId: this.issuerId, keyId: this.keyId, appId: this.appId }, async () => {
       console.log(`[DEBUG] Resolving numeric ID for bundleId: ${this.appId}`);
       const token = this.generateToken();
       const url = `https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=${this.appId}`;
@@ -175,8 +142,7 @@ class AppleAppStoreStatsViewer {
       return null;
     }
 
-    const key = `salesReport:${this.vendorId}:${dateStr}`;
-    return cacheGetOrFetch(key, async () => {
+    return resolver.resolve('apple:sales_report', { vendorId: this.vendorId, dateStr }, async () => {
       if (fs.existsSync(cacheFile)) {
         return fs.readFileSync(cacheFile, 'utf8');
       }
@@ -373,9 +339,8 @@ class AppleAppStoreStatsViewer {
   }
 
   async listPackages() {
-    const key = `listPackages:${this.issuerId}:${this.keyId}`;
     try {
-      const result = await cacheGetOrFetch(key, async () => {
+      const result = await resolver.resolve('packages', { platform: 'apple', issuerId: this.issuerId }, async () => {
         const token = this.generateToken();
         const url = `https://api.appstoreconnect.apple.com/v1/apps?fields[apps]=name,bundleId,sku`;
         const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -399,9 +364,8 @@ class AppleAppStoreStatsViewer {
     const target = identifier || this.appId || this.numericAppId;
     if (!target) return null;
 
-    const key = `appMetadata:${target}`;
     try {
-      return await cacheGetOrFetch(key, async () => {
+      return await resolver.resolve('scrape:apple', { identifier: target }, async () => {
         const isNumeric = /^\d+$/.test(target);
         const url = isNumeric
           ? `https://itunes.apple.com/lookup?id=${target}`

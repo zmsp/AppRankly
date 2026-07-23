@@ -172,92 +172,106 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6 relative">
-      {/* Standard Tab Switcher UI with Large Icons */}
-      <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
-          {[
-            {
-              id: 'all',
-              title: 'All Platforms',
-              countBadge: `${projects.length || 0}`,
-              icon: LayoutGrid,
-              activeIndicator: 'bg-accent-blue',
-              activeText: 'text-accent-blue',
-              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-              badgeStyle: 'bg-accent-blue/20 text-accent-blue border-accent-blue/30',
-            },
-            {
-              id: 'google',
-              title: 'Google Play',
-              countBadge: `${projects.filter(p => p.platform === 'google').length || 0}`,
-              icon: PlayStoreIcon,
-              activeIndicator: 'bg-emerald-400',
-              activeText: 'text-emerald-400',
-              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-              badgeStyle: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-            },
-            {
-              id: 'apple',
-              title: 'App Store',
-              countBadge: `${projects.filter(p => p.platform === 'apple').length || 0}`,
-              icon: AppleStoreIcon,
-              activeIndicator: 'bg-sky-400',
-              activeText: 'text-sky-300',
-              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-              badgeStyle: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-            },
-          ].map((tab) => {
-            const isSelected = platform === tab.id;
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setPlatform && setPlatform(tab.id)}
-                className={clsx(
-                  "relative flex-1 flex items-center justify-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer border select-none",
-                  isSelected
-                    ? `${tab.activeBg} border`
-                    : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
-                )}
-              >
-                {/* Large Store Icon */}
-                <div className={clsx(
-                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200",
-                  isSelected ? "bg-white/10 text-white scale-105" : "bg-white/5 text-slate-400"
-                )}>
-                  <Icon size={20} />
-                </div>
+      {/* Standard Tab Switcher UI and Portfolio Grid (rendered ONLY on Portfolio / All Apps view) */}
+      {(selectedProjectIndex === 'all' || !selectedProjectIndex) && (
+        <>
+          {/* Standard Tab Switcher UI with Large Icons */}
+          <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
+              {[
+                {
+                  id: 'all',
+                  title: 'All Platforms',
+                  countBadge: `${projects.length || 0}`,
+                  icon: LayoutGrid,
+                  activeIndicator: 'bg-accent-blue',
+                  activeText: 'text-accent-blue',
+                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+                  badgeStyle: 'bg-accent-blue/20 text-accent-blue border-accent-blue/30',
+                },
+                {
+                  id: 'google',
+                  title: 'Google Play',
+                  countBadge: `${projects.filter(p => p.platform === 'google').length || 0}`,
+                  icon: PlayStoreIcon,
+                  activeIndicator: 'bg-emerald-400',
+                  activeText: 'text-emerald-400',
+                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+                  badgeStyle: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+                },
+                {
+                  id: 'apple',
+                  title: 'App Store',
+                  countBadge: `${projects.filter(p => p.platform === 'apple').length || 0}`,
+                  icon: AppleStoreIcon,
+                  activeIndicator: 'bg-sky-400',
+                  activeText: 'text-sky-300',
+                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+                  badgeStyle: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+                },
+              ].map((tab) => {
+                const isSelected = platform === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setPlatform && setPlatform(tab.id)}
+                    className={clsx(
+                      "relative flex-1 flex items-center justify-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer border select-none",
+                      isSelected
+                        ? `${tab.activeBg} border`
+                        : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                    )}
+                  >
+                    {/* Large Store Icon */}
+                    <div className={clsx(
+                      "w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200",
+                      isSelected ? "bg-white/10 text-white scale-105" : "bg-white/5 text-slate-400"
+                    )}>
+                      <Icon size={20} />
+                    </div>
 
-                {/* Tab Title */}
-                <span className={clsx(
-                  "font-bold tracking-tight text-sm truncate",
-                  isSelected ? "text-white" : "text-slate-300"
-                )}>
-                  {tab.title}
-                </span>
+                    {/* Tab Title */}
+                    <span className={clsx(
+                      "font-bold tracking-tight text-sm truncate",
+                      isSelected ? "text-white" : "text-slate-300"
+                    )}>
+                      {tab.title}
+                    </span>
 
-                {/* Count Badge */}
-                <span className={clsx(
-                  "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 border transition-colors",
-                  isSelected
-                    ? tab.badgeStyle
-                    : "bg-white/5 text-slate-500 border-white/5"
-                )}>
-                  {tab.countBadge} {parseInt(tab.countBadge) === 1 ? 'App' : 'Apps'}
-                </span>
+                    {/* Count Badge */}
+                    <span className={clsx(
+                      "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 border transition-colors",
+                      isSelected
+                        ? tab.badgeStyle
+                        : "bg-white/5 text-slate-500 border-white/5"
+                    )}>
+                      {tab.countBadge} {parseInt(tab.countBadge) === 1 ? 'App' : 'Apps'}
+                    </span>
 
-                {/* Standard Tab Active Bottom Bar */}
-                {isSelected && (
-                  <div className={clsx(
-                    "absolute bottom-0 left-4 right-4 h-0.5 rounded-t-full shadow-md transition-all",
-                    tab.activeIndicator
-                  )} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                    {/* Standard Tab Active Bottom Bar */}
+                    {isSelected && (
+                      <div className={clsx(
+                        "absolute bottom-0 left-4 right-4 h-0.5 rounded-t-full shadow-md transition-all",
+                        tab.activeIndicator
+                      )} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Platform Breakdown Cards & Portfolio Grid */}
+          <AllPlatformDashboard
+            projects={projects}
+            filteredProjects={filteredProjects}
+            stats={stats}
+            platform={platform}
+            setSelectedProjectIndex={setSelectedProjectIndex}
+          />
+        </>
+      )}
 
       {error && (
         <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
@@ -275,14 +289,6 @@ export default function Dashboard({
           )}
         </div>
       )}
-      {/* Platform Breakdown Cards & Portfolio Grid */}
-      <AllPlatformDashboard
-        projects={projects}
-        filteredProjects={filteredProjects}
-        stats={stats}
-        platform={platform}
-        setSelectedProjectIndex={setSelectedProjectIndex}
-      />
 
       {/* Hero KPI Card */}
       <HeroKPI

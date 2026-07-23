@@ -6,6 +6,8 @@ const util = require("util");
 
 const InputParamsModel = require("./InputParamsModel");
 const Dimensions = require("./Dimensions");
+const resolver = require("./resolver");
+const { db } = require("./db/index");
 
 const readFilePromise = util.promisify(fs.readFile);
 
@@ -234,15 +236,19 @@ class GooglePlayStoreStatsViewer {
   async listPackages() {
     try {
       await this.initializeStorage();
-      const [files] = await this.packageUtils.authenticatedStorageObj
-        .bucket(this.inputParamsModel.bucketName)
-        .getFiles({ prefix: "stats/installs/installs_" });
+      const bucketName = this.inputParamsModel.bucketName;
+      const fileNames = await resolver.resolve('packages', { platform: 'google', bucketName }, async () => {
+        const [files] = await this.packageUtils.authenticatedStorageObj
+          .bucket(bucketName)
+          .getFiles({ prefix: "stats/installs/installs_" });
+        return files.map(f => f.name);
+      });
 
       const packages = new Set();
       const packageRegex = /^stats\/installs\/installs_(.+)_(\d{6})_(.+)\.csv$/;
 
-      files.forEach(file => {
-        const match = file.name.match(packageRegex);
+      (fileNames || []).forEach(fileName => {
+        const match = fileName.match(packageRegex);
         if (match) {
           packages.add(match[1]);
         }
@@ -337,24 +343,28 @@ class PackageUtils {
     });
   }
 
-  getCorrectFiles({ storage, bucketName, packageName, type = "installs" }) {
+  async getCorrectFiles({ storage, bucketName, packageName, type = "installs" }) {
     let prefix = `stats/${type}/${type}_${packageName}_`;
     if (type === "vitals_crashes") {
       prefix = `stats/vitals/crashes/crashes_${packageName}_`;
     } else if (type === "vitals_anrs") {
       prefix = `stats/vitals/anrs/anrs_${packageName}_`;
     }
-    return storage.bucket(bucketName).getFiles({
-      prefix: prefix
+
+    const fileList = await resolver.resolve('gcs:filelist', { bucket: bucketName, prefix }, async () => {
+      const [files] = await storage.bucket(bucketName).getFiles({ prefix });
+      return files.map(f => ({ name: f.name }));
     });
+
+    return [fileList];
   }
 
   async downloadCsvFiles({ storage, bucketName, packageName, files, dimension = "overview", type = "installs", targetLocation, startDate, endDate }) {
     const cleanedFileNames = [];
-    const now = new Date();
-    const currentMonthStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const now = Date.now();
+    const nowDate = new Date(now);
+    const currentMonthStr = `${nowDate.getFullYear()}${String(nowDate.getMonth() + 1).padStart(2, '0')}`;
 
-    // Determine which months we need if startDate/endDate are provided
     let requiredMonths = [];
     if (startDate && endDate) {
       let start = new Date(startDate);
@@ -372,7 +382,6 @@ class PackageUtils {
 
     for (let file of files) {
       if (file.name && (file.name.endsWith(`_${dimension}.csv`) || file.name.endsWith(`_${dimension}_region.csv`))) {
-        // Extract month from filename e.g. installs_com.pkg_202401_overview.csv
         const match = file.name.match(/_(\d{6})_/);
         const fileMonth = match ? match[1] : null;
 
@@ -383,11 +392,10 @@ class PackageUtils {
               shouldDownload = true;
             }
           } else {
-            // Cumulative file
             shouldDownload = true;
           }
         } else {
-           shouldDownload = true; // No date range specified, download what we find
+          shouldDownload = true;
         }
 
         if (shouldDownload) {
@@ -397,17 +405,41 @@ class PackageUtils {
           const exists = fs.existsSync(dest);
           const isCurrentMonth = fileMonth === currentMonthStr;
 
-          if (!exists || isCurrentMonth) {
+          let needsRefetch = !exists;
+          if (exists && isCurrentMonth) {
+            const stat = fs.statSync(dest);
+            const ageMs = now - stat.mtimeMs;
+            if (ageMs > 3600 * 1000) { // 1 hour TTL for current month
+              needsRefetch = true;
+            }
+          }
+
+          if (needsRefetch) {
             console.log(`Downloading ${file.name} to ${dest}`);
             await storage.bucket(bucketName).file(file.name).download({ destination: dest });
           }
           cleanedFileNames.push(fixedFileName);
+
+          if (db && fileMonth) {
+            try {
+              let appRow = db.prepare('SELECT id FROM app WHERE package_name = ? AND platform = ?').get(packageName, 'google');
+              if (!appRow) {
+                const res = db.prepare('INSERT INTO app (package_name, platform) VALUES (?, ?)').run(packageName, 'google');
+                appRow = { id: res.lastInsertRowid };
+              }
+              const monthStart = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-01`;
+              const monthEnd = `${fileMonth.substring(0, 4)}-${fileMonth.substring(4, 6)}-31`;
+              db.prepare(`
+                INSERT OR REPLACE INTO coverage_index (app_id, resource, start_date, end_date, file_month, fetched_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+              `).run(appRow.id, dimension, monthStart, monthEnd, fileMonth);
+            } catch {}
+          }
         }
       }
     }
 
-    // Fallback: If cleanedFileNames is still empty, check if we have ANY files locally that match this dimension
-    if (cleanedFileNames.length === 0) {
+    if (cleanedFileNames.length === 0 && fs.existsSync(targetLocation)) {
       const localFiles = fs.readdirSync(targetLocation);
       const matches = localFiles.filter(f => f.startsWith(`${filePrefix}${dimension}_`) || f === `${filePrefix}${dimension}.csv`);
       if (matches.length > 0) {
@@ -416,7 +448,6 @@ class PackageUtils {
       }
     }
 
-    // Secondary Fallback: if still no files, download the latest one available in bucket for this dimension
     if (cleanedFileNames.length === 0) {
       for (let i = files.length - 1; i >= 0; i--) {
         let file = files[i];
@@ -429,8 +460,16 @@ class PackageUtils {
           const exists = fs.existsSync(dest);
           const isCurrentMonth = fileMonth === currentMonthStr;
 
-          if (!exists || isCurrentMonth) {
-            console.log(`Downloading latest ${file.name} to ${dest} (exists: ${exists}, currentMonth: ${isCurrentMonth})`);
+          let needsRefetch = !exists;
+          if (exists && isCurrentMonth) {
+            const stat = fs.statSync(dest);
+            if (now - stat.mtimeMs > 3600 * 1000) {
+              needsRefetch = true;
+            }
+          }
+
+          if (needsRefetch) {
+            console.log(`Downloading latest ${file.name} to ${dest}`);
             await storage.bucket(bucketName).file(file.name).download({ destination: dest });
           } else {
             console.log(`Using cached latest file: ${fixedFileName}`);

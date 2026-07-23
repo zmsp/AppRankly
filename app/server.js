@@ -10,6 +10,8 @@ const rateLimit = require('express-rate-limit');
 const axios = require("axios");
 const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
+const cache = require("./lib/cache");
+const resolver = require("./lib/resolver");
 const { aggregateOverviews } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 
@@ -152,17 +154,40 @@ const getActualConfigPath = () => {
   return defaultPath;
 };
 
+let _configCache = null;
+let _configCacheTime = 0;
+
+const invalidateConfigCache = () => {
+  _configCache = null;
+  _configCacheTime = 0;
+  cache.invalidate('config');
+  cache.invalidate('projects');
+  cache.invalidate('stats');
+  cache.invalidate('packages');
+};
+
 const getBaseConfig = () => {
+  const now = Date.now();
+  if (_configCache && (now - _configCacheTime < 60 * 1000)) {
+    return _configCache;
+  }
+
   const activePath = getActualConfigPath();
   if (!fs.existsSync(activePath)) {
+    _configCache = null;
+    _configCacheTime = now;
     return null;
   }
   try {
     const rawData = fs.readFileSync(activePath, "utf8");
     const parsed = JSON.parse(rawData);
-    return Array.isArray(parsed) ? parsed[0] : parsed;
+    _configCache = Array.isArray(parsed) ? parsed[0] : parsed;
+    _configCacheTime = now;
+    return _configCache;
   } catch (error) {
     console.error("Critical configuration failure:", error.message);
+    _configCache = null;
+    _configCacheTime = now;
     return null;
   }
 };
@@ -220,109 +245,108 @@ const PLAYSTORE_CACHE_FILE = path.join(DATA_DIR, "playstore_scrape_cache.json");
 const APPSTORE_CACHE_FILE = path.join(DATA_DIR, "appstore_scrape_cache.json");
 
 const getScrapedAppleStoreData = async (identifier) => {
-  let cache = {};
-  try {
-    if (fs.existsSync(APPSTORE_CACHE_FILE)) {
-      cache = JSON.parse(fs.readFileSync(APPSTORE_CACHE_FILE, "utf8"));
+  if (!identifier) return null;
+  return resolver.resolve('scrape:apple', { identifier }, async () => {
+    // Check legacy file cache on disk as fallback before calling API
+    let cache = {};
+    try {
+      if (fs.existsSync(APPSTORE_CACHE_FILE)) {
+        cache = JSON.parse(fs.readFileSync(APPSTORE_CACHE_FILE, "utf8"));
+        if (cache[identifier]?.data) {
+          return cache[identifier].data;
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const isNumeric = /^\d+$/.test(identifier);
+      const url = isNumeric
+        ? `https://itunes.apple.com/lookup?id=${identifier}`
+        : `https://itunes.apple.com/lookup?bundleId=${identifier}`;
+
+      const res = await axios.get(url);
+      if (res.data && res.data.results && res.data.results.length > 0) {
+        const item = res.data.results[0];
+        const scraped = {
+          title: item.trackName,
+          iconUrl: item.artworkUrl512 || item.artworkUrl100 || item.artworkUrl60,
+          summary: item.description ? item.description.substring(0, 200) + '...' : '',
+          descriptionHTML: item.description,
+          scoreText: item.averageUserRating ? item.averageUserRating.toFixed(1) : 'N/A',
+          score: item.averageUserRating || 0,
+          ratings: item.userRatingCount || 0,
+          reviews: item.userRatingCount || 0,
+          installs: 'N/A',
+          minInstalls: 0,
+          genre: item.primaryGenreName,
+          developer: item.sellerName || item.artistName,
+          developerId: item.artistId,
+          developerWebsite: item.sellerUrl,
+          priceText: item.formattedPrice || (item.price === 0 ? 'Free' : `$${item.price}`),
+          free: item.price === 0,
+          version: item.version,
+          updated: item.currentVersionReleaseDate || item.releaseDate,
+          url: item.trackViewUrl,
+          adamId: item.trackId,
+          bundleId: item.bundleId
+        };
+        cache[identifier] = { timestamp: Date.now(), data: scraped };
+        try { fs.writeFileSync(APPSTORE_CACHE_FILE, JSON.stringify(cache, null, 2)); } catch {}
+        return scraped;
+      }
+    } catch (err) {
+      console.error(`Could not scrape App Store metadata for ${identifier}:`, err.message);
     }
-  } catch (e) {
-    cache = {};
-  }
-
-  const cached = cache[identifier];
-  if (cached && cached.data) {
-    return cached.data;
-  }
-
-  try {
-    const isNumeric = /^\d+$/.test(identifier);
-    const url = isNumeric
-      ? `https://itunes.apple.com/lookup?id=${identifier}`
-      : `https://itunes.apple.com/lookup?bundleId=${identifier}`;
-
-    const res = await axios.get(url);
-    if (res.data && res.data.results && res.data.results.length > 0) {
-      const item = res.data.results[0];
-      const scraped = {
-        title: item.trackName,
-        iconUrl: item.artworkUrl512 || item.artworkUrl100 || item.artworkUrl60,
-        summary: item.description ? item.description.substring(0, 200) + '...' : '',
-        descriptionHTML: item.description,
-        scoreText: item.averageUserRating ? item.averageUserRating.toFixed(1) : 'N/A',
-        score: item.averageUserRating || 0,
-        ratings: item.userRatingCount || 0,
-        reviews: item.userRatingCount || 0,
-        installs: 'N/A',
-        minInstalls: 0,
-        genre: item.primaryGenreName,
-        developer: item.sellerName || item.artistName,
-        developerId: item.artistId,
-        developerWebsite: item.sellerUrl,
-        priceText: item.formattedPrice || (item.price === 0 ? 'Free' : `$${item.price}`),
-        free: item.price === 0,
-        version: item.version,
-        updated: item.currentVersionReleaseDate || item.releaseDate,
-        url: item.trackViewUrl,
-        adamId: item.trackId,
-        bundleId: item.bundleId
-      };
-      cache[identifier] = { timestamp: Date.now(), data: scraped };
-      fs.writeFileSync(APPSTORE_CACHE_FILE, JSON.stringify(cache, null, 2));
-      return scraped;
-    }
-  } catch (err) {
-    console.error(`Could not scrape App Store metadata for ${identifier}:`, err.message);
-  }
-  return null;
+    return null;
+  });
 };
 
 const getScrapedPlayStoreData = async (appId) => {
-  let cache = {};
-  try {
-    if (fs.existsSync(PLAYSTORE_CACHE_FILE)) {
-      cache = JSON.parse(fs.readFileSync(PLAYSTORE_CACHE_FILE, "utf8"));
+  if (!appId) return null;
+  return resolver.resolve('scrape:google', { appId }, async () => {
+    // Check legacy file cache on disk as fallback before calling API
+    let cache = {};
+    try {
+      if (fs.existsSync(PLAYSTORE_CACHE_FILE)) {
+        cache = JSON.parse(fs.readFileSync(PLAYSTORE_CACHE_FILE, "utf8"));
+        if (cache[appId]?.data) {
+          return cache[appId].data;
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const data = await gplay.app({ appId });
+      const scraped = {
+        title: data.title,
+        iconUrl: data.icon,
+        summary: data.summary,
+        descriptionHTML: data.descriptionHTML || data.description,
+        scoreText: data.scoreText,
+        score: data.score,
+        ratings: data.ratings,
+        reviews: data.reviews,
+        installs: data.installs,
+        minInstalls: data.minInstalls,
+        genre: data.genre,
+        developer: data.developer,
+        developerId: data.developerId,
+        developerEmail: data.developerEmail,
+        developerWebsite: data.developerWebsite,
+        priceText: data.priceText,
+        free: data.free,
+        version: data.version,
+        updated: data.updated,
+        url: data.url
+      };
+      cache[appId] = { timestamp: Date.now(), data: scraped };
+      try { fs.writeFileSync(PLAYSTORE_CACHE_FILE, JSON.stringify(cache, null, 2)); } catch {}
+      return scraped;
+    } catch (err) {
+      console.warn(`Could not scrape Play Store metadata for ${appId}:`, err.message);
+      return null;
     }
-  } catch (e) {
-    cache = {};
-  }
-
-  // Use cache if exists
-  const cached = cache[appId];
-  if (cached && cached.data) {
-    return cached.data;
-  }
-
-  try {
-    const data = await gplay.app({ appId });
-    const scraped = {
-      title: data.title,
-      iconUrl: data.icon,
-      summary: data.summary,
-      descriptionHTML: data.descriptionHTML || data.description,
-      scoreText: data.scoreText,
-      score: data.score,
-      ratings: data.ratings,
-      reviews: data.reviews,
-      installs: data.installs,
-      minInstalls: data.minInstalls,
-      genre: data.genre,
-      developer: data.developer,
-      developerId: data.developerId,
-      developerEmail: data.developerEmail,
-      developerWebsite: data.developerWebsite,
-      priceText: data.priceText,
-      free: data.free,
-      version: data.version,
-      updated: data.updated,
-      url: data.url
-    };
-    cache[appId] = { timestamp: Date.now(), data: scraped };
-    fs.writeFileSync(PLAYSTORE_CACHE_FILE, JSON.stringify(cache, null, 2));
-    return scraped;
-  } catch (err) {
-    console.warn(`Could not scrape Play Store metadata for ${appId}:`, err.message);
-    return null;
-  }
+  });
 };
 
 // Endpoint to fetch store details on-demand via scraper
@@ -450,6 +474,7 @@ app.put("/api/config", authenticate, (req, res) => {
       fs.writeFileSync(activePath + ".bak", fs.readFileSync(activePath));
     }
     fs.writeFileSync(activePath, serialized, "utf8");
+    invalidateConfigCache();
     res.json({ success: true, path: activePath });
   } catch (err) {
     res.status(500).json({ error: "Failed to write config", details: err.message });
@@ -506,6 +531,11 @@ app.post("/api/test/google", authenticate, async (req, res) => {
   }
 });
 
+// Admin endpoint to monitor cache metrics and tier hits
+app.get("/api/cache-stats", authenticate, (req, res) => {
+  res.json(resolver.getMetrics());
+});
+
 // Endpoint to fetch saved projects (dynamically discovered from bucket)
 app.get("/api/projects", authenticate, async (req, res) => {
   const baseConfig = getBaseConfig();
@@ -513,104 +543,106 @@ app.get("/api/projects", authenticate, async (req, res) => {
     return res.json([]);
   }
 
-  const projects = [];
+  const projects = await resolver.resolve('projects', {}, async () => {
+    const list = [];
 
-  // Google Play Projects
-  try {
-    const googleStatsViewer = new GooglePlayStoreStatsViewer({
-      keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-      keyJson: baseConfig.keyJson,
-      projectID: baseConfig.projectID,
-      bucketName: baseConfig.bucketName,
-      packageName: "dummy",
-      dataDir: DATA_DIR
-    });
-
-    let packages = await googleStatsViewer.listPackages();
-    const ignored = baseConfig.ignoredPackages || [];
-    packages = packages.filter(p => !ignored.includes(p.packageName));
-
-    for (let idx = 0; idx < packages.length; idx++) {
-      const p = packages[idx];
-      const metadata = baseConfig.appMetadata?.[p.packageName] || {};
-      let cachedScraped = await getScrapedPlayStoreData(p.packageName);
-
-      const storeUrl = metadata.storeUrl || cachedScraped?.url || `https://play.google.com/store/apps/details?id=${p.packageName}`;
-      
-      // Console URL Construction using PlaystoreConsoleUrl or developerConsoleId or per-app metadata
-      const consoleBase = baseConfig.PlaystoreConsoleUrl
-        ? baseConfig.PlaystoreConsoleUrl.replace(/\/+$/, '')
-        : `https://play.google.com/console/u/0/developers/${metadata.developerConsoleId || baseConfig.developerConsoleId || '7018441398256771959'}`;
-
-      const appId = metadata.consoleAppId || (p.packageName === 'io.github.zmsp.addaboard' ? '4976209752217554327' : null);
-
-      const consoleUrl = metadata.consoleUrl || (appId ? `${consoleBase}/app/${appId}/app-dashboard` : consoleBase);
-      const iconUrl = metadata.iconUrl || cachedScraped?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=play.google.com&sz=128`;
-      const name = metadata.displayName || cachedScraped?.title || p.name;
-
-      projects.push({
-        index: `g-${idx}`,
-        name,
-        platform: "google",
-        packageName: p.packageName,
-        storeUrl,
-        consoleUrl,
-        iconUrl,
-        hasKey: !!(baseConfig.keyJson || baseConfig.keyFilePath)
-      });
-    }
-  } catch (error) {
-    console.error("Error discovering Google projects:", error);
-  }
-
-  // Apple App Store Projects
-  if (baseConfig.keyFilePath_apple) {
+    // Google Play Projects
     try {
-      const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-      if (appleKeyPath && fs.existsSync(appleKeyPath)) {
-        const privateKey = fs.readFileSync(appleKeyPath, "utf8");
-        console.log(`Successfully read Apple private key from ${appleKeyPath} (length: ${privateKey.length})`);
+      const googleStatsViewer = new GooglePlayStoreStatsViewer({
+        keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
+        keyJson: baseConfig.keyJson,
+        projectID: baseConfig.projectID,
+        bucketName: baseConfig.bucketName,
+        packageName: "dummy",
+        dataDir: DATA_DIR
+      });
 
-        const appleStatsViewer = new AppleAppStoreStatsViewer({
-          issuerId: baseConfig.appleIssuerId,
-          keyId: baseConfig.appleKeyId,
-          vendorId: baseConfig.appleVendorId,
-          privateKey: privateKey,
-          dataDir: DATA_DIR
+      let packages = await googleStatsViewer.listPackages();
+      const ignored = baseConfig.ignoredPackages || [];
+      packages = packages.filter(p => !ignored.includes(p.packageName));
+
+      for (let idx = 0; idx < packages.length; idx++) {
+        const p = packages[idx];
+        const metadata = baseConfig.appMetadata?.[p.packageName] || {};
+        let cachedScraped = await getScrapedPlayStoreData(p.packageName);
+
+        const storeUrl = metadata.storeUrl || cachedScraped?.url || `https://play.google.com/store/apps/details?id=${p.packageName}`;
+        
+        const consoleBase = baseConfig.PlaystoreConsoleUrl
+          ? baseConfig.PlaystoreConsoleUrl.replace(/\/+$/, '')
+          : `https://play.google.com/console/u/0/developers/${metadata.developerConsoleId || baseConfig.developerConsoleId || '7018441398256771959'}`;
+
+        const appId = metadata.consoleAppId || (p.packageName === 'io.github.zmsp.addaboard' ? '4976209752217554327' : null);
+
+        const consoleUrl = metadata.consoleUrl || (appId ? `${consoleBase}/app/${appId}/app-dashboard` : consoleBase);
+        const iconUrl = metadata.iconUrl || cachedScraped?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=play.google.com&sz=128`;
+        const name = metadata.displayName || cachedScraped?.title || p.name;
+
+        list.push({
+          index: `g-${idx}`,
+          name,
+          platform: "google",
+          packageName: p.packageName,
+          storeUrl,
+          consoleUrl,
+          iconUrl,
+          hasKey: !!(baseConfig.keyJson || baseConfig.keyFilePath)
         });
-
-        const apps = await appleStatsViewer.listPackages();
-        for (let idx = 0; idx < apps.length; idx++) {
-          const app = apps[idx];
-          const metadata = baseConfig.appMetadata?.[app.packageName || app.bundleId] || {};
-          const appleStoreData = await getScrapedAppleStoreData(app.bundleId || app.appId || app.packageName);
-
-          const storeUrl = metadata.storeUrl || appleStoreData?.url || (app.adamId ? `https://apps.apple.com/app/id${app.adamId}` : null);
-          const consoleUrl = metadata.consoleUrl || `https://appstoreconnect.apple.com/apps`;
-          const iconUrl = metadata.iconUrl || appleStoreData?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=apps.apple.com&sz=128`;
-          const name = metadata.displayName || appleStoreData?.title || `${app.name} (App Store)`;
-
-          projects.push({
-            index: `a-${idx}`,
-            name,
-            platform: "apple",
-            packageName: app.packageName,
-            bundleId: app.bundleId,
-            sku: app.sku,
-            storeUrl,
-            consoleUrl,
-            iconUrl,
-            primaryLocale: app.primaryLocale,
-            hasKey: true
-          });
-        }
       }
     } catch (error) {
-      console.error("Error discovering Apple projects:", error.message);
+      console.error("Error discovering Google projects:", error);
     }
-  }
 
-  res.json(projects);
+    // Apple App Store Projects
+    if (baseConfig.keyFilePath_apple) {
+      try {
+        const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
+        if (appleKeyPath && fs.existsSync(appleKeyPath)) {
+          const privateKey = fs.readFileSync(appleKeyPath, "utf8");
+
+          const appleStatsViewer = new AppleAppStoreStatsViewer({
+            issuerId: baseConfig.appleIssuerId,
+            keyId: baseConfig.appleKeyId,
+            vendorId: baseConfig.appleVendorId,
+            privateKey: privateKey,
+            dataDir: DATA_DIR
+          });
+
+          const apps = await appleStatsViewer.listPackages();
+          for (let idx = 0; idx < apps.length; idx++) {
+            const app = apps[idx];
+            const metadata = baseConfig.appMetadata?.[app.packageName || app.bundleId] || {};
+            const appleStoreData = await getScrapedAppleStoreData(app.bundleId || app.appId || app.packageName);
+
+            const storeUrl = metadata.storeUrl || appleStoreData?.url || (app.adamId ? `https://apps.apple.com/app/id${app.adamId}` : null);
+            const consoleUrl = metadata.consoleUrl || `https://appstoreconnect.apple.com/apps`;
+            const iconUrl = metadata.iconUrl || appleStoreData?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=apps.apple.com&sz=128`;
+            const name = metadata.displayName || appleStoreData?.title || `${app.name} (App Store)`;
+
+            list.push({
+              index: `a-${idx}`,
+              name,
+              platform: "apple",
+              packageName: app.packageName,
+              bundleId: app.bundleId,
+              sku: app.sku,
+              storeUrl,
+              consoleUrl,
+              iconUrl,
+              primaryLocale: app.primaryLocale,
+              hasKey: true
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error discovering Apple projects:", error.message);
+      }
+    }
+
+    return list;
+  });
+
+  res.json(projects || []);
 });
 
 // Endpoint to fetch basic overview app stats and daily trends

@@ -22,7 +22,7 @@ Most users deploy this application using **Docker** or **Unraid**. Pick your pre
 
 ### 🌐 Live Interactive Demo
 Try the dashboard instantly without installing anything:  
-👉 **[Explore the Live Interactive Demo](https://www.zobairshahadat.com/appstore-analytics/)** *(Running in simulated demo mode with sample data)*
+👉 **[Explore the Live Interactive Demo](https://www.zobairshahadat.com/apprankly/)** *(Running in simulated demo mode with sample data)*
 
 ---
 
