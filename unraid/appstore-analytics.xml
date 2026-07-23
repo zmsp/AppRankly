@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>appstore-analytics</Name>
+  <Repository>ghcr.io/zmsp/appstore-playstore-analytics-pipeline:latest</Repository>
+  <Registry>https://github.com/zmsp/appstore-playstore-analytics-pipeline/pkgs/container/appstore-playstore-analytics-pipeline</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/zmsp/appstore-playstore-analytics-pipeline/issues</Support>
+  <Project>https://github.com/zmsp/appstore-playstore-analytics-pipeline</Project>
+  <Overview>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Overview>
+  <Description>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Description>
+  <Category>Tools:Utilities Productivity: Status:Stable</Category>
+  <WebUI>http://[IP]:[PORT:3020]</WebUI>
+  <Icon>https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/google-play-console.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/zmsp/appstore-playstore-analytics-pipeline/main/unraid/appstore-analytics.xml</TemplateURL>
+  <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="The web interface host port mapped to container port 3000." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
+  <Config Name="Appdata Directory" Target="/app/data" Default="/mnt/user/appdata/appstore-analytics" Mode="rw" Description="Main host path for persistent files (config.json, API keys, and cached stats). Ensure ownership is set to 1000:1000 (chown -R 1000:1000 /mnt/user/appdata/appstore-analytics)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/appstore-analytics</Config>
+  <Config Name="JWT Secret" Target="JWT_SECRET" Default="change-me-to-something-random" Mode="" Description="Secret key used for signing JWT authentication tokens. Set to a secure random string." Type="Variable" Display="always" Required="true" Mask="true">change-me-to-something-random</Config>
+  <Config Name="Internal App Port" Target="PORT" Default="3000" Mode="" Description="Internal application listening port." Type="Variable" Display="advanced" Required="true" Mask="false">3000</Config>
+  <Config Name="Config File Path" Target="CONFIG_PATH" Default="/app/data/config/config.json" Mode="" Description="Internal path to the config.json configuration file." Type="Variable" Display="advanced" Required="true" Mask="false">/app/data/config/config.json</Config>
+  <Config Name="Data Directory" Target="DATA_DIR" Default="/app/data" Mode="" Description="Internal directory path where app data is stored." Type="Variable" Display="advanced" Required="true" Mask="false">/app/data</Config>
+</Container>

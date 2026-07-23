@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-white antialiased;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-surface border border-white/10 backdrop-blur-md rounded-2xl shadow-xl transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    @apply border-white/20 shadow-accent-blue/5;
+  }
+
+  .btn-primary {
+    @apply bg-accent-blue text-background font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-all active:scale-95;
+  }
+
+  .nav-link {
+    @apply flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors text-white/60 hover:text-white hover:bg-white/5;
+  }
+
+  .nav-link.active {
+    @apply text-accent-blue bg-accent-blue/10;
+  }
+
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20;
+  }
+}
+
+/* Glassmorphism Background Orb */
+.glow-orb {
+  position: absolute;
+  filter: blur(80px);
+  z-index: -1;
+  border-radius: 9999px;
+  opacity: 0.15;
+}
+
+@keyframes indeterminate-bar {
+  0% {
+    transform: translateX(-100%) scaleX(0.2);
+  }
+  50% {
+    transform: translateX(0) scaleX(0.5);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.2);
+  }
+}
+
+.animate-indeterminate-bar {
+  animation: indeterminate-bar 1.5s infinite linear;
+  transform-origin: left;
+}

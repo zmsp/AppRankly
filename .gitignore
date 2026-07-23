@@ -1,0 +1,52 @@
+# Node dependencies
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+!app/package-lock.json
+!app/frontend/package-lock.json
+
+# Build outputs
+dist/
+build/
+docs/
+app/public/assets/
+app/public/index.html
+app/public/vite.svg
+
+# Testing & Temp
+**/download_stats/
+app/test/
+.DS_Store
+Thumbs.db
+
+# Production Configurations & Cryptographic Keys
+config/
+data/
+.env
+.env.*
+*.p8
+# Ignore json files that are not package files
+*.json
+!package.json
+!package-lock.json
+!app/frontend/package.json
+!app/package.json
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+implementation.md
+DOWNLOAD_EXAMPLE/
+
+agent/
+app/data/
+data/
+test_apple_auth.js
+app/test_apple_stats.js

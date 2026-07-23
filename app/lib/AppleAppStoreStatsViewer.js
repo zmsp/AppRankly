@@ -1,0 +1,446 @@
+const axios = require('axios');
+const jwt = require('jsonwebtoken');
+const zlib = require('zlib');
+const csv = require('@fast-csv/parse');
+const fs = require('fs');
+const path = require('path');
+
+const FIRST_INSTALL_TYPES = new Set(['1', '1E', '1F', '1T', 'F1']);
+const REDOWNLOAD_TYPES = new Set(['7', '7F', '7E', 'F7']);
+const UPDATE_TYPES = new Set(['3', '3F']);
+
+const globalRequestCache = new Map();
+
+async function cacheGetOrFetch(key, fetchFn, ttl = 0) {
+  const cached = globalRequestCache.get(key);
+  const now = Date.now();
+  if (cached) {
+    if (cached.promise) {
+      return cached.promise;
+    }
+    if (ttl === 0 || now - cached.timestamp < ttl) {
+      return cached.value;
+    }
+  }
+
+  const promise = (async () => {
+    try {
+      const result = await fetchFn();
+      if (result === null || result === undefined) {
+        globalRequestCache.delete(key);
+      } else {
+        globalRequestCache.set(key, { value: result, timestamp: Date.now() });
+      }
+      return result;
+    } catch (err) {
+      globalRequestCache.delete(key);
+      throw err;
+    }
+  })();
+
+  globalRequestCache.set(key, { promise, timestamp: now });
+  return promise;
+}
+
+function parseMMDDYYYY(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.trim().split('/');
+  if (parts.length === 3) {
+    return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+  }
+  return dateStr;
+}
+
+function formatDate(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function generateDateArray(startDateStr, endDateStr) {
+  let start = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 86400000);
+  let end = endDateStr ? new Date(endDateStr) : new Date(Date.now() - 86400000);
+
+  if (isNaN(start.getTime())) start = new Date(Date.now() - 30 * 86400000);
+  if (isNaN(end.getTime())) end = new Date(Date.now() - 86400000);
+
+  const dates = [];
+  let curr = new Date(start);
+  while (curr <= end) {
+    dates.push(formatDate(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+}
+
+class AppleAppStoreStatsViewer {
+  constructor({ issuerId, keyId, privateKey, vendorId, appId, dataDir }) {
+    this.issuerId = issuerId;
+    this.keyId = keyId;
+    this.privateKey = privateKey;
+    this.vendorId = vendorId || process.env.APPLE_VENDOR_NUMBER;
+    this.appId = appId; // This can be numeric ID or bundle ID
+    this.numericAppId = null;
+    this.token = null;
+    this.tokenExpiry = 0;
+    this.dataDir = dataDir || path.join(process.cwd(), "data");
+    this.cacheDir = path.join(this.dataDir, "download_stats", "apple");
+  }
+
+  async getNumericAppId() {
+    if (this.numericAppId) return this.numericAppId;
+
+    if (!this.appId) {
+      console.log("No App ID provided. Fetching apps...");
+      try {
+        const apps = await this.listPackages();
+        if (apps && apps.length > 0) {
+          const firstApp = apps[0];
+          this.appId = firstApp.bundleId;
+          this.numericAppId = firstApp.appId;
+          console.log(`[DEBUG] No appId provided, selected first app: ${firstApp.name} (${this.numericAppId})`);
+          return this.numericAppId;
+        } else {
+          throw new Error("No apps found in Apple account.");
+        }
+      } catch (err) {
+        console.error("Failed to fetch apps dynamically:", err.message);
+        throw err;
+      }
+    }
+
+    if (/^\d+$/.test(this.appId)) {
+      this.numericAppId = this.appId;
+      return this.numericAppId;
+    }
+
+    const key = `getNumericAppId:${this.issuerId}:${this.keyId}:${this.appId}`;
+    this.numericAppId = await cacheGetOrFetch(key, async () => {
+      console.log(`[DEBUG] Resolving numeric ID for bundleId: ${this.appId}`);
+      const token = this.generateToken();
+      const url = `https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=${this.appId}`;
+      try {
+        const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.data.data && res.data.data.length > 0) {
+          const resolvedId = res.data.data[0].id;
+          console.log(`[DEBUG] Resolved ${this.appId} to numeric ID: ${resolvedId}`);
+          return resolvedId;
+        }
+      } catch (err) {
+        console.error(`[DEBUG] Failed to resolve bundleId ${this.appId}:`, err.response?.data || err.message);
+        throw err;
+      }
+      throw new Error(`Could not find Apple app with bundle ID: ${this.appId}`);
+    });
+
+    return this.numericAppId;
+  }
+
+  generateToken(force = false) {
+    const now = Math.floor(Date.now() / 1000);
+    if (!force && this.token && now < this.tokenExpiry - 60) return this.token;
+
+    if (!this.issuerId || !this.keyId || !this.privateKey) {
+      throw new Error("Missing Apple App Store credentials.");
+    }
+
+    const payload = {
+      iss: this.issuerId,
+      iat: now,
+      exp: now + 1199, // 19 minutes 59 seconds (max allowed is 20m)
+      aud: 'appstoreconnect-v1'
+    };
+
+    this.token = jwt.sign(payload, this.privateKey, {
+      algorithm: 'ES256',
+      header: { kid: this.keyId, typ: 'JWT' }
+    });
+    this.tokenExpiry = payload.exp;
+    return this.token;
+  }
+
+  async fetchDailySalesReport(dateStr) {
+    if (!fs.existsSync(this.cacheDir)) {
+      fs.mkdirSync(this.cacheDir, { recursive: true });
+    }
+
+    const cacheFile = path.join(this.cacheDir, `sales_${dateStr}.txt`);
+    if (fs.existsSync(cacheFile)) {
+      return fs.readFileSync(cacheFile, 'utf8');
+    }
+
+    if (!this.vendorId) {
+      console.warn("No Apple vendorId provided or configured.");
+      return null;
+    }
+
+    const key = `salesReport:${this.vendorId}:${dateStr}`;
+    return cacheGetOrFetch(key, async () => {
+      if (fs.existsSync(cacheFile)) {
+        return fs.readFileSync(cacheFile, 'utf8');
+      }
+
+      const token = this.generateToken();
+      const url = 'https://api.appstoreconnect.apple.com/v1/salesReports';
+      const params = {
+        'filter[vendorNumber]': this.vendorId,
+        'filter[reportType]': 'SALES',
+        'filter[reportSubType]': 'SUMMARY',
+        'filter[frequency]': 'DAILY',
+        'filter[reportDate]': dateStr
+      };
+
+      try {
+        console.log(`[DEBUG] Fetching Apple Sales Report for ${dateStr}...`);
+        const response = await axios({
+          method: 'get',
+          url,
+          params,
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'arraybuffer'
+        });
+
+        const rawTxt = zlib.gunzipSync(response.data).toString('utf8');
+        fs.writeFileSync(cacheFile, rawTxt, 'utf8');
+        return rawTxt;
+      } catch (err) {
+        if (err.response && err.response.status === 404) {
+          // Report not generated yet or no sales for that date
+          return null;
+        }
+        console.error(`[DEBUG] Error fetching sales report for ${dateStr}:`, err.message);
+        return null;
+      }
+    });
+  }
+
+  async getAppStats(startDate, endDate) {
+    const numericId = await this.getNumericAppId();
+    console.log(`[DEBUG] Starting getAppStats for ${this.appId} (${numericId})`);
+
+    const dateList = generateDateArray(startDate, endDate);
+    const mergedTrends = new Map();
+
+    // Initialize trend entries for all dates in range
+    dateList.forEach(d => {
+      mergedTrends.set(d, {
+        date: d,
+        dailyInstalls: 0,
+        dailyUninstalls: 0,
+        dailyUserInstalls: 0,
+        dailyUserUninstalls: 0,
+        netGrowth: 0,
+        activeDevices: 0,
+        upgrades: 0,
+        revenue: 0,
+        netRevenue: 0,
+        impressions: 0,
+        pageViews: 0,
+        sessions: 0,
+        crashes: 0
+      });
+    });
+
+    for (const dateStr of dateList) {
+      const rawTxt = await this.fetchDailySalesReport(dateStr);
+      if (!rawTxt) continue;
+
+      await new Promise((resolve) => {
+        csv.parseString(rawTxt, { headers: true, delimiter: '\t' })
+          .on('data', (row) => {
+            const appleId = (row['Apple Identifier'] || '').trim();
+            if (appleId !== String(numericId)) return;
+
+            const rowDate = parseMMDDYYYY(row['Begin Date']) || dateStr;
+            const trend = mergedTrends.get(rowDate) || {
+              date: rowDate,
+              dailyInstalls: 0,
+              dailyUninstalls: 0,
+              dailyUserInstalls: 0,
+              dailyUserUninstalls: 0,
+              netGrowth: 0,
+              activeDevices: 0,
+              upgrades: 0,
+              revenue: 0,
+              netRevenue: 0,
+              impressions: 0,
+              pageViews: 0,
+              sessions: 0,
+              crashes: 0
+            };
+
+            const units = parseInt(row['Units']) || 0;
+            const proceeds = parseFloat(row['Developer Proceeds']) || 0;
+            const productType = (row['Product Type Identifier'] || '').trim();
+
+            if (FIRST_INSTALL_TYPES.has(productType)) {
+              trend.dailyInstalls += units;
+            } else if (REDOWNLOAD_TYPES.has(productType) || UPDATE_TYPES.has(productType)) {
+              trend.upgrades += units;
+            }
+
+            trend.revenue += proceeds * units;
+            trend.netRevenue = trend.revenue;
+            trend.dailyUserInstalls = trend.dailyInstalls;
+            trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
+
+            mergedTrends.set(rowDate, trend);
+          })
+          .on('end', () => resolve());
+      });
+    }
+
+    const dailyTrends = Array.from(mergedTrends.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+    const aggregated = dailyTrends.reduce((acc, t) => {
+      acc.totalInstallCountByUser += (t.dailyInstalls || 0);
+      acc.totalUninstallCountByUser += (t.dailyUninstalls || 0);
+      acc.totalUpdateEventsDetected += (t.upgrades || 0);
+      acc.totalRevenue += (t.revenue || 0);
+      acc.totalImpressions += (t.impressions || 0);
+      if (t.activeDevices > 0) acc.currentlyActiveDevices = t.activeDevices;
+      return acc;
+    }, {
+      totalInstallCountByUser: 0,
+      totalUninstallCountByUser: 0,
+      totalInstallEventsDetected: 0,
+      totalUninstallEventsDetected: 0,
+      totalUpdateEventsDetected: 0,
+      totalDeviceUpgrades: 0,
+      totalRevenue: 0,
+      totalImpressions: 0,
+      currentlyActiveDevices: 0
+    });
+
+    aggregated.totalInstallEventsDetected = aggregated.totalInstallCountByUser;
+    aggregated.totalUninstallEventsDetected = aggregated.totalUninstallCountByUser;
+    aggregated.totalDeviceUpgrades = aggregated.totalUpdateEventsDetected;
+
+    return { ...aggregated, dailyTrends };
+  }
+
+  async getDimensionStats(dimension, startDate, endDate) {
+    const numericId = await this.getNumericAppId();
+    const dateList = generateDateArray(startDate, endDate);
+
+    const dimensionMap = {
+      'country': 'Country Code',
+      'device': 'Device',
+      'os_version': 'Supported Platforms',
+      'app_version': 'Version'
+    };
+    const appleDim = dimensionMap[dimension] || dimension;
+
+    const statsMap = new Map();
+
+    for (const dateStr of dateList) {
+      const rawTxt = await this.fetchDailySalesReport(dateStr);
+      if (!rawTxt) continue;
+
+      await new Promise((resolve) => {
+        csv.parseString(rawTxt, { headers: true, delimiter: '\t' })
+          .on('data', row => {
+            const appleId = (row['Apple Identifier'] || '').trim();
+            if (appleId !== String(numericId)) return;
+
+            const label = row[appleDim] || 'Unknown';
+            const units = parseInt(row['Units']) || 0;
+            const productType = (row['Product Type Identifier'] || '').trim();
+
+            if (!statsMap.has(label)) {
+              statsMap.set(label, { label, activeDevices: 0, totalInstalls: 0, dailyUserInstalls: 0, dailyUserUninstalls: 0, netUserGrowth: 0, retentionRate: 0 });
+            }
+
+            const current = statsMap.get(label);
+            if (FIRST_INSTALL_TYPES.has(productType)) {
+              current.totalInstalls += units;
+              current.dailyUserInstalls += units;
+            }
+          })
+          .on('end', () => resolve());
+      });
+    }
+
+    const results = Array.from(statsMap.values()).map(item => {
+      item.netUserGrowth = item.dailyUserInstalls - item.dailyUserUninstalls;
+      item.activeDevices = item.totalInstalls;
+      item.retentionRate = item.totalInstalls > 0 ? 100 : 0;
+      return item;
+    });
+
+    return results.sort((a, b) => b.totalInstalls - a.totalInstalls).slice(0, 15);
+  }
+
+  async listPackages() {
+    const key = `listPackages:${this.issuerId}:${this.keyId}`;
+    try {
+      const result = await cacheGetOrFetch(key, async () => {
+        const token = this.generateToken();
+        const url = `https://api.appstoreconnect.apple.com/v1/apps?fields[apps]=name,bundleId,sku`;
+        const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
+
+        return res.data.data.map(app => ({
+          name: app.attributes.name,
+          packageName: app.attributes.bundleId,
+          appId: app.id,
+          bundleId: app.attributes.bundleId,
+          platform: 'apple'
+        }));
+      });
+      return result || [];
+    } catch (error) {
+      console.error("Error listing Apple apps:", error.message);
+      return [];
+    }
+  }
+
+  async getAppMetadata(identifier) {
+    const target = identifier || this.appId || this.numericAppId;
+    if (!target) return null;
+
+    const key = `appMetadata:${target}`;
+    try {
+      return await cacheGetOrFetch(key, async () => {
+        const isNumeric = /^\d+$/.test(target);
+        const url = isNumeric
+          ? `https://itunes.apple.com/lookup?id=${target}`
+          : `https://itunes.apple.com/lookup?bundleId=${target}`;
+        
+        const res = await axios.get(url);
+        if (res.data && res.data.results && res.data.results.length > 0) {
+          const item = res.data.results[0];
+          return {
+            title: item.trackName,
+            iconUrl: item.artworkUrl512 || item.artworkUrl100 || item.artworkUrl60,
+            summary: item.description ? item.description.substring(0, 200) + '...' : '',
+            descriptionHTML: item.description,
+            scoreText: item.averageUserRating ? item.averageUserRating.toFixed(1) : 'N/A',
+            score: item.averageUserRating || 0,
+            ratings: item.userRatingCount || 0,
+            reviews: item.userRatingCount || 0,
+            installs: 'N/A',
+            minInstalls: 0,
+            genre: item.primaryGenreName,
+            developer: item.sellerName || item.artistName,
+            developerId: item.artistId,
+            developerWebsite: item.sellerUrl,
+            priceText: item.formattedPrice || (item.price === 0 ? 'Free' : `$${item.price}`),
+            free: item.price === 0,
+            version: item.version,
+            updated: item.currentVersionReleaseDate || item.releaseDate,
+            url: item.trackViewUrl,
+            adamId: item.trackId,
+            bundleId: item.bundleId
+          };
+        }
+        return null;
+      });
+    } catch (err) {
+      console.warn(`[DEBUG] Could not fetch iTunes App Store metadata for ${target}:`, err.message);
+      return null;
+    }
+  }
+}
+
+module.exports = AppleAppStoreStatsViewer;

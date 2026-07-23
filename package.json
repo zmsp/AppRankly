@@ -1,0 +1,13 @@
+{
+  "name": "store-stat-viewer-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd app && npm start",
+    "dev": "cd app && npm run dev",
+    "build": "cd app && npm run build:frontend",
+    "build:frontend": "cd app && npm run build:frontend",
+    "build:static": "cd app && npm run build:static",
+    "build:demo": "cd app && npm run build:demo"
+  }
+}

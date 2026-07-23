@@ -1,0 +1,24 @@
+services:
+  playstats-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: playstats_analytics_prod
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - CONFIG_PATH=/app/data/config/config.json
+      - DATA_DIR=/app/data/
+      - JWT_SECRET=change_this_to_a_secure_random_string
+    volumes:
+      # Mount host credentials & config directory (contains config.json and key files in ./config/keys/)
+      - ./config:/app/data/config:ro
+      # Persistent app data storage (auth credentials, releases, statistics cache)
+      - playstats_data:/app/data/
+    restart: unless-stopped
+
+volumes:
+  playstats_data:
+
