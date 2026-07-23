@@ -11,6 +11,7 @@ const axios = require("axios");
 const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const { aggregateOverviews } = require("./lib/metrics");
+const { ensureDirectoriesAndTemplates } = require("./lib/init");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,10 +27,8 @@ if (!JWT_SECRET) {
 }
 const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, "data") : path.join(__dirname, "..", "data"));
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+// Ensure all data directories and template files exist on initial load
+ensureDirectoriesAndTemplates(DATA_DIR);
 
 const PASSWORD_FILE = path.join(DATA_DIR, ".admin_password");
 const RELEASES_FILE = path.join(DATA_DIR, "releases.json");
@@ -125,31 +124,31 @@ const authenticate = (req, res, next) => {
 // --- Protected Endpoints ---
 
 // Helper to read and parse config.json dynamically
-const configFilePath = process.env.CONFIG_PATH || path.join(DATA_DIR, "config.json");
+const configFilePath = process.env.CONFIG_PATH || path.join(DATA_DIR, "config", "config.json");
 
 // Fallback to legacy config location if not in data dir
 const getActualConfigPath = () => {
   const defaultPath = configFilePath;
   if (fs.existsSync(defaultPath)) {
-    console.log(`Config found at default path: ${defaultPath}`);
     return defaultPath;
   }
   const dataConfigPath = path.join(DATA_DIR, "config", "config.json");
   if (fs.existsSync(dataConfigPath)) {
-    console.log(`Config found at data/config path: ${dataConfigPath}`);
     return dataConfigPath;
+  }
+  const rootDataConfigPath = path.join(DATA_DIR, "config.json");
+  if (fs.existsSync(rootDataConfigPath)) {
+    return rootDataConfigPath;
   }
   const legacyPath = path.join(__dirname, "..", "config", "config.json");
   if (fs.existsSync(legacyPath)) {
-    console.log(`Config found at legacy path: ${legacyPath}`);
     return legacyPath;
   }
   const appConfigPath = path.join(__dirname, "config", "config.json");
   if (fs.existsSync(appConfigPath)) {
-    console.log(`Config found at app config path: ${appConfigPath}`);
     return appConfigPath;
   }
-  console.warn(`No config file found! Tried: ${defaultPath}, ${dataConfigPath}, ${legacyPath}, ${appConfigPath}`);
+  console.warn(`No config file found! Tried: ${defaultPath}, ${dataConfigPath}, ${rootDataConfigPath}, ${legacyPath}, ${appConfigPath}`);
   return defaultPath;
 };
 

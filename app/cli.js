@@ -2,6 +2,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const { ensureDirectoriesAndTemplates } = require("./lib/init");
+
+ensureDirectoriesAndTemplates();
 
 const argv = require("yargs")
   .usage("Usage: $0 [options]")
