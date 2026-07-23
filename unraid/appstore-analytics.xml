@@ -1,18 +1,18 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>appstore-analytics</Name>
-  <Repository>ghcr.io/zmsp/appstore-playstore-analytics-pipeline:latest</Repository>
-  <Registry>https://github.com/zmsp/appstore-playstore-analytics-pipeline/pkgs/container/appstore-playstore-analytics-pipeline</Registry>
+  <Repository>ghcr.io/zmsp/applens:latest</Repository>
+  <Registry>https://github.com/zmsp/AppLens/pkgs/container/applens</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
-  <Support>https://github.com/zmsp/appstore-playstore-analytics-pipeline/issues</Support>
-  <Project>https://github.com/zmsp/appstore-playstore-analytics-pipeline</Project>
+  <Support>https://github.com/zmsp/AppLens/issues</Support>
+  <Project>https://github.com/zmsp/AppLens</Project>
   <Overview>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Overview>
   <Description>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Description>
   <Category>Tools:Utilities Productivity: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:3020]</WebUI>
   <Icon>https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/google-play-console.png</Icon>
-  <TemplateURL>https://raw.githubusercontent.com/zmsp/appstore-playstore-analytics-pipeline/main/unraid/appstore-analytics.xml</TemplateURL>
+  <TemplateURL>https://raw.githubusercontent.com/zmsp/AppLens/main/unraid/appstore-analytics.xml</TemplateURL>
   <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="The web interface host port mapped to container port 3000." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
   <Config Name="Appdata Directory" Target="/app/data" Default="/mnt/user/appdata/appstore-analytics" Mode="rw" Description="Main host path for persistent files (config.json, API keys, and cached stats). Ensure ownership is set to 1000:1000 (chown -R 1000:1000 /mnt/user/appdata/appstore-analytics)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/appstore-analytics</Config>
   <Config Name="JWT Secret" Target="JWT_SECRET" Default="change-me-to-something-random" Mode="" Description="Secret key used for signing JWT authentication tokens. Set to a secure random string." Type="Variable" Display="always" Required="true" Mask="true">change-me-to-something-random</Config>

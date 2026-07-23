@@ -1,7 +1,7 @@
 # App Store & Google Play Store Analytics Pipeline
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/appstore-playstore-analytics-pipeline/pkgs/container/appstore-playstore-analytics-pipeline)
+[![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/AppLens/pkgs/container/applens)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](package.json)
 [![Unraid Template](https://img.shields.io/badge/Unraid-Supported-orange.svg)](unraid/README.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -28,8 +28,8 @@ Try the dashboard instantly without installing anything:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/zmsp/appstore-playstore-analytics-pipeline.git
-   cd appstore-playstore-analytics-pipeline
+   git clone https://github.com/zmsp/AppLens.git
+   cd AppLens
    ```
 
 2. **Create configuration folder & files:**
@@ -53,7 +53,7 @@ Run directly using the official GitHub Container Registry image:
 
 ```bash
 # 1. Pull the latest image
-docker pull ghcr.io/zmsp/appstore-playstore-analytics-pipeline:latest
+docker pull ghcr.io/zmsp/applens:latest
 
 # 2. Create local data directory
 mkdir -p $(pwd)/data/config/keys
@@ -64,7 +64,7 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/data:/app/data \
   -e JWT_SECRET="your-secure-random-secret" \
-  ghcr.io/zmsp/appstore-playstore-analytics-pipeline:latest
+  ghcr.io/zmsp/applens:latest
 ```
 
 ---
@@ -73,7 +73,7 @@ docker run -d \
 
 1. Open terminal on your Unraid server and run:
    ```bash
-   curl -o /boot/config/plugins/dockerMan/templates-user/appstore-analytics.xml https://raw.githubusercontent.com/zmsp/appstore-playstore-analytics-pipeline/main/unraid/appstore-analytics.xml
+   curl -o /boot/config/plugins/dockerMan/templates-user/appstore-analytics.xml https://raw.githubusercontent.com/zmsp/AppLens/main/unraid/appstore-analytics.xml
    ```
 2. Navigate to Unraid **Docker** tab -> **Add Container** -> Select **appstore-analytics** template.
 3. Configure path permissions (`chown -R 1000:1000 /mnt/user/appdata/appstore-analytics/`).
@@ -87,8 +87,8 @@ For detailed Unraid instructions, see the [Unraid Guide](unraid/README.md).
 
 ```bash
 # 1. Clone & install dependencies
-git clone https://github.com/zmsp/appstore-playstore-analytics-pipeline.git
-cd appstore-playstore-analytics-pipeline
+git clone https://github.com/zmsp/AppLens.git
+cd AppLens
 npm install
 
 # 2. Start development server (backend + frontend watch mode)
@@ -293,7 +293,7 @@ Yes! Toggle the **Demo Mode** switch in the web UI sidebar to explore the full d
 
 Contributions are welcome! Please feel free to submit a Pull Request or open an issue for feature requests and bug reports.
 
-1. Fork the repository (`https://github.com/zmsp/appstore-playstore-analytics-pipeline/fork`)
+1. Fork the repository (`https://github.com/zmsp/AppLens/fork`)
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
