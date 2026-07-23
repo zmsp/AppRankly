@@ -4,13 +4,108 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PlayStats Analytics</title>
+    <title>AppLens - Mobile Store Analytics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      /* Critical first frame shell CSS */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #0b1326;
+        color: #ffffff;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow-x: hidden;
+      }
+      .app-shell-container {
+        display: flex;
+        min-height: 100vh;
+        background-color: #0b1326;
+      }
+      .app-shell-sidebar {
+        width: 256px;
+        background: rgba(22, 33, 62, 0.7);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 24px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        box-sizing: border-box;
+      }
+      @media (max-width: 768px) {
+        .app-shell-sidebar { display: none; }
+      }
+      .app-shell-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .app-shell-topbar {
+        height: 64px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(22, 33, 62, 0.4);
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .app-shell-main {
+        padding: 24px;
+        flex: 1;
+      }
+      .skeleton-box {
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        animation: shell-pulse 1.5s infinite ease-in-out;
+      }
+      .skeleton-card {
+        background: rgba(22, 33, 62, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      @keyframes shell-pulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+      }
+    </style>
   </head>
   <body class="bg-background text-white font-sans selection:bg-accent-blue/30">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Instant First Frame Shell (rendered before JS loads) -->
+      <div class="app-shell-container">
+        <div class="app-shell-sidebar">
+          <div className="skeleton-box" style="height: 36px; width: 140px;"></div>
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
+            <div class="skeleton-box" style="height: 40px; width: 100%;"></div>
+            <div class="skeleton-box" style="height: 40px; width: 100%;"></div>
+            <div class="skeleton-box" style="height: 40px; width: 100%;"></div>
+            <div class="skeleton-box" style="height: 40px; width: 100%;"></div>
+          </div>
+        </div>
+        <div class="app-shell-content">
+          <div class="app-shell-topbar">
+            <div class="skeleton-box" style="height: 32px; width: 180px;"></div>
+            <div class="skeleton-box" style="height: 32px; width: 220px;"></div>
+          </div>
+          <div class="app-shell-main">
+            <div class="skeleton-card" style="height: 140px;">
+              <div class="skeleton-box" style="height: 24px; width: 200px; margin-bottom: 12px;"></div>
+              <div class="skeleton-box" style="height: 48px; width: 120px;"></div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+              <div class="skeleton-card" style="height: 100px;"></div>
+              <div class="skeleton-card" style="height: 100px;"></div>
+              <div class="skeleton-card" style="height: 100px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+

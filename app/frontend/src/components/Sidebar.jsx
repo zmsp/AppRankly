@@ -32,8 +32,18 @@ export default function Sidebar({
   setCollapsed,
   platform,
   setPlatform,
-  setRawPlatform
+  setRawPlatform,
+  projects = [],
+  selectedProjectIndex,
+  setSelectedProjectIndex
 }) {
+  const firstProj = projects.length > 0 ? projects[0] : null;
+  const firstProjIndex = firstProj ? firstProj.index : '0';
+  const firstProjPlat = firstProj?.platform === 'apple' ? 'apple' : 'android';
+  const currentDetailsPath = selectedProjectIndex && selectedProjectIndex !== 'all'
+    ? `/${platform === 'apple' ? 'apple' : 'android'}/${selectedProjectIndex}`
+    : `/${firstProjPlat}/${firstProjIndex}`;
+
   return (
     <aside className={clsx(
       "glass-card transition-all duration-300 z-40 shadow-2xl flex flex-col",
@@ -53,37 +63,46 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            end={item.path === '/'}
-            onClick={(e) => {
-              if (window.innerWidth < 768) setCollapsed(true);
-              if (item.id !== 'overview' && item.id !== 'details' && platform === 'all') {
-                if (setRawPlatform) setRawPlatform('google');
-              }
-            }}
-            className={({ isActive }) => {
-              const currentPath = window.location.pathname;
-              let isReallyActive = isActive;
-              if (item.id === 'details') {
-                isReallyActive = currentPath.startsWith('/android') || currentPath.startsWith('/apple');
-              } else if (item.id === 'overview') {
-                isReallyActive = currentPath === '/' || currentPath.startsWith('/all');
-              }
-              return clsx(
-                "nav-link flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold",
-                isReallyActive ? "bg-white/10 text-white shadow-lg border border-white/10" : "text-slate-400 hover:text-white hover:bg-white/5",
-                collapsed && "justify-center px-0"
-              );
-            }}
-            title={collapsed ? item.label : ""}
-          >
-            <item.icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const itemPath = item.id === 'details' ? currentDetailsPath : item.path;
+          return (
+            <NavLink
+              key={item.id}
+              to={itemPath}
+              end={item.path === '/'}
+              onClick={(e) => {
+                if (window.innerWidth < 768) setCollapsed(true);
+                if (item.id === 'overview') {
+                  if (setSelectedProjectIndex) setSelectedProjectIndex('all');
+                } else if (item.id === 'details') {
+                  if (selectedProjectIndex === 'all' && projects.length > 0 && setSelectedProjectIndex) {
+                    setSelectedProjectIndex(projects[0].index);
+                  }
+                } else if (item.id !== 'overview' && item.id !== 'details' && platform === 'all') {
+                  if (setRawPlatform) setRawPlatform('google');
+                }
+              }}
+              className={({ isActive }) => {
+                const currentPath = window.location.pathname;
+                let isReallyActive = isActive;
+                if (item.id === 'details') {
+                  isReallyActive = (currentPath.startsWith('/android') || currentPath.startsWith('/apple') || currentPath.startsWith('/google')) && selectedProjectIndex !== 'all';
+                } else if (item.id === 'overview') {
+                  isReallyActive = (currentPath === '/' || currentPath.startsWith('/all')) && (selectedProjectIndex === 'all' || platform === 'all');
+                }
+                return clsx(
+                  "nav-link flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold",
+                  isReallyActive ? "bg-white/10 text-white shadow-lg border border-white/10" : "text-slate-400 hover:text-white hover:bg-white/5",
+                  collapsed && "justify-center px-0"
+                );
+              }}
+              title={collapsed ? item.label : ""}
+            >
+              <item.icon size={18} className="flex-shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Collapse Toggle */}

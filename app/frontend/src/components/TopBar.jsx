@@ -11,9 +11,10 @@ import {
   Play,
   GitCompare,
   RefreshCw,
-  BarChart2
+  BarChart2,
+  Globe
 } from 'lucide-react';
-import { PlayStoreIcon } from './icons/StoreIcons';
+import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
 import { getPresetDateRange } from '../lib/dateUtils';
@@ -119,42 +120,6 @@ export default function TopBar({
           </button>
         )}
 
-        {/* Platform Toggle */}
-        <div className="bg-white/5 p-1 rounded-xl flex items-center shrink-0">
-          <button
-            onClick={() => setPlatform('all')}
-            className={clsx(
-              "flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
-              platform === 'all' ? "bg-accent-blue text-background" : "text-white/60 hover:text-white"
-            )}
-          >
-            <LayoutGrid size={13} />
-            <span className="hidden sm:inline">All Platforms</span>
-            <span className="sm:hidden">All</span>
-          </button>
-          <button
-            onClick={() => setPlatform('google')}
-            className={clsx(
-              "flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
-              platform === 'google' ? "bg-accent-blue text-background" : "text-white/60 hover:text-white"
-            )}
-          >
-            <Globe size={13} />
-            <span className="hidden sm:inline">Google Play</span>
-            <span className="sm:hidden">Google</span>
-          </button>
-          <button
-            onClick={() => setPlatform('apple')}
-            className={clsx(
-              "flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
-              platform === 'apple' ? "bg-accent-blue text-background" : "text-white/60 hover:text-white"
-            )}
-          >
-            <Apple size={13} />
-            <span className="hidden sm:inline">App Store</span>
-            <span className="sm:hidden">Apple</span>
-          </button>
-        </div>
 
         {/* Grafana Time Range Controls & Presets */}
         {setDateRange && (
@@ -162,7 +127,7 @@ export default function TopBar({
             <GrafanaDatePicker dateRange={dateRange} setDateRange={setDateRange} />
 
             <div className="hidden xl:flex items-center bg-white/5 rounded-xl p-1 shrink-0 border border-white/5">
-              {['1D', '7D', '1M', '3M', '6M', '1Y', 'ALL'].map((preset) => {
+              {['1D', '7D', '30D', '60D', '6M', '1Y', 'ALL'].map((preset) => {
                 const isActive = currentRangeParam === preset;
                 return (
                   <button
@@ -291,7 +256,7 @@ export default function TopBar({
                   <img src={proj.iconUrl} alt={proj.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === proj.index.toString() || selectedProjectIndex === proj.index ? "bg-accent-blue/20 text-accent-blue" : "bg-white/10 text-white/60")}>
-                    {platform === 'google' ? <PlayStoreIcon size={18} /> : <Apple size={18} />}
+                    {platform === 'google' ? <PlayStoreIcon size={18} /> : <AppleStoreIcon size={18} />}
                   </div>
                 )}
               </button>

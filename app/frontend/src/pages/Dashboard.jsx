@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { clsx } from 'clsx';
+import { PlayStoreIcon, AppleStoreIcon } from '../components/icons/StoreIcons';
 import HeroKPI from '../components/HeroKPI';
 import HealthBreakdown from '../components/HealthBreakdown';
 import MetricCard from '../components/MetricCard';
@@ -14,7 +16,8 @@ import UpgradesChart from '../components/UpgradesChart';
 import ActiveDevicesChart from '../components/ActiveDevicesChart';
 import AllPlatformDashboard from '../components/AllPlatformDashboard';
 import { calculateHealthScore } from '../lib/healthScore';
-import { formatNumber, formatCompactNumber, formatDelta } from '../lib/format';
+import SkeletonDashboard from '../components/SkeletonDashboard';
+import { formatNumber } from '../lib/format';
 import {
   Users,
   Download,
@@ -25,7 +28,10 @@ import {
   ShieldCheck,
   BarChart2,
   Percent,
-  LayoutGrid
+  LayoutGrid,
+  AlertTriangle,
+  RefreshCw,
+  Play
 } from 'lucide-react';
 
 export default function Dashboard({
@@ -34,6 +40,7 @@ export default function Dashboard({
   deviceStats,
   releases,
   platform,
+  setPlatform,
   activeDimension,
   setActiveDimension,
   loading,
@@ -42,46 +49,64 @@ export default function Dashboard({
   selectedProjectIndex,
   setSelectedProjectIndex,
   authToken,
-  isStaticMode
+  isStaticMode,
+  refreshData,
+  switchToDemoMode
 }) {
   const [isLogarithmic, setIsLogarithmic] = useState(false);
   const [selectedDrilldownPoint, setSelectedDrilldownPoint] = useState(null);
   const [showPortfolio, setShowPortfolio] = useState(true);
 
-  if (loading && !stats) return (
-    <div className="flex items-center justify-center h-full">
-      <Activity className="animate-spin text-accent-blue mr-2" />
-      <span>Loading dashboard data...</span>
+  if (loading && !stats) return <SkeletonDashboard />;
+
+  if (error && (!stats || !stats.dailyTrends)) return (
+    <div className="glass-card p-8 md:p-12 text-center max-w-2xl mx-auto my-8 border border-rose-500/20 space-y-6 shadow-2xl">
+      <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
+        <AlertTriangle size={32} />
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-2xl font-bold text-white">Data Connection Issue</h3>
+        <p className="text-sm text-slate-300 max-w-md mx-auto">
+          {error || 'Unable to communicate with the analytics backend service.'}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        {switchToDemoMode && (
+          <button
+            onClick={switchToDemoMode}
+            className="px-5 py-2.5 bg-accent-blue text-slate-950 font-bold rounded-xl hover:bg-accent-blue/90 transition-all flex items-center gap-2 text-sm shadow-lg shadow-accent-blue/10"
+          >
+            <Play size={16} className="fill-slate-950" />
+            <span>Explore in Demo Mode</span>
+          </button>
+        )}
+
+        {refreshData && (
+          <button
+            onClick={refreshData}
+            className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/10 transition-all flex items-center gap-2 text-sm"
+          >
+            <RefreshCw size={16} />
+            <span>Retry Connection</span>
+          </button>
+        )}
+      </div>
+
+      <div className="text-xs text-slate-400 bg-white/5 p-4 rounded-xl border border-white/5 text-left space-y-1">
+        <p className="font-semibold text-slate-300">💡 Quick Troubleshooting:</p>
+        <p>• Verify your API backend is running (`npm run dev` or `node server.js`).</p>
+        <p>• Check if JWT authentication or environment key configurations are valid.</p>
+        <p>• You can switch to Demo Mode anytime to test all features instantly.</p>
+      </div>
     </div>
   );
 
-  if (error && (!stats || stats.dailyTrends?.length === 0)) return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <div className="bg-rose-500/20 p-4 rounded-full mb-4">
-        <Activity className="text-rose-500 w-8 h-8" />
-      </div>
-      <h3 className="text-xl font-bold mb-2">Failed to load data</h3>
-      <p className="text-white/60 mb-6 max-w-md">{error}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl font-bold transition-all"
-      >
-        Retry
-      </button>
-    </div>
-  );
-
-  if (!stats && !loading) return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <div className="bg-white/5 p-4 rounded-full mb-4">
-        <Activity className="text-white/20 w-8 h-8" />
-      </div>
-      <h3 className="text-xl font-bold mb-2">Dashboard Ready</h3>
-      <p className="text-white/40 mb-6 max-w-md">Connect a data source or enter demo mode to see your stats.</p>
-    </div>
-  );
+  if (!stats && !loading) return <SkeletonDashboard />;
 
   if (!stats) return null;
+
 
   // True Period-over-Period trend computation
   const computeTrend = (key) => {
@@ -146,6 +171,109 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6 relative">
+      {/* Standard Tab Switcher UI with Large Icons */}
+      <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
+          {[
+            {
+              id: 'all',
+              title: 'All Platforms',
+              countBadge: `${projects.length || 0}`,
+              icon: LayoutGrid,
+              activeIndicator: 'bg-accent-blue',
+              activeText: 'text-accent-blue',
+              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+              badgeStyle: 'bg-accent-blue/20 text-accent-blue border-accent-blue/30',
+            },
+            {
+              id: 'google',
+              title: 'Google Play',
+              countBadge: `${projects.filter(p => p.platform === 'google').length || 0}`,
+              icon: PlayStoreIcon,
+              activeIndicator: 'bg-emerald-400',
+              activeText: 'text-emerald-400',
+              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+              badgeStyle: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+            },
+            {
+              id: 'apple',
+              title: 'App Store',
+              countBadge: `${projects.filter(p => p.platform === 'apple').length || 0}`,
+              icon: AppleStoreIcon,
+              activeIndicator: 'bg-sky-400',
+              activeText: 'text-sky-300',
+              activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
+              badgeStyle: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+            },
+          ].map((tab) => {
+            const isSelected = platform === tab.id;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setPlatform && setPlatform(tab.id)}
+                className={clsx(
+                  "relative flex-1 flex items-center justify-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer border select-none",
+                  isSelected
+                    ? `${tab.activeBg} border`
+                    : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                )}
+              >
+                {/* Large Store Icon */}
+                <div className={clsx(
+                  "w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200",
+                  isSelected ? "bg-white/10 text-white scale-105" : "bg-white/5 text-slate-400"
+                )}>
+                  <Icon size={20} />
+                </div>
+
+                {/* Tab Title */}
+                <span className={clsx(
+                  "font-bold tracking-tight text-sm truncate",
+                  isSelected ? "text-white" : "text-slate-300"
+                )}>
+                  {tab.title}
+                </span>
+
+                {/* Count Badge */}
+                <span className={clsx(
+                  "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 border transition-colors",
+                  isSelected
+                    ? tab.badgeStyle
+                    : "bg-white/5 text-slate-500 border-white/5"
+                )}>
+                  {tab.countBadge} {parseInt(tab.countBadge) === 1 ? 'App' : 'Apps'}
+                </span>
+
+                {/* Standard Tab Active Bottom Bar */}
+                {isSelected && (
+                  <div className={clsx(
+                    "absolute bottom-0 left-4 right-4 h-0.5 rounded-t-full shadow-md transition-all",
+                    tab.activeIndicator
+                  )} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
+          <div className="flex items-center space-x-3">
+            <AlertTriangle size={18} className="text-rose-400 shrink-0" />
+            <span><strong>Warning:</strong> {error}. Showing last available data.</span>
+          </div>
+          {refreshData && (
+            <button
+              onClick={refreshData}
+              className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-lg font-semibold transition-all border border-rose-500/30"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
       {/* Platform Breakdown Cards for Overview */}
       {platform === 'all' && (
         <AllPlatformDashboard
@@ -154,10 +282,13 @@ export default function Dashboard({
           setSelectedProjectIndex={setSelectedProjectIndex}
         />
       )}
-      {/* App Portfolio Grid Toggle & Component */}
-      {projects.length > 1 && (
+      {/* App Portfolio Grid Toggle & Component (Filtered by platform tab) */}
+      {platform !== 'all' && filteredProjects.length > 0 && (
         <div className="flex flex-col space-y-4">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              {platform === 'google' ? 'Google Play Apps' : 'App Store Apps'} ({filteredProjects.length})
+            </h3>
             <button
               onClick={() => setShowPortfolio(!showPortfolio)}
               className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-semibold transition-all text-white/60 hover:text-white border border-white/10"
@@ -168,7 +299,7 @@ export default function Dashboard({
           </div>
           {showPortfolio && (
             <PortfolioSmallMultiples
-              projects={projects}
+              projects={filteredProjects}
               appTrends={stats.appTrends}
               onSelectProject={setSelectedProjectIndex}
             />

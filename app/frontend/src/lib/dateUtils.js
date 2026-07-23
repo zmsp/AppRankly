@@ -51,36 +51,41 @@ export function getPresetDateRange(preset, now = new Date()) {
   const todayISO = formatDateISO(now);
   let start = new Date(now);
 
-  if (p === '1d' || p === '24h' || p === 'last_24h') {
+  if (p === '1d' || p === '24h' || p === 'last_24h' || p === '1 day') {
     start.setDate(now.getDate() - 1);
-    return { start: formatDateISO(start), end: todayISO, label: 'Last 24 hours', preset: '1D' };
+    return { start: formatDateISO(start), end: todayISO, label: 'Last 1 day', preset: '1D' };
   }
-  if (p === '7d') {
+  if (p === '7d' || p === '7 days') {
     start.setDate(now.getDate() - 7);
     return { start: formatDateISO(start), end: todayISO, label: 'Last 7 days', preset: '7D' };
   }
-  if (p === '14d') {
+  if (p === '14d' || p === '14 days') {
     start.setDate(now.getDate() - 14);
     return { start: formatDateISO(start), end: todayISO, label: 'Last 14 days', preset: '14D' };
   }
-  if (p === '1m' || p === '30d') {
-    start.setMonth(now.getMonth() - 1);
-    return { start: formatDateISO(start), end: todayISO, label: 'Last 30 days', preset: '1M' };
+  if (p === '30d' || p === '1m' || p === '30 days') {
+    start.setDate(now.getDate() - 30);
+    return { start: formatDateISO(start), end: todayISO, label: 'Last 30 days', preset: '30D' };
   }
-  if (p === '3m' || p === '90d') {
+  if (p === '60d' || p === '60 days') {
+    start.setDate(now.getDate() - 60);
+    return { start: formatDateISO(start), end: todayISO, label: 'Last 60 days', preset: '60D' };
+  }
+  if (p === '3m' || p === '90d' || p === '3 months') {
     start.setMonth(now.getMonth() - 3);
     return { start: formatDateISO(start), end: todayISO, label: 'Last 90 days', preset: '3M' };
   }
-  if (p === '6m') {
+  if (p === '6m' || p === '6 mo' || p === '6 months') {
     start.setMonth(now.getMonth() - 6);
     return { start: formatDateISO(start), end: todayISO, label: 'Last 6 months', preset: '6M' };
   }
-  if (p === '1y' || p === '12m') {
+  if (p === '1y' || p === '12m' || p === '1 year' || p === 'year') {
     start.setFullYear(now.getFullYear() - 1);
     return { start: formatDateISO(start), end: todayISO, label: 'Last 1 year', preset: '1Y' };
   }
   if (p === 'all') {
-    return { start: '2020-01-01', end: todayISO, label: 'All time', preset: 'ALL' };
+    start.setFullYear(now.getFullYear() - 10);
+    return { start: formatDateISO(start), end: todayISO, label: 'All time (10y)', preset: 'ALL' };
   }
 
   // Fixed Periods

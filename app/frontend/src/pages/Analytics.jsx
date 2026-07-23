@@ -1,26 +1,61 @@
 import React, { useState } from 'react';
-import { Activity, ShieldAlert, CheckCircle2, BarChart2 } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle2, BarChart2, AlertTriangle, Play, RefreshCw } from 'lucide-react';
 import DimensionChart from '../components/DimensionChart';
 import TrendChart from '../components/TrendChart';
 import CombinedInstallsChart from '../components/CombinedInstallsChart';
+import SkeletonDashboard from '../components/SkeletonDashboard';
 
-export default function Analytics({ stats, dimensionStats, releases, activeDimension, setActiveDimension, loading, error, platform, selectedProjectIndex }) {
+export default function Analytics({
+  stats,
+  dimensionStats,
+  releases,
+  activeDimension,
+  setActiveDimension,
+  loading,
+  error,
+  platform,
+  selectedProjectIndex,
+  refreshData,
+  switchToDemoMode
+}) {
   const [isLogarithmic, setIsLogarithmic] = useState(true);
 
-  if (loading && !stats) return (
-    <div className="flex items-center justify-center h-full">
-      <Activity className="animate-spin text-accent-blue mr-2" />
-      <span>Loading analytics...</span>
-    </div>
-  );
+  if (loading && !stats) return <SkeletonDashboard />;
 
   if (error && !stats) return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <div className="bg-rose-500/20 p-4 rounded-full mb-4">
-        <Activity className="text-rose-500 w-8 h-8" />
+    <div className="glass-card p-8 md:p-12 text-center max-w-2xl mx-auto my-8 border border-rose-500/20 space-y-6 shadow-2xl">
+      <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
+        <AlertTriangle size={32} />
       </div>
-      <h3 className="text-xl font-bold mb-2">Failed to load analytics</h3>
-      <p className="text-white/60 mb-6 max-w-md">{error}</p>
+
+      <div className="space-y-2">
+        <h3 className="text-2xl font-bold text-white">Analytics Unavailable</h3>
+        <p className="text-sm text-slate-300 max-w-md mx-auto">
+          {error || 'Could not load analytics metrics from the backend.'}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+        {switchToDemoMode && (
+          <button
+            onClick={switchToDemoMode}
+            className="px-5 py-2.5 bg-accent-blue text-slate-950 font-bold rounded-xl hover:bg-accent-blue/90 transition-all flex items-center gap-2 text-sm shadow-lg shadow-accent-blue/10"
+          >
+            <Play size={16} className="fill-slate-950" />
+            <span>Explore in Demo Mode</span>
+          </button>
+        )}
+
+        {refreshData && (
+          <button
+            onClick={refreshData}
+            className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/10 transition-all flex items-center gap-2 text-sm"
+          >
+            <RefreshCw size={16} />
+            <span>Retry Connection</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -37,15 +72,8 @@ export default function Analytics({ stats, dimensionStats, releases, activeDimen
     } : null;
   })() : null;
 
-  if (!stats) return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
-      <div className="bg-white/5 p-4 rounded-full mb-4">
-        <Activity className="text-white/20 w-8 h-8" />
-      </div>
-      <h3 className="text-xl font-bold mb-2">No data available</h3>
-      <p className="text-white/40 mb-6 max-w-md">Please ensure your project is correctly configured and synchronized.</p>
-    </div>
-  );
+  if (!stats && !loading) return <SkeletonDashboard />;
+
 
   const isAllProjects = selectedProjectIndex === 'all';
 

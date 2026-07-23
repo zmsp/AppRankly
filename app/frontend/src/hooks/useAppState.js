@@ -54,10 +54,19 @@ export function useAppState() {
   const [dimensionStats, setDimensionStats] = useState(null);
   const [deviceStats, setDeviceStats] = useState(null);
   const [releases, setReleases] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [dimensionLoading, setDimensionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [setupRequired, setSetupRequired] = useState(false);
+
+  const switchToDemoMode = useCallback(() => {
+    setIsDemoMode(true);
+    setError(null);
+    if (!window.location.hash.includes('#/demo')) {
+      navigate('/demo', { replace: true });
+    }
+  }, [navigate]);
+
 
   // Sync URL when platform, selectedProjectIndex, or dateRange changes
   const updateUrl = useCallback((newPlatform, newProject, newRangePreset, customStart, customEnd) => {
@@ -90,12 +99,36 @@ export function useAppState() {
 
   const handleSetPlatform = (p) => {
     setPlatform(p);
-    updateUrl(p, selectedProjectIndex, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
+    let nextProj = selectedProjectIndex;
+    if (p === 'all') {
+      nextProj = 'all';
+      setSelectedProjectIndex('all');
+    } else if (selectedProjectIndex === 'all' && projects.length > 0) {
+      const filtered = projects.filter(proj => proj.platform === p);
+      nextProj = filtered.length > 0 ? filtered[0].index : projects[0].index;
+      setSelectedProjectIndex(nextProj);
+    }
+    updateUrl(p, nextProj, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
 
   const handleSetSelectedProjectIndex = (pIndex) => {
+    let nextPlatform = platform;
+    if (pIndex === 'all') {
+      nextPlatform = 'all';
+    } else if (pIndex !== 'manual' && projects.length > 0) {
+      const targetProj = projects.find(p => p.index.toString() === pIndex.toString());
+      if (targetProj && targetProj.platform) {
+        nextPlatform = targetProj.platform;
+      } else if (platform === 'all') {
+        nextPlatform = 'google';
+      }
+    }
+
+    if (nextPlatform !== platform) {
+      setPlatform(nextPlatform);
+    }
     setSelectedProjectIndex(pIndex);
-    updateUrl(platform, pIndex, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
+    updateUrl(nextPlatform, pIndex, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
 
   const handleSetDateRange = (rangeObj, presetName) => {
@@ -190,24 +223,34 @@ export function useAppState() {
 
   useEffect(() => {
     if (projects.length > 0) {
-      const filtered = projects.filter(p => p.platform === platform);
-      const exists = filtered.some(p => p.index === selectedProjectIndex);
-      
-      if (selectedProjectIndex === 'all' && filtered.length > 1) {
+      if (platform === 'all') {
+        if (selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
+          const proj = projects.find(p => p.index.toString() === selectedProjectIndex.toString());
+          if (proj && proj.platform) {
+            setPlatform(proj.platform);
+          }
+        }
         return;
       }
-      
-      if (!exists && selectedProjectIndex !== 'all') {
-        if (filtered.length > 1) {
-          setSelectedProjectIndex('all');
-        } else if (filtered.length === 1) {
+
+      const filtered = projects.filter(p => p.platform === platform);
+      const exists = filtered.some(p => p.index.toString() === selectedProjectIndex?.toString());
+
+      if (selectedProjectIndex === 'all') {
+        const defaultProj = filtered.length > 0 ? filtered[0].index : projects[0].index;
+        setSelectedProjectIndex(defaultProj);
+        return;
+      }
+
+      if (!exists && selectedProjectIndex !== 'manual') {
+        if (filtered.length > 0) {
           setSelectedProjectIndex(filtered[0].index);
-        } else if (selectedProjectIndex !== 'manual') {
-          setSelectedProjectIndex('manual');
+        } else {
+          setSelectedProjectIndex(projects[0].index);
         }
       }
     }
-  }, [platform, projects]);
+  }, [platform, projects, selectedProjectIndex]);
 
   // Load Main Stats Overview
   const loadOverviewStats = useCallback(async () => {
@@ -383,7 +426,9 @@ export function useAppState() {
     loading, dimensionLoading, error,
     setupRequired, setSetupRequired,
     refreshData: loadOverviewStats,
+    switchToDemoMode,
     fetchProjects,
     fetchReleases
   };
 }
+

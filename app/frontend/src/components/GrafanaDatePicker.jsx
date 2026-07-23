@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Calendar,
   ChevronDown,
@@ -19,87 +20,51 @@ import {
   formatDateISO
 } from '../lib/dateUtils';
 
-const RELATIVE_PRESETS = [
-  { id: '1D', label: 'Last 24 hours' },
-  { id: '7D', label: 'Last 7 days' },
-  { id: '14D', label: 'Last 14 days' },
-  { id: '1M', label: 'Last 30 days' },
-  { id: '3M', label: 'Last 90 days' },
-  { id: '6M', label: 'Last 6 months' },
-  { id: '1Y', label: 'Last 1 year' },
-  { id: 'ALL', label: 'All time' },
-];
-
-const FIXED_PRESETS = [
-  { id: 'today', label: 'Today' },
-  { id: 'yesterday', label: 'Yesterday' },
-  { id: 'this_week', label: 'This week' },
-  { id: 'this_month', label: 'This month' },
-  { id: 'this_year', label: 'This year' },
+const QUICK_PRESETS = [
+  { id: '1D', label: '1 Day', shortLabel: '1D' },
+  { id: '7D', label: '7 Days', shortLabel: '7D' },
+  { id: '30D', label: '30 Days', shortLabel: '30D' },
+  { id: '60D', label: '60 Days', shortLabel: '60D' },
+  { id: '6M', label: '6 Months', shortLabel: '6M' },
+  { id: '1Y', label: '1 Year', shortLabel: '1Y' },
+  { id: 'ALL', label: 'All (10 Years)', shortLabel: 'ALL' },
 ];
 
 export default function GrafanaDatePicker({ dateRange, setDateRange }) {
   const [isOpen, setIsOpen] = useState(false);
-  const popoverRef = useRef(null);
+  const modalContentRef = useRef(null);
 
-  // Form states for manual typing / calendar selection
+  // Draft state for range selection
+  const [draftStart, setDraftStart] = useState(dateRange?.start || '');
+  const [draftEnd, setDraftEnd] = useState(dateRange?.end || '');
+  const [hoveredDate, setHoveredDate] = useState(null);
+
+  // Inputs for manual editing
   const [fromInput, setFromInput] = useState(dateRange?.start || '');
   const [toInput, setToInput] = useState(dateRange?.end || '');
-  const [fromDateVal, setFromDateVal] = useState(dateRange?.start || '');
-  const [toDateVal, setToDateVal] = useState(dateRange?.end || '');
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Sync inputs whenever dateRange prop changes externally
+  // Calendar month view state
+  const [viewDate, setViewDate] = useState(() => {
+    const d = dateRange?.end ? new Date(dateRange.end + 'T00:00:00') : new Date();
+    return isNaN(d.getTime()) ? new Date() : d;
+  });
+
+  // Sync state whenever dateRange prop changes externally
   useEffect(() => {
     if (dateRange) {
+      setDraftStart(dateRange.start || '');
+      setDraftEnd(dateRange.end || '');
       setFromInput(dateRange.start || '');
       setToInput(dateRange.end || '');
-      setFromDateVal(dateRange.start || '');
-      setToDateVal(dateRange.end || '');
-    }
-  }, [dateRange]);
-
-  // Click outside listener to close popover
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
-        setIsOpen(false);
+      if (dateRange.end) {
+        const d = new Date(dateRange.end + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          setViewDate(d);
+        }
       }
     }
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const handleApplyManual = () => {
-    setErrorMessage('');
-    const parsedStart = parseDateExpression(fromInput);
-    const parsedEnd = parseDateExpression(toInput);
-
-    if (!parsedStart) {
-      setErrorMessage('Invalid From date string (use YYYY-MM-DD or now-7d)');
-      return;
-    }
-    if (!parsedEnd) {
-      setErrorMessage('Invalid To date string (use YYYY-MM-DD or now)');
-      return;
-    }
-    if (parsedStart > parsedEnd) {
-      setErrorMessage('Start date cannot be after end date');
-      return;
-    }
-
-    setDateRange({
-      start: parsedStart,
-      end: parsedEnd,
-      label: `${parsedStart} → ${parsedEnd}`,
-      preset: null
-    });
-    setIsOpen(false);
-  };
+  }, [dateRange]);
 
   const handleSelectPreset = (presetId) => {
     setErrorMessage('');
@@ -124,17 +89,113 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
     }
   };
 
-  const activePreset = dateRange?.preset?.toUpperCase() || (
-    dateRange?.label?.startsWith('Last') ? dateRange.label : null
-  );
+  const handleApplyManual = () => {
+    setErrorMessage('');
+    const parsedStart = parseDateExpression(fromInput);
+    const parsedEnd = parseDateExpression(toInput);
+
+    if (!parsedStart) {
+      setErrorMessage('Invalid From date (use YYYY-MM-DD or now-7d)');
+      return;
+    }
+    if (!parsedEnd) {
+      setErrorMessage('Invalid To date (use YYYY-MM-DD or now)');
+      return;
+    }
+    if (parsedStart > parsedEnd) {
+      setErrorMessage('Start date cannot be after end date');
+      return;
+    }
+
+    setDateRange({
+      start: parsedStart,
+      end: parsedEnd,
+      label: `${parsedStart} → ${parsedEnd}`,
+      preset: null
+    });
+    setIsOpen(false);
+  };
+
+  // Calendar Day Click Handler
+  const handleDayClick = (dateStr) => {
+    setErrorMessage('');
+
+    if (!draftStart || (draftStart && draftEnd)) {
+      // First click: set start date, clear end date
+      setDraftStart(dateStr);
+      setDraftEnd('');
+      setFromInput(dateStr);
+      setToInput('');
+    } else if (draftStart && !draftEnd) {
+      // Second click: set end date
+      if (dateStr < draftStart) {
+        setDraftStart(dateStr);
+        setDraftEnd(draftStart);
+        setFromInput(dateStr);
+        setToInput(draftStart);
+        setDateRange({
+          start: dateStr,
+          end: draftStart,
+          label: `${dateStr} → ${draftStart}`,
+          preset: null
+        });
+      } else {
+        setDraftEnd(dateStr);
+        setToInput(dateStr);
+        setDateRange({
+          start: draftStart,
+          end: dateStr,
+          label: `${draftStart} → ${dateStr}`,
+          preset: null
+        });
+      }
+      setIsOpen(false);
+    }
+  };
+
+  // Calendar grid calculation
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const prevMonth = () => {
+    setViewDate(new Date(year, month - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setViewDate(new Date(year, month + 1, 1));
+  };
+
+  const todayStr = formatDateISO(new Date());
+
+  // Determine date ranges for highlighting in calendar
+  let effectiveStart = draftStart;
+  let effectiveEnd = draftEnd;
+  if (draftStart && !draftEnd && hoveredDate) {
+    if (hoveredDate >= draftStart) {
+      effectiveEnd = hoveredDate;
+    } else {
+      effectiveStart = hoveredDate;
+      effectiveEnd = draftStart;
+    }
+  }
+
+  const activePreset = dateRange?.preset?.toUpperCase();
 
   const displayLabel = dateRange?.label && dateRange.label !== 'Custom'
     ? dateRange.label
     : `${dateRange?.start || ''} → ${dateRange?.end || ''}`;
 
   return (
-    <div className="relative inline-flex items-center space-x-1 shrink-0" ref={popoverRef}>
-      {/* Time Window Shift Step Back Button */}
+    <div className="relative inline-flex items-center space-x-1 shrink-0">
+      {/* Shift Backward */}
       <button
         onClick={() => handleShift('back')}
         className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors border border-white/5"
@@ -143,7 +204,7 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
         <ChevronLeft size={14} />
       </button>
 
-      {/* Main Grafana Time Picker Trigger Button */}
+      {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={clsx(
@@ -154,11 +215,11 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
         )}
       >
         <Calendar size={14} className="text-accent-blue shrink-0" />
-        <span className="truncate max-w-[140px] sm:max-w-[200px]">{displayLabel}</span>
+        <span className="truncate max-w-[140px] sm:max-w-[210px] font-mono">{displayLabel}</span>
         <ChevronDown size={13} className={clsx("transition-transform duration-200 text-white/50", isOpen && "rotate-180")} />
       </button>
 
-      {/* Time Window Shift Step Forward Button */}
+      {/* Shift Forward */}
       <button
         onClick={() => handleShift('forward')}
         className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors border border-white/5"
@@ -167,7 +228,7 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
         <ChevronRight size={14} />
       </button>
 
-      {/* Zoom Out Button */}
+      {/* Zoom Out */}
       <button
         onClick={handleZoomOut}
         className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors border border-white/5"
@@ -176,184 +237,214 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
         <ZoomOut size={14} />
       </button>
 
-      {/* Grafana-style Popover Panel */}
-      {isOpen && (
-        <div className="absolute top-full mt-2 left-0 sm:right-0 sm:left-auto z-50 w-[330px] sm:w-[580px] bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 text-white animate-in fade-in zoom-in-95 duration-150">
-          
-          {/* Header */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
-            <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
-              <Clock size={16} className="text-accent-blue" />
-              <span>Grafana Time Range Control</span>
+      {/* Popup Modal Backdrop & Panel (Rendered via Portal to document.body to prevent clipping) */}
+      {isOpen && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-3 pt-[220px] sm:pt-[240px] bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            ref={modalContentRef}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[620px] bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 text-white animate-in zoom-in-95 duration-150 max-h-[75vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
+              <div className="flex items-center space-x-2 text-xs font-bold text-white/90">
+                <Clock size={16} className="text-accent-blue" />
+                <span>Select Date Range</span>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={16} />
+              </button>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
-            {/* Left Column: Manual Absolute Range Entry & Calendar */}
-            <div className="sm:col-span-6 space-y-4 flex flex-col justify-between border-b sm:border-b-0 sm:border-r border-white/10 pb-4 sm:pb-0 sm:pr-4">
-              <div>
-                <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-3">
-                  Absolute Time Range
-                </h4>
+            {/* Preset Buttons Bar */}
+            <div className="mb-4">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">
+                Quick Ranges
+              </div>
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                {QUICK_PRESETS.map((p) => {
+                  const isActive = activePreset === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleSelectPreset(p.id)}
+                      className={clsx(
+                        "px-2 py-1.5 rounded-lg text-center text-xs font-bold transition-all border",
+                        isActive
+                          ? "bg-accent-blue text-slate-950 border-accent-blue shadow-md scale-[1.02]"
+                          : "bg-white/5 border-white/10 text-white/80 hover:bg-white/15 hover:text-white hover:border-white/20"
+                      )}
+                      title={p.label}
+                    >
+                      {p.shortLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                {/* From Field */}
-                <div className="space-y-1.5 mb-3">
-                  <label className="text-[11px] font-semibold text-white/70 flex items-center justify-between">
-                    <span>From:</span>
-                    <span className="text-[10px] text-white/40 font-mono">e.g. 2026-07-01 or now-7d</span>
-                  </label>
-                  <div className="flex items-center space-x-2">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 pt-2 border-t border-white/10">
+              
+              {/* Left Column: Calendar View */}
+              <div className="sm:col-span-7 space-y-3">
+                {/* Month Navigation Header */}
+                <div className="flex items-center justify-between px-1">
+                  <button
+                    onClick={prevMonth}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/5 transition-colors"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+
+                  <div className="text-xs font-bold text-white flex items-center space-x-1">
+                    <span>{monthNames[month]}</span>
+                    <span className="text-white/60">{year}</span>
+                  </div>
+
+                  <button
+                    onClick={nextMonth}
+                    className="p-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/5 transition-colors"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                {/* Day Names Header */}
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-white/40 uppercase">
+                  <span>Su</span>
+                  <span>Mo</span>
+                  <span>Tu</span>
+                  <span>We</span>
+                  <span>Th</span>
+                  <span>Fr</span>
+                  <span>Sa</span>
+                </div>
+
+                {/* Day Cells Matrix */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Empty Padding Days for Month Start Offset */}
+                  {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                    <div key={`empty-${i}`} className="h-8" />
+                  ))}
+
+                  {/* Month Days */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const dayNum = i + 1;
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+                    const isToday = dateStr === todayStr;
+                    const isStart = dateStr === draftStart;
+                    const isEnd = dateStr === draftEnd;
+                    const isInRange =
+                      effectiveStart &&
+                      effectiveEnd &&
+                      dateStr >= effectiveStart &&
+                      dateStr <= effectiveEnd;
+
+                    return (
+                      <button
+                        key={dateStr}
+                        onClick={() => handleDayClick(dateStr)}
+                        onMouseEnter={() => setHoveredDate(dateStr)}
+                        onMouseLeave={() => setHoveredDate(null)}
+                        className={clsx(
+                          "h-8 rounded-lg text-xs font-medium transition-all flex items-center justify-center relative",
+                          isStart || isEnd
+                            ? "bg-accent-blue text-slate-950 font-bold shadow-md z-10"
+                            : isInRange
+                            ? "bg-accent-blue/20 text-accent-blue font-semibold"
+                            : "hover:bg-white/10 text-white/90",
+                          isToday && !isStart && !isEnd && "ring-1 ring-accent-blue/50 text-accent-blue font-bold"
+                        )}
+                      >
+                        {dayNum}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Column: Custom Input & Action Controls */}
+              <div className="sm:col-span-5 flex flex-col justify-between space-y-4 sm:border-l sm:border-white/10 sm:pl-5">
+                <div>
+                  <h4 className="text-[11px] font-bold text-white/50 uppercase tracking-wider mb-3">
+                    Manual Range Entry
+                  </h4>
+
+                  {/* From Input */}
+                  <div className="space-y-1 mb-3">
+                    <label className="text-[11px] font-semibold text-white/70">From Date</label>
                     <input
                       type="text"
                       value={fromInput}
                       onChange={(e) => {
                         setFromInput(e.target.value);
                         const parsed = parseDateExpression(e.target.value);
-                        if (parsed) setFromDateVal(parsed);
+                        if (parsed) setDraftStart(parsed);
                       }}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue font-mono"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue font-mono"
                       placeholder="YYYY-MM-DD"
                     />
-                    {/* Visual Calendar Date Picker */}
-                    <div className="relative shrink-0">
-                      <input
-                        type="date"
-                        value={fromDateVal}
-                        onChange={(e) => {
-                          setFromDateVal(e.target.value);
-                          setFromInput(e.target.value);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        title="Open Calendar Picker"
-                      />
-                      <div className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-accent-blue pointer-events-none">
-                        <Calendar size={14} />
-                      </div>
-                    </div>
                   </div>
-                </div>
 
-                {/* To Field */}
-                <div className="space-y-1.5 mb-3">
-                  <label className="text-[11px] font-semibold text-white/70 flex items-center justify-between">
-                    <span>To:</span>
-                    <span className="text-[10px] text-white/40 font-mono">e.g. 2026-07-23 or now</span>
-                  </label>
-                  <div className="flex items-center space-x-2">
+                  {/* To Input */}
+                  <div className="space-y-1 mb-3">
+                    <label className="text-[11px] font-semibold text-white/70">To Date</label>
                     <input
                       type="text"
                       value={toInput}
                       onChange={(e) => {
                         setToInput(e.target.value);
                         const parsed = parseDateExpression(e.target.value);
-                        if (parsed) setToDateVal(parsed);
+                        if (parsed) setDraftEnd(parsed);
                       }}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue font-mono"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue font-mono"
                       placeholder="YYYY-MM-DD"
                     />
-                    {/* Visual Calendar Date Picker */}
-                    <div className="relative shrink-0">
-                      <input
-                        type="date"
-                        value={toDateVal}
-                        onChange={(e) => {
-                          setToDateVal(e.target.value);
-                          setToInput(e.target.value);
-                        }}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        title="Open Calendar Picker"
-                      />
-                      <div className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-accent-blue pointer-events-none">
-                        <Calendar size={14} />
-                      </div>
+                  </div>
+
+                  {/* Range Info */}
+                  <div className="bg-white/5 rounded-xl p-2.5 border border-white/5 text-[11px] text-white/60 space-y-1 font-mono">
+                    <div className="flex justify-between">
+                      <span>Start:</span>
+                      <span className="text-white font-semibold">{draftStart || 'Select...'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>End:</span>
+                      <span className="text-white font-semibold">{draftEnd || 'Select...'}</span>
                     </div>
                   </div>
+
+                  {/* Error Banner */}
+                  {errorMessage && (
+                    <div className="mt-2 flex items-center space-x-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] p-2 rounded-lg">
+                      <AlertCircle size={13} className="shrink-0" />
+                      <span>{errorMessage}</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Error Message */}
-                {errorMessage && (
-                  <div className="flex items-center space-x-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] p-2 rounded-lg mb-3">
-                    <AlertCircle size={13} className="shrink-0" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
+                {/* Apply Button */}
+                <button
+                  onClick={handleApplyManual}
+                  className="w-full bg-accent-blue hover:bg-accent-blue/90 text-slate-950 font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center space-x-1.5 shadow-lg shadow-accent-blue/20"
+                >
+                  <Check size={14} />
+                  <span>Apply Range</span>
+                </button>
               </div>
 
-              {/* Apply Button */}
-              <button
-                onClick={handleApplyManual}
-                className="w-full bg-accent-blue hover:bg-accent-blue/90 text-background font-bold text-xs py-2 px-4 rounded-xl transition-colors flex items-center justify-center space-x-1.5 shadow-lg shadow-accent-blue/20"
-              >
-                <Check size={14} />
-                <span>Apply time range</span>
-              </button>
             </div>
 
-            {/* Right Column: Quick Ranges & Presets */}
-            <div className="sm:col-span-6 space-y-4">
-              {/* Relative Ranges */}
-              <div>
-                <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">
-                  Relative Presets
-                </h4>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {RELATIVE_PRESETS.map((p) => {
-                    const isActive = activePreset === p.id || (dateRange?.preset && dateRange.preset.toUpperCase() === p.id);
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => handleSelectPreset(p.id)}
-                        className={clsx(
-                          "px-2.5 py-1.5 rounded-lg text-left text-xs font-medium transition-all flex items-center justify-between border",
-                          isActive
-                            ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue font-bold shadow-sm"
-                            : "bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-                        )}
-                      >
-                        <span>{p.label}</span>
-                        {isActive && <Check size={12} className="text-accent-blue" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Fixed Period Presets */}
-              <div>
-                <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">
-                  Fixed Periods
-                </h4>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {FIXED_PRESETS.map((p) => {
-                    const isActive = dateRange?.preset === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        onClick={() => handleSelectPreset(p.id)}
-                        className={clsx(
-                          "px-2.5 py-1.5 rounded-lg text-left text-xs font-medium transition-all flex items-center justify-between border",
-                          isActive
-                            ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue font-bold shadow-sm"
-                            : "bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:text-white"
-                        )}
-                      >
-                        <span>{p.label}</span>
-                        {isActive && <Check size={12} className="text-accent-blue" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
           </div>
-
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

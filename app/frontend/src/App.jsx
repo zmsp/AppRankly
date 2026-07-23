@@ -64,6 +64,9 @@ function App() {
         {/* Persistent Context Bar */}
         <ContextBar
           activeProject={activeProject}
+          projects={state.projects}
+          selectedProjectIndex={state.selectedProjectIndex}
+          setSelectedProjectIndex={state.setSelectedProjectIndex}
           platform={state.platform}
           dateRange={state.dateRange}
           comparisonMode={state.comparisonMode}
