@@ -99,24 +99,33 @@ async function getAppleSearch(term, country = 'us', limit = 30) {
   }
 }
 
-async function getAppleLookup(trackId) {
+async function getAppleLookup(trackIdOrBundleId) {
   try {
-    const url = `https://itunes.apple.com/lookup?id=${trackId}`;
+    const isNumeric = /^\d+$/.test(trackIdOrBundleId);
+    const url = isNumeric
+      ? `https://itunes.apple.com/lookup?id=${trackIdOrBundleId}`
+      : `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(trackIdOrBundleId)}`;
+
     const resp = await axios.get(url, { timeout: 10000 });
     const raw = resp.data?.results?.[0];
     return raw ? formatAppleRawData(raw) : null;
   } catch (err) {
-    console.warn(`[ASO Scraper] Apple lookup failed for ID ${trackId}:`, err.message);
+    console.warn(`[ASO Scraper] Apple lookup failed for ${trackIdOrBundleId}:`, err.message);
     return null;
   }
 }
 
 function formatAppleRawData(raw) {
+  const promo = raw.promotionalText || raw.subtitle || '';
+  const summary = promo || (raw.description ? raw.description.substring(0, 170).trim() : '');
+
   return {
     trackId: raw.trackId,
     bundleId: raw.bundleId,
     trackName: raw.trackName || '',
-    subtitle: raw.subtitle || '',
+    subtitle: raw.subtitle || promo,
+    promotionalText: raw.promotionalText || '',
+    summary: summary,
     description: raw.description || '',
     developer: raw.artistName || raw.sellerName || '',
     category: raw.primaryGenreName || '',
@@ -166,7 +175,7 @@ async function expandKeywordsAutocomplete(seeds, store = 'play', country = 'us',
 
   for (const seed of seedList) {
     if (!seed || !seed.trim()) continue;
-    const baseSuggestions = store === 'play' 
+    const baseSuggestions = store === 'play'
       ? await getPlaySuggest(seed, country, lang)
       : (await getAppleSearch(seed, country, 10)).map(item => item.trackName);
 

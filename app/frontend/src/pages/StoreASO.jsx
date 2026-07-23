@@ -82,6 +82,44 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
   const [focusArea, setFocusArea] = useState('Metadata optimization & keyword placement');
   const [customListingText, setCustomListingText] = useState('');
   const [maxTokens, setMaxTokens] = useState('4096');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const fetchPromptPreview = async (overrideFocus) => {
+    setPreviewLoading(true);
+    try {
+      const res = await apiFetch('/api/aso/prompt-preview', {
+        method: 'POST',
+        body: JSON.stringify({
+          packageName,
+          platform,
+          focusArea: overrideFocus || focusArea
+        })
+      }, authToken);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.scrapedListingText) {
+          setCustomListingText(data.scrapedListingText);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch prompt preview:', e.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleToggleParamsDrawer = () => {
+    const nextState = !showAuditParams;
+    setShowAuditParams(nextState);
+    if (nextState && !customListingText) {
+      fetchPromptPreview();
+    }
+  };
+
+  useEffect(() => {
+    fetchPromptPreview();
+  }, [packageName, platform]);
 
   const handleRunAudit = async () => {
     setAuditLoading(true);
@@ -256,10 +294,11 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowAuditParams(!showAuditParams)}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-white/10 transition-all"
+              onClick={handleToggleParamsDrawer}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5"
             >
-              {showAuditParams ? 'Hide Audit Params' : 'Edit Audit Params'}
+              {previewLoading && <RefreshCw size={12} className="animate-spin text-indigo-400" />}
+              {showAuditParams ? 'Hide Audit Params' : 'Edit Audit Params & Prompt'}
             </button>
             <button
               onClick={handleRunAudit}
@@ -277,9 +316,15 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           <div className="bg-slate-900/80 p-4 rounded-2xl border border-white/10 space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                <Bot size={14} /> AI Audit Parameters Preview & Overrides
+                <Bot size={14} /> AI Audit Prompt Context (Pre-filled from pulled store metadata)
               </span>
-              <span className="text-[10px] text-slate-400">Target Provider: <strong className="text-white uppercase">{selectedProvider}</strong> ({customModel || 'Default Model'})</span>
+              <button
+                onClick={() => fetchPromptPreview()}
+                disabled={previewLoading}
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
+              >
+                <RefreshCw size={10} className={previewLoading ? 'animate-spin' : ''} /> Reload Pulled Store Data
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -106,7 +106,7 @@ router.post('/aso/overview', (req, res) => {
           model: lastAuditRun.model,
           createdAt: lastAuditRun.created_at
         };
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const aiSpend = db.prepare(`
@@ -148,7 +148,7 @@ router.post('/aso/keywords/expand', async (req, res) => {
 
   try {
     const discovered = await scraper.expandKeywordsAutocomplete([seed], platform);
-    
+
     if (db) {
       const stmt = db.prepare(`
         INSERT INTO aso_keyword (package_name, platform, term, normalized, source, autocomplete_verified, added_at)
@@ -176,6 +176,82 @@ router.post('/aso/keywords/track', (req, res) => {
       UPDATE aso_keyword SET tracked = ? WHERE id = ? AND package_name = ? AND platform = ?
     `).run(tracked ? 1 : 0, keywordId, packageName, platform);
     res.json({ success: true, keywordId, tracked: Boolean(tracked) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Generate pre-filled AI Prompt Preview based on pulled store data
+ */
+router.post('/aso/prompt-preview', async (req, res) => {
+  const { packageName, platform = 'play', focusArea } = req.body;
+  if (!packageName) return res.status(400).json({ error: 'packageName is required' });
+
+  try {
+    let detailedData = null;
+    if (platform === 'play') {
+      detailedData = await scraper.getPlayListing(packageName);
+    } else {
+      detailedData = await scraper.getAppleLookup(packageName);
+    }
+
+    if (!detailedData && db) {
+      const snap = db.prepare(`
+        SELECT * FROM aso_listing_snapshot WHERE package_name = ? AND platform = ? ORDER BY fetched_at DESC LIMIT 1
+      `).get(packageName, platform);
+      if (snap) {
+        detailedData = {
+          title: snap.title,
+          developer: snap.developer,
+          category: snap.category,
+          score: snap.score,
+          ratings: snap.ratings_count,
+          contentRating: snap.content_rating,
+          priceText: snap.price,
+          installs: snap.installs_exact ? `${snap.installs_exact}+` : '',
+          summary: snap.short_desc,
+          subtitle: snap.subtitle,
+          description: snap.description
+        };
+      }
+    }
+
+    const defaultFocus = focusArea || 'Metadata optimization & keyword placement';
+
+    let title = detailedData?.title || detailedData?.trackName || packageName;
+    let dev = detailedData?.developer || 'N/A';
+    let cat = detailedData?.category || 'N/A';
+    let summaryHeader = platform === 'apple' ? '[SUBTITLE / PROMOTIONAL TEXT]' : '[SHORT DESCRIPTION]';
+    let summary = detailedData?.promotionalText || detailedData?.subtitle || detailedData?.summary || '';
+    let desc = detailedData?.description || '';
+
+    let userPrompt = `Audit the following ${platform} app listing against store conversion and keyword discovery best practices:
+Focus Area: ${defaultFocus}
+
+=== STORE LISTING METADATA ===
+App Title / Name: ${title}
+Package / App ID: ${packageName}
+Developer: ${dev}
+Category: ${cat}
+Rating: ${detailedData?.score || 0} (${detailedData?.ratings || 0} ratings)
+Content Rating: ${detailedData?.contentRating || 'N/A'}
+Price: ${detailedData?.priceText || 'Free'}
+Installs: ${detailedData?.installs || 'N/A'}
+
+${summaryHeader}
+${summary || 'None'}
+
+[FULL DESCRIPTION]
+${desc || 'None'}`;
+
+    res.json({
+      systemPrompt: prompts.auditPrompt.system,
+      userPrompt,
+      scrapedListingText: userPrompt,
+      focusArea: defaultFocus,
+      detailedData
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -237,7 +313,7 @@ router.post('/aso/audit', async (req, res) => {
       );
     }
 
-    const promptText = `Audit the following ${platform} listing:${focusArea ? `\nFocus Area: ${focusArea}` : ''}\n\n${listingText}`;
+    const promptText = customListingText || `Audit the following ${platform} listing:${focusArea ? `\nFocus Area: ${focusArea}` : ''}\n\n${listingText}`;
     const result = await generateJSON({
       system: prompts.auditPrompt.system,
       prompt: promptText,
@@ -275,10 +351,45 @@ router.post('/aso/audit', async (req, res) => {
  * Metadata Studio Variants
  */
 router.post('/aso/variants', async (req, res) => {
-  const { packageName, platform = 'play', cluster = 'general', provider, model } = req.body;
+  const { packageName, platform = 'play', cluster = 'general', provider, model, customContext } = req.body;
 
   try {
-    const promptText = `Generate optimized ${platform} metadata candidates targeting the cluster: "${cluster}".`;
+    let scrapedMeta = '';
+    if (db) {
+      const snap = db.prepare(`
+        SELECT title, short_desc, subtitle, description FROM aso_listing_snapshot
+        WHERE package_name = ? AND platform = ? ORDER BY fetched_at DESC LIMIT 1
+      `).get(packageName, platform);
+      if (snap) {
+        scrapedMeta = `Current Title/Name: ${snap.title || ''}\nCurrent Short Description/Subtitle: ${snap.short_desc || snap.subtitle || ''}\nCurrent Full Description: ${snap.description || ''}`;
+      }
+
+      const tracked = db.prepare(`
+        SELECT term FROM aso_keyword WHERE package_name = ? AND platform = ? AND tracked = 1
+      `).all(packageName, platform).map(k => k.term);
+      if (tracked.length > 0) {
+        scrapedMeta += `\nTracked Keywords: ${tracked.join(', ')}`;
+      }
+    }
+
+    if (!scrapedMeta) {
+      if (platform === 'play') {
+        const pData = await scraper.getPlayListing(packageName);
+        if (pData) {
+          scrapedMeta = `Current Title: ${pData.title}\nCurrent Short Description: ${pData.summary}\nCurrent Description: ${pData.description}`;
+        }
+      } else {
+        const aData = await scraper.getAppleLookup(packageName);
+        if (aData) {
+          scrapedMeta = `Current Name: ${aData.trackName}\nCurrent Subtitle: ${aData.subtitle}\nCurrent Description: ${aData.description}`;
+        }
+      }
+    }
+
+    const promptText = `Generate optimized ${platform} metadata candidates targeting the cluster: "${cluster}".
+${scrapedMeta ? `\n=== CURRENT APP METADATA & TRACKED KEYWORDS ===\n${scrapedMeta}\n` : ''}
+${customContext ? `\nExtra Context: ${customContext}` : ''}`;
+
     const result = await generateJSON({
       system: prompts.variantsPrompt.system,
       prompt: promptText,
