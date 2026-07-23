@@ -183,6 +183,14 @@ The application reads app configurations from `data/config/config.json`. Below i
         "openai": {
           "apiKey": "your-openai-api-key",
           "model": "gpt-4.1-nano"
+        },
+        "anthropic": {
+          "apiKey": "your-anthropic-api-key",
+          "model": "claude-3-5-sonnet-20241022"
+        },
+        "gemini": {
+          "apiKey": "your-gemini-api-key",
+          "model": "gemini-2.5-pro"
         }
       }
     }

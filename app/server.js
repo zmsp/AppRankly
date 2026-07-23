@@ -486,13 +486,17 @@ app.put("/api/config", authenticate, (req, res) => {
 
 // Test Apple App Store Connect connection
 app.post("/api/test/apple", authenticate, async (req, res) => {
+  console.log(`[Test Connection] [Apple] Initiating test connection check...`);
   const baseConfig = getBaseConfig();
   if (!baseConfig) {
+    console.warn(`[Test Connection] [Apple] Failed: No configuration found.`);
     return res.status(400).json({ success: false, error: "No config found" });
   }
   try {
     const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
+    console.log(`[Test Connection] [Apple] KeyID: ${baseConfig.appleKeyId}, IssuerID: ${baseConfig.appleIssuerId}, VendorID: ${baseConfig.appleVendorId}, KeyPath: ${appleKeyPath}`);
     if (!appleKeyPath || !fs.existsSync(appleKeyPath)) {
+      console.warn(`[Test Connection] [Apple] Key file not found at: ${appleKeyPath}`);
       return res.json({ success: false, error: "Apple private key file not found" });
     }
     const privateKey = fs.readFileSync(appleKeyPath, "utf8");
@@ -504,21 +508,27 @@ app.post("/api/test/apple", authenticate, async (req, res) => {
       dataDir: DATA_DIR
     });
     const apps = await appleStatsViewer.listPackages();
+    console.log(`[Test Connection] [Apple] SUCCESS — Found ${apps.length} apps.`);
     res.json({ success: true, appCount: apps.length, apps: apps.slice(0, 5).map(a => ({ name: a.name, bundleId: a.bundleId || a.packageName })) });
   } catch (err) {
+    console.error(`[Test Connection] [Apple] ERROR:`, err.message);
     res.json({ success: false, error: err.message });
   }
 });
 
 // Test Google Play Console connection
 app.post("/api/test/google", authenticate, async (req, res) => {
+  console.log(`[Test Connection] [Google] Initiating test connection check...`);
   const baseConfig = getBaseConfig();
   if (!baseConfig) {
+    console.warn(`[Test Connection] [Google] Failed: No configuration found.`);
     return res.status(400).json({ success: false, error: "No config found" });
   }
   try {
+    const keyPath = resolveKeyFilePath(baseConfig.keyFilePath);
+    console.log(`[Test Connection] [Google] ProjectID: ${baseConfig.projectID}, Bucket: ${baseConfig.bucketName}, KeyPath: ${keyPath}`);
     const googleStatsViewer = new GooglePlayStoreStatsViewer({
-      keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
+      keyFilePath: keyPath,
       keyJson: baseConfig.keyJson,
       projectID: baseConfig.projectID,
       bucketName: baseConfig.bucketName,
@@ -528,8 +538,44 @@ app.post("/api/test/google", authenticate, async (req, res) => {
     let packages = await googleStatsViewer.listPackages();
     const ignored = baseConfig.ignoredPackages || [];
     packages = packages.filter(p => !ignored.includes(p.packageName));
+    console.log(`[Test Connection] [Google] SUCCESS — Found ${packages.length} apps.`);
     res.json({ success: true, appCount: packages.length, apps: packages.slice(0, 5).map(p => ({ name: p.name, packageName: p.packageName })) });
   } catch (err) {
+    console.error(`[Test Connection] [Google] ERROR:`, err.message);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Test AI Provider connection (1 token request)
+app.post("/api/test/ai", authenticate, async (req, res) => {
+  const { provider, model, apiKey } = req.body || {};
+  console.log(`[Test Connection] [AI] Initiating test request for provider "${provider || 'default'}" (model: ${model || 'default'})...`);
+  try {
+    const aiModule = require("./lib/ai");
+    const response = await aiModule.generateJSON({
+      system: "Reply with status ok.",
+      prompt: "Ping",
+      schema: {
+        type: "object",
+        properties: {
+          status: { type: "string" }
+        },
+        required: ["status"]
+      },
+      provider,
+      customModel: model,
+      customApiKey: apiKey,
+      maxTokens: 10
+    });
+    console.log(`[Test Connection] [AI] SUCCESS — Provider: ${response.provider}, Model: ${response.model}, Usage:`, response.usage);
+    res.json({
+      success: true,
+      provider: response.provider,
+      model: response.model,
+      usage: response.usage
+    });
+  } catch (err) {
+    console.error(`[Test Connection] [AI] ERROR (${provider}/${model}):`, err.message);
     res.json({ success: false, error: err.message });
   }
 });

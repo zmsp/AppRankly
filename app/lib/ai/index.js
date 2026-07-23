@@ -5,19 +5,31 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { GoogleGenAI } = require('@google/genai');
 
-const configPath = path.join(__dirname, '..', '..', 'config', 'config.json');
+function getResolvedConfigPath() {
+  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
+  const candidatePaths = [
+    process.env.CONFIG_PATH,
+    path.join(dataDir, 'config', 'config.json'),
+    path.join(dataDir, 'config.json'),
+    path.join(__dirname, '..', '..', 'config', 'config.json'),
+    path.join(__dirname, '..', 'config', 'config.json')
+  ].filter(Boolean);
+
+  return candidatePaths.find(p => fs.existsSync(p)) || candidatePaths[0];
+}
 
 function loadAIConfig() {
   let rawConfig = {};
+  const configPath = getResolvedConfigPath();
   if (fs.existsSync(configPath)) {
     try {
       rawConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (e) {
-      console.warn('[AI Adapter] Could not parse config.json:', e.message);
+      console.warn('[AI Adapter] Could not parse config.json at ' + configPath + ':', e.message);
     }
   }
 
-  const projectConfig = Array.isArray(rawConfig) ? rawConfig[0] : rawConfig;
+  const projectConfig = (Array.isArray(rawConfig) ? rawConfig[0] : rawConfig) || {};
   const aiConfig = projectConfig.ai || rawConfig.ai || {};
   const defaultProvider = aiConfig.defaultProvider || 'openai';
   
@@ -122,24 +134,28 @@ async function geminiGenerate({ system, prompt, schema, apiKey, model }) {
   };
 }
 
-async function generateJSON({ system, prompt, schema, provider, customModel, maxTokens = 8192 }) {
+async function generateJSON({ system, prompt, schema, provider, customModel, customApiKey, maxTokens = 8192 }) {
   const { defaultProvider, providers } = loadAIConfig();
   const selectedProvider = provider || defaultProvider;
-  const pConfig = providers[selectedProvider];
+  const pConfig = providers[selectedProvider] || {};
+  
+  // Allow API key from custom parameter (unsaved test input), config.json, or environment variables
+  const envKeyName = `${selectedProvider.toUpperCase()}_API_KEY`;
+  const apiKey = customApiKey || pConfig.apiKey || process.env[envKeyName] || process.env.GEMINI_API_KEY;
 
-  if (!pConfig || !pConfig.apiKey) {
-    throw new Error(`AI Provider "${selectedProvider}" is not configured or missing API key.`);
+  if (!apiKey) {
+    throw new Error(`AI Provider "${selectedProvider}" API key is missing. Please save an API key in Config -> AI & ASO Configuration or set ${envKeyName} in environment.`);
   }
 
   const activeModel = customModel || pConfig.model;
   let result;
 
   if (selectedProvider === 'anthropic') {
-    result = await anthropicGenerate({ system, prompt, schema, apiKey: pConfig.apiKey, model: activeModel, maxTokens });
+    result = await anthropicGenerate({ system, prompt, schema, apiKey, model: activeModel, maxTokens });
   } else if (selectedProvider === 'openai') {
-    result = await openaiGenerate({ system, prompt, schema, apiKey: pConfig.apiKey, model: activeModel, maxTokens });
+    result = await openaiGenerate({ system, prompt, schema, apiKey, model: activeModel, maxTokens });
   } else if (selectedProvider === 'gemini') {
-    result = await geminiGenerate({ system, prompt, schema, apiKey: pConfig.apiKey, model: activeModel });
+    result = await geminiGenerate({ system, prompt, schema, apiKey, model: activeModel });
   } else {
     throw new Error(`Unsupported AI provider: ${selectedProvider}`);
   }

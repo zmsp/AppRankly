@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, Save, CheckCircle2, XCircle, AlertCircle,
   Zap, Code2, Sliders, Eye, EyeOff,
-  Folder, Key, Database, Globe, Copy, RotateCcw
+  Folder, Key, Database, Globe, Copy, RotateCcw, Bot
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 
@@ -62,20 +62,29 @@ function Input({ value, onChange, placeholder, type = 'text', secret = false, di
   );
 }
 
-function TestButton({ platform, authToken, isStaticMode, isDemoMode }) {
+function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) {
   const [state, setState] = useState('idle');
   const [result, setResult] = useState(null);
 
   const run = async () => {
     if (isDemoMode) {
       setState('ok');
-      setResult({ success: true, appCount: 3, apps: [{ name: 'Demo App One', bundleId: 'com.demo.one' }, { name: 'Demo App Two', bundleId: 'com.demo.two' }] });
+      if (platform === 'ai') {
+        setResult({ success: true, provider: payload?.provider || 'openai', model: payload?.model || 'gpt-4.1-nano', usage: { inputTokens: 4, outputTokens: 2 } });
+      } else {
+        setResult({ success: true, appCount: 3, apps: [{ name: 'Demo App One', bundleId: 'com.demo.one' }, { name: 'Demo App Two', bundleId: 'com.demo.two' }] });
+      }
       return;
     }
     setState('loading');
     setResult(null);
     try {
-      const res = await apiFetch(`/api/test/${platform}`, { method: 'POST' }, authToken, isStaticMode);
+      const options = { method: 'POST' };
+      if (payload) {
+        options.body = JSON.stringify(payload);
+        options.headers = { 'Content-Type': 'application/json' };
+      }
+      const res = await apiFetch(`/api/test/${platform}`, options, authToken, isStaticMode);
       const data = await res.json();
       setState(data.success ? 'ok' : 'err');
       setResult(data);
@@ -85,7 +94,7 @@ function TestButton({ platform, authToken, isStaticMode, isDemoMode }) {
     }
   };
 
-  const label = platform === 'apple' ? 'App Store Connect' : 'Google Play';
+  const label = platform === 'apple' ? 'App Store Connect' : platform === 'google' ? 'Google Play' : `AI Provider (${payload?.provider || 'active'})`;
 
   return (
     <div className="space-y-3">
@@ -121,10 +130,21 @@ function TestButton({ platform, authToken, isStaticMode, isDemoMode }) {
         )}>
           {result.success ? (
             <div className="space-y-1">
-              <div className="font-bold text-emerald-400">✓ Connected — {result.appCount} app{result.appCount !== 1 ? 's' : ''} found</div>
-              {result.apps?.map((a, i) => (
-                <div key={i} className="text-white/50 text-[10px]">• {a.name || a.bundleId || a.packageName}</div>
-              ))}
+              {platform === 'ai' ? (
+                <div>
+                  <div className="font-bold text-emerald-400">✓ Connected to {result.provider} ({result.model})</div>
+                  {result.usage && (
+                    <div className="text-white/50 text-[10px] mt-0.5">Tokens used: {result.usage.inputTokens || 0} in / {result.usage.outputTokens || 0} out</div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="font-bold text-emerald-400">✓ Connected — {result.appCount} app{result.appCount !== 1 ? 's' : ''} found</div>
+                  {result.apps?.map((a, i) => (
+                    <div key={i} className="text-white/50 text-[10px]">• {a.name || a.bundleId || a.packageName}</div>
+                  ))}
+                </>
+              )}
             </div>
           ) : (
             <div>
@@ -181,8 +201,33 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [saveMsg, setSaveMsg] = useState('');
   const [activeTab, setActiveTab] = useState('form');
   const [config, setConfig] = useState(null);
+  const [initialConfigJson, setInitialConfigJson] = useState('');
   const [rawJson, setRawJson] = useState('');
   const [configPath, setConfigPath] = useState('');
+
+  const currentJson = JSON.stringify(config, null, 2);
+  const isDirty = initialConfigJson && currentJson !== initialConfigJson;
+
+  // Unsaved changes browser navigation confirmation
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved configuration changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  const confirmTabSwitch = (newTab) => {
+    if (isDirty && activeTab === 'form' && newTab === 'test') {
+      const confirmLeave = window.confirm('You have unsaved configuration changes. Switching to Test Connections will use the saved config. Please save your changes first or click OK to proceed anyway.');
+      if (!confirmLeave) return;
+    }
+    setActiveTab(newTab);
+  };
 
   useEffect(() => {
     async function load() {
@@ -198,10 +243,20 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           keyFilePath: 'keys/service_account.json',
           PlaystoreConsoleUrl: 'https://play.google.com/console/u/0/developers/0000000000000000000',
           ignoredPackages: ['com.example.ignored'],
-          appMetadata: {}
+          appMetadata: {},
+          ai: {
+            defaultProvider: 'openai',
+            providers: {
+              openai: { apiKey: '', model: 'gpt-4.1-nano' },
+              anthropic: { apiKey: '', model: 'claude-3-5-sonnet-20241022' },
+              gemini: { apiKey: '', model: 'gemini-2.5-pro' }
+            }
+          }
         }];
         setConfig(demo);
-        setRawJson(JSON.stringify(demo, null, 2));
+        const str = JSON.stringify(demo, null, 2);
+        setRawJson(str);
+        setInitialConfigJson(str);
         setConfigPath('/data/config/config.json (demo mode)');
         setLoading(false);
         return;
@@ -211,7 +266,9 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
         if (res.ok) {
           const data = await res.json();
           setConfig(data.config);
-          setRawJson(JSON.stringify(data.config, null, 2));
+          const str = JSON.stringify(data.config, null, 2);
+          setRawJson(str);
+          setInitialConfigJson(str);
           setConfigPath(data.path || '');
         }
       } catch (err) {
@@ -242,6 +299,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
     if (isDemoMode) {
       setSaveStatus('ok');
       setSaveMsg('Config changes noted (demo mode — not persisted to disk)');
+      setInitialConfigJson(currentJson);
       setTimeout(() => setSaveStatus(null), 3000);
       return;
     }
@@ -256,6 +314,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
         const data = await res.json();
         setSaveStatus('ok');
         setSaveMsg('Config saved successfully' + (data.path ? ` → ${data.path}` : ''));
+        setInitialConfigJson(currentJson);
       } else {
         const data = await res.json().catch(() => ({}));
         setSaveStatus('err');
@@ -271,13 +330,19 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   };
 
   const handleReload = async () => {
+    if (isDirty) {
+      const confirmDiscard = window.confirm('You have unsaved changes. Are you sure you want to reload from disk and discard your changes?');
+      if (!confirmDiscard) return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch('/api/config', {}, authToken, isStaticMode);
       if (res.ok) {
         const data = await res.json();
         setConfig(data.config);
-        setRawJson(JSON.stringify(data.config, null, 2));
+        const str = JSON.stringify(data.config, null, 2);
+        setRawJson(str);
+        setInitialConfigJson(str);
         setConfigPath(data.path || '');
       }
     } finally {
@@ -298,7 +363,14 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Configuration</h2>
+          <div className="flex items-center space-x-3">
+            <h2 className="text-2xl font-bold">Configuration</h2>
+            {isDirty && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                Unsaved Changes
+              </span>
+            )}
+          </div>
           <p className="text-white/40 text-sm mt-1">Manage API credentials, data sources, and connection settings</p>
           {configPath && (
             <div className="flex items-center space-x-1.5 mt-2">
@@ -318,10 +390,15 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center space-x-2 px-4 py-2 bg-accent-blue hover:bg-accent-blue/80 disabled:opacity-50 rounded-xl text-xs font-bold transition-all text-white shadow-lg shadow-accent-blue/20"
+            className={clsx(
+              "flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all text-white shadow-lg",
+              isDirty
+                ? "bg-accent-blue hover:bg-accent-blue/80 shadow-accent-blue/30 ring-2 ring-accent-blue/50 animate-pulse"
+                : "bg-white/10 hover:bg-white/15 border border-white/10"
+            )}
           >
             {saving ? <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin" /> : <Save size={13} />}
-            <span>{saving ? 'Saving…' : 'Save Config'}</span>
+            <span>{saving ? 'Saving…' : isDirty ? 'Save Config *' : 'Save Config'}</span>
           </button>
         </div>
       </div>
@@ -348,7 +425,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => confirmTabSwitch(id)}
             className={clsx(
               "flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
               activeTab === id
@@ -378,7 +455,9 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           </div>
 
           <div className="glass-card p-6 space-y-4">
-            <SectionHeader icon={Database} title="Google Play Console" subtitle="Cloud Storage bucket & service account" />
+            <SectionHeader icon={Database} title="Google Play Console" subtitle="Cloud Storage bucket & service account">
+              <TestButton platform="google" authToken={authToken} isStaticMode={isStaticMode} isDemoMode={isDemoMode} />
+            </SectionHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="GCS Bucket Name" hint="Reports bucket name from Play Console">
                 <Input value={entry.bucketName} onChange={v => updateEntry('bucketName', v)} placeholder="pubsite__rev_09780..." />
@@ -393,7 +472,9 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           </div>
 
           <div className="glass-card p-6 space-y-4">
-            <SectionHeader icon={Key} title="Apple App Store Connect" subtitle="App Store Connect API credentials" />
+            <SectionHeader icon={Key} title="Apple App Store Connect" subtitle="App Store Connect API credentials">
+              <TestButton platform="apple" authToken={authToken} isStaticMode={isStaticMode} isDemoMode={isDemoMode} />
+            </SectionHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Key ID" hint="10-character key identifier">
                 <Input value={entry.appleKeyId} onChange={v => updateEntry('appleKeyId', v)} placeholder="e.g. 23L9X2Z6ZC" />
@@ -407,6 +488,219 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
               <Field label=".p8 Private Key Path" hint="Relative to config directory">
                 <Input value={entry.keyFilePath_apple} onChange={v => updateEntry('keyFilePath_apple', v)} placeholder="keys/AuthKey_XXXXXXXX.p8" />
               </Field>
+            </div>
+          </div>
+
+          <div className="glass-card p-6 space-y-5">
+            <SectionHeader icon={Bot} title="AI & ASO Configuration" subtitle="Configure AI models (OpenAI, Anthropic Claude, Google Gemini) for automated ASO analysis">
+              <TestButton
+                platform="ai"
+                payload={{
+                  provider: entry.ai?.defaultProvider || 'openai',
+                  model: entry.ai?.providers?.[entry.ai?.defaultProvider || 'openai']?.model,
+                  apiKey: entry.ai?.providers?.[entry.ai?.defaultProvider || 'openai']?.apiKey
+                }}
+                authToken={authToken}
+                isStaticMode={isStaticMode}
+                isDemoMode={isDemoMode}
+              />
+            </SectionHeader>
+            
+            <div className="max-w-xs">
+              <Field label="Default Active Provider" hint="Provider to use for AI generations">
+                <select
+                  value={entry.ai?.defaultProvider || 'openai'}
+                  onChange={e => {
+                    const currentAi = entry.ai || {};
+                    updateEntry('ai', { ...currentAi, defaultProvider: e.target.value });
+                  }}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
+                >
+                  <option value="openai" className="bg-slate-900 text-white">OpenAI (ChatGPT)</option>
+                  <option value="anthropic" className="bg-slate-900 text-white">Anthropic (Claude)</option>
+                  <option value="gemini" className="bg-slate-900 text-white">Google Gemini</option>
+                </select>
+              </Field>
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-4">
+              <div className="text-xs font-bold uppercase tracking-wider text-white/50">Provider API Credentials & Models</div>
+              
+              {/* OpenAI Block */}
+              <div className="p-4 rounded-xl bg-white/3 border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-accent-blue flex items-center space-x-2">
+                    <span>OpenAI</span>
+                  </div>
+                  <TestButton
+                    platform="ai"
+                    payload={{
+                      provider: 'openai',
+                      model: entry.ai?.providers?.openai?.model || 'gpt-4.1-nano',
+                      apiKey: entry.ai?.providers?.openai?.apiKey
+                    }}
+                    authToken={authToken}
+                    isStaticMode={isStaticMode}
+                    isDemoMode={isDemoMode}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="OpenAI Model" hint="Select or enter model ID">
+                    <select
+                      value={entry.ai?.providers?.openai?.model || 'gpt-4.1-nano'}
+                      onChange={e => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const openai = providers.openai || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, openai: { ...openai, model: e.target.value } }
+                        });
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
+                    >
+                      <option value="gpt-4.1-nano" className="bg-slate-900 text-white">gpt-4.1-nano (Recommended / Fast)</option>
+                      <option value="gpt-4o" className="bg-slate-900 text-white">gpt-4o (Flagship Multimodal)</option>
+                      <option value="gpt-4o-mini" className="bg-slate-900 text-white">gpt-4o-mini (Lightweight)</option>
+                      <option value="o3-mini" className="bg-slate-900 text-white">o3-mini (Reasoning)</option>
+                      <option value="gpt-4-turbo" className="bg-slate-900 text-white">gpt-4-turbo</option>
+                    </select>
+                  </Field>
+                  <Field label="OpenAI API Key" hint="Secret key (sk-...)">
+                    <Input
+                      secret
+                      value={entry.ai?.providers?.openai?.apiKey || ''}
+                      onChange={v => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const openai = providers.openai || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, openai: { ...openai, apiKey: v } }
+                        });
+                      }}
+                      placeholder="sk-..."
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Anthropic Claude Block */}
+              <div className="p-4 rounded-xl bg-white/3 border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-amber-400 flex items-center space-x-2">
+                    <span>Anthropic (Claude)</span>
+                  </div>
+                  <TestButton
+                    platform="ai"
+                    payload={{
+                      provider: 'anthropic',
+                      model: entry.ai?.providers?.anthropic?.model || 'claude-3-5-sonnet-20241022',
+                      apiKey: entry.ai?.providers?.anthropic?.apiKey
+                    }}
+                    authToken={authToken}
+                    isStaticMode={isStaticMode}
+                    isDemoMode={isDemoMode}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Claude Model" hint="Select model ID">
+                    <select
+                      value={entry.ai?.providers?.anthropic?.model || 'claude-3-5-sonnet-20241022'}
+                      onChange={e => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const anthropic = providers.anthropic || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, anthropic: { ...anthropic, model: e.target.value } }
+                        });
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
+                    >
+                      <option value="claude-3-5-sonnet-20241022" className="bg-slate-900 text-white">claude-3-5-sonnet-20241022 (Recommended)</option>
+                      <option value="claude-3-5-haiku-20241022" className="bg-slate-900 text-white">claude-3-5-haiku-20241022 (Fast)</option>
+                      <option value="claude-3-opus-20240229" className="bg-slate-900 text-white">claude-3-opus-20240229 (Complex Reasoning)</option>
+                    </select>
+                  </Field>
+                  <Field label="Anthropic API Key" hint="Secret key (sk-ant-...)">
+                    <Input
+                      secret
+                      value={entry.ai?.providers?.anthropic?.apiKey || ''}
+                      onChange={v => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const anthropic = providers.anthropic || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, anthropic: { ...anthropic, apiKey: v } }
+                        });
+                      }}
+                      placeholder="sk-ant-..."
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Google Gemini Block */}
+              <div className="p-4 rounded-xl bg-white/3 border border-white/5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-emerald-400 flex items-center space-x-2">
+                    <span>Google Gemini</span>
+                  </div>
+                  <TestButton
+                    platform="ai"
+                    payload={{
+                      provider: 'gemini',
+                      model: entry.ai?.providers?.gemini?.model || 'gemini-2.5-pro',
+                      apiKey: entry.ai?.providers?.gemini?.apiKey
+                    }}
+                    authToken={authToken}
+                    isStaticMode={isStaticMode}
+                    isDemoMode={isDemoMode}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Gemini Model" hint="Select model ID">
+                    <select
+                      value={entry.ai?.providers?.gemini?.model || 'gemini-3.6-flash'}
+                      onChange={e => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const gemini = providers.gemini || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, gemini: { ...gemini, model: e.target.value } }
+                        });
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
+                    >
+                      <option value="gemini-3.6-flash" className="bg-slate-900 text-white">gemini-3.6-flash (Recommended / Latest Flash)</option>
+                      <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">gemini-3.5-flash-lite (Ultra Fast & Lightweight)</option>
+                      <option value="gemini-3.1-pro" className="bg-slate-900 text-white">gemini-3.1-pro (Flagship Complex Reasoning & Coding)</option>
+                      <option value="gemini-2.5-pro" className="bg-slate-900 text-white">gemini-2.5-pro</option>
+                      <option value="gemini-2.5-flash" className="bg-slate-900 text-white">gemini-2.5-flash</option>
+                    </select>
+                  </Field>
+                  <Field label="Gemini API Key" hint="API key from Google AI Studio">
+                    <Input
+                      secret
+                      value={entry.ai?.providers?.gemini?.apiKey || ''}
+                      onChange={v => {
+                        const currentAi = entry.ai || {};
+                        const providers = currentAi.providers || {};
+                        const gemini = providers.gemini || {};
+                        updateEntry('ai', {
+                          ...currentAi,
+                          providers: { ...providers, gemini: { ...gemini, apiKey: v } }
+                        });
+                      }}
+                      placeholder="AIzaSy..."
+                    />
+                  </Field>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -451,6 +745,25 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
       {/* ── Test Connections ── */}
       {activeTab === 'test' && (
         <div className="space-y-4">
+          <div className="glass-card p-6">
+            <SectionHeader icon={Bot} title="AI & ASO Service" subtitle="Sends a 1-token lightweight request to verify AI API key and model connectivity" />
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <InfoRow label="Active Provider" value={entry?.ai?.defaultProvider || 'openai'} />
+              <InfoRow label="Selected Model" value={entry?.ai?.providers?.[entry?.ai?.defaultProvider || 'openai']?.model || 'default'} mono />
+              <InfoRow label="API Key Set" value={entry?.ai?.providers?.[entry?.ai?.defaultProvider || 'openai']?.apiKey ? 'Yes (configured)' : 'No (missing key)'} />
+            </div>
+            <TestButton
+              platform="ai"
+              payload={{
+                provider: entry?.ai?.defaultProvider || 'openai',
+                model: entry?.ai?.providers?.[entry?.ai?.defaultProvider || 'openai']?.model
+              }}
+              authToken={authToken}
+              isStaticMode={isStaticMode}
+              isDemoMode={isDemoMode}
+            />
+          </div>
+
           <div className="glass-card p-6">
             <SectionHeader icon={Key} title="Apple App Store Connect" subtitle="Authenticates with the API and lists your registered apps" />
             <div className="grid grid-cols-2 gap-3 mb-5">

@@ -14,7 +14,7 @@ services:
       - JWT_SECRET=change_this_to_a_secure_random_string
     volumes:
       # Mount host credentials & config directory (contains config.json and key files in ./config/keys/)
-      - ./config:/app/data/config:ro
+      - ./config:/app/data/config
       # Persistent app data storage (auth credentials, releases, statistics cache)
       - apprankly_data:/app/data/
     restart: unless-stopped

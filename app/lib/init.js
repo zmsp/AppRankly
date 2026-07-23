@@ -56,7 +56,26 @@ const ensureDirectoriesAndTemplates = (dataDirOption, configPathOption) => {
         appleIssuerId: "xxxx-xxxx-xxxx-xxxx",
         appleKeyId: "XXXXXXXXXX",
         appleVendorId: "12345678",
-        ignoredPackages: []
+        PlaystoreConsoleUrl: "https://play.google.com/console",
+        appMetadata: {},
+        ignoredPackages: [],
+        ai: {
+          defaultProvider: "openai",
+          providers: {
+            openai: {
+              apiKey: "",
+              model: "gpt-4.1-nano"
+            },
+            anthropic: {
+              apiKey: "",
+              model: "claude-3-5-sonnet-20241022"
+            },
+            gemini: {
+              apiKey: "",
+              model: "gemini-3.6-flash"
+            }
+          }
+        }
       }
     ];
 
