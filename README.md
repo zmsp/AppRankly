@@ -1,4 +1,4 @@
-# AppRankly — AppRankly
+# AppRankly — Mobile App Store Analytics Dashboard
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
@@ -10,7 +10,9 @@ A self-hosted, open-source analytics pipeline and glassmorphic web dashboard for
 
 Includes a single-page analytics web application, a headless CLI for automated cron jobs/scripting, and full Docker & Unraid container support.
 
-![Dashboard Preview](images/screenshot_dashboard.png)
+![Overview Dashboard](images/overview.png)
+
+![App Details View](images/app_details.png)
 
 ---
 
@@ -60,7 +62,7 @@ mkdir -p $(pwd)/data/config/keys
 
 # 3. Launch container
 docker run -d \
-  --name appstore-analytics \
+  --name AppRankly \
   -p 3000:3000 \
   -v $(pwd)/data:/app/data \
   -e JWT_SECRET="your-secure-random-secret" \
@@ -73,10 +75,10 @@ docker run -d \
 
 1. Open terminal on your Unraid server and run:
    ```bash
-   curl -o /boot/config/plugins/dockerMan/templates-user/appstore-analytics.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/appstore-analytics.xml
+   curl -o /boot/config/plugins/dockerMan/templates-user/apprankly.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml
    ```
-2. Navigate to Unraid **Docker** tab -> **Add Container** -> Select **appstore-analytics** template.
-3. Configure path permissions (`chown -R 1000:1000 /mnt/user/appdata/appstore-analytics/`).
+2. Navigate to Unraid **Docker** tab -> **Add Container** -> Select **AppRankly** template.
+3. Configure path permissions (`chown -R 1000:1000 /mnt/user/appdata/AppRankly/`).
 4. Access the Unraid UI at **`http://[YOUR-SERVER-IP]:3020`**.
 
 For detailed Unraid instructions, see the [Unraid Guide](unraid/README.md).

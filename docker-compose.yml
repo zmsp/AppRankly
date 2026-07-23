@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: apprankly_analytics_prod
+    container_name: AppRankly
     ports:
       - "3000:3000"
     environment:
