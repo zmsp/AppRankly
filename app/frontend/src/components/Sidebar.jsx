@@ -6,7 +6,7 @@ import {
   Eye,
   Tag,
   FileText,
-  Share2,
+  Settings,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -20,7 +20,7 @@ const navItems = [
   { id: 'store', label: 'Store (ASO)', icon: Eye, path: '/store' },
   { id: 'releases', label: 'Releases', icon: Tag, path: '/releases' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' },
-  { id: 'integrations', label: 'Integrations', icon: Share2, path: '/integrations' },
+  { id: 'config', label: 'Config', icon: Settings, path: '/config' },
   { id: 'glossary', label: 'Glossary', icon: BookOpen, path: '/glossary' },
 ];
 

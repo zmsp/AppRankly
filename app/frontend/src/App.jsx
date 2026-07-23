@@ -8,7 +8,7 @@ import Analytics from './pages/Analytics';
 import StoreASO from './pages/StoreASO';
 import Releases from './pages/Releases';
 import Reports from './pages/Reports';
-import Integrations from './pages/Integrations';
+import Config from './pages/Config';
 import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
 import { useAppState } from './hooks/useAppState';
@@ -80,7 +80,7 @@ function App() {
             <Route path="/store" element={<StoreASO {...state} />} />
             <Route path="/releases" element={<Releases {...state} />} />
             <Route path="/reports" element={<Reports {...state} />} />
-            <Route path="/integrations" element={<Integrations {...state} />} />
+            <Route path="/config" element={<Config {...state} />} />
             <Route path="/glossary" element={<Glossary {...state} />} />
             
             {/* Direct deep-link support */}
