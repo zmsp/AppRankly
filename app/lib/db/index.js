@@ -78,6 +78,14 @@ function migrate() {
   }
 }
 
+if (db) {
+  try {
+    migrate();
+  } catch (err) {
+    console.error('Failed auto-running SQLite migrations on startup:', err);
+  }
+}
+
 module.exports = {
   db,
   migrate,
