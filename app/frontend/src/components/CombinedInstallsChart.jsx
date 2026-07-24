@@ -60,11 +60,12 @@ export default function CombinedInstallsChart({ dailyTrends = [], appTrends = {}
     },
     ...appNames.map((appName, index) => {
       const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
-      const trends = appTrends[appName] || [];
+      const trendEntry = appTrends[appName] || [];
+      const trends = trendEntry?.trends || (Array.isArray(trendEntry) ? trendEntry : []);
       const trendMap = new Map(trends.map(t => [t.date, t.dailyUserInstalls || t.dailyInstalls || 0]));
 
       return {
-        label: appName,
+        label: trendEntry?.displayName || appName,
         data: dailyTrends.map(item => {
           const val = trendMap.get(item.date) || 0;
           return isLogarithmic ? Math.max(val, 1) : val;
