@@ -50,11 +50,12 @@ Try the dashboard instantly without installing anything:
    cd AppRankly
    ```
 
-2. **Create configuration folder & files:**
+2. **Create configuration folder & copy template:**
    ```bash
    mkdir -p data/config/keys
+   cp example.config.json data/config/config.json
    ```
-   Place your `config.json` inside `data/config/` and your API credentials (`.json` for Google, `.p8` for Apple) inside `data/config/keys/`.
+   Update `data/config/config.json` with your credentials and parameters, place your API key files (`.json` for Google, `.p8` for Apple) inside `data/config/keys/`, then mount the `data/` directory into your container.
 
 3. **Start the application:**
    ```bash
@@ -73,10 +74,11 @@ Run directly using the official GitHub Container Registry image:
 # 1. Pull the latest image
 docker pull ghcr.io/zmsp/apprankly:latest
 
-# 2. Create local data directory
+# 2. Create local data directory & copy example config
 mkdir -p $(pwd)/data/config/keys
+cp example.config.json $(pwd)/data/config/config.json
 
-# 3. Launch container
+# 3. Update data/config/config.json, place keys in data/config/keys/, then launch container with mounted data volume
 docker run -d \
   --name AppRankly \
   -p 3000:3000 \
@@ -89,13 +91,16 @@ docker run -d \
 
 ### Option 3: Unraid Deployment
 
-1. Open terminal on your Unraid server and run:
+AppRankly is officially listed on [Unraid Community Applications](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy)!
+
+1. Search for **AppRankly** in the Unraid **Apps** tab (or view the official listing on [Unraid Community Apps](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy)).
+2. Alternatively, run in your Unraid terminal:
    ```bash
    curl -o /boot/config/plugins/dockerMan/templates-user/apprankly.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml
    ```
-2. Navigate to Unraid **Docker** tab -> **Add Container** -> Select **AppRankly** template.
-3. Configure path permissions (`chown -R 1000:1000 /mnt/user/appdata/AppRankly/`).
-4. Access the Unraid UI at **`http://[YOUR-SERVER-IP]:3020`**.
+3. Navigate to Unraid **Docker** tab -> **Add Container** -> Select **AppRankly** template.
+4. Configure path permissions (`chown -R 1000:1000 /mnt/user/appdata/AppRankly/`).
+5. Access the Unraid UI at **`http://[YOUR-SERVER-IP]:3020`**.
 
 For detailed Unraid instructions, see the [Unraid Guide](unraid/README.md).
 
@@ -181,52 +186,56 @@ AppRankly can automatically send real-time push notification alerts whenever new
 
 ## Configuration Reference
 
-The application reads app configurations from `data/config/config.json`. Below is a template example (see also `example.config.json` in the root directory):
+Copy `example.config.json` to `data/config/config.json`, update your project parameters & credentials, and mount the `data/` volume into your container (`-v $(pwd)/data:/app/data`):
+
+```bash
+cp example.config.json data/config/config.json
+```
+
+Below is the single-level `config.json` template example (see also `example.config.json` in the root directory):
 
 ```json
-[
-  {
-    "name": "Production Apps",
-    "projectID": "your-gcp-project-id",
-    "bucketName": "pubsite_prod_12345678",
-    "keyFilePath": "keys/google_key.json",
-    "appleIssuerId": "xxxx-xxxx-xxxx-xxxx",
-    "appleKeyId": "XXXXXXXXXX",
-    "appleVendorId": "85000000",
-    "keyFilePath_apple": "keys/apple_key.p8",
-    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/123456(changeme)",
-    "ntfyTopic": "",
-    "refreshIntervalHours": 1,
-    "statsCheckRangeDays": 30,
-    "activeStartHour": 9,
-    "activeEndHour": 20,
-    "appMetadata": {
-      "com.example.app": {
-        "consoleAppId": "123456...(changeme)"
-      }
-    },
-    "ignoredPackages": [
-      "com.example.testapp"
-    ],
-    "ai": {
-      "defaultProvider": "openai",
-      "providers": {
-        "openai": {
-          "apiKey": "your-openai-api-key",
-          "model": "gpt-4.1-nano"
-        },
-        "anthropic": {
-          "apiKey": "your-anthropic-api-key",
-          "model": "claude-3-5-sonnet-20241022"
-        },
-        "gemini": {
-          "apiKey": "your-gemini-api-key",
-          "model": "gemini-2.5-pro"
-        }
+{
+  "name": "Production Apps",
+  "projectID": "your-gcp-project-id",
+  "bucketName": "pubsite_prod_12345678",
+  "keyFilePath": "keys/google_key.json",
+  "appleIssuerId": "xxxx-xxxx-xxxx-xxxx",
+  "appleKeyId": "XXXXXXXXXX",
+  "appleVendorId": "85000000",
+  "keyFilePath_apple": "keys/apple_key.p8",
+  "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/123456(changeme)",
+  "ntfyTopic": "",
+  "refreshIntervalHours": 1,
+  "statsCheckRangeDays": 30,
+  "activeStartHour": 9,
+  "activeEndHour": 20,
+  "appMetadata": {
+    "com.example.app": {
+      "consoleAppId": "123456...(changeme)"
+    }
+  },
+  "ignoredPackages": [
+    "com.example.testapp"
+  ],
+  "ai": {
+    "defaultProvider": "openai",
+    "providers": {
+      "openai": {
+        "apiKey": "your-openai-api-key",
+        "model": "gpt-4.1-nano"
+      },
+      "anthropic": {
+        "apiKey": "your-anthropic-api-key",
+        "model": "claude-3-5-sonnet-20241022"
+      },
+      "gemini": {
+        "apiKey": "your-gemini-api-key",
+        "model": "gemini-3.6-flash"
       }
     }
   }
-]
+}
 ```
 
 ### Configuration Fields
