@@ -7,11 +7,14 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/zmsp/AppRankly/issues</Support>
   <Project>https://github.com/zmsp/AppRankly</Project>
-  <Overview>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Overview>
-  <Description>Self-hosted analytics pipeline and glassmorphic web dashboard for Google Play Store (via GCS reports) and Apple App Store (via App Store Connect API). Visualizes installs, uninstalls, active devices, and country breakdowns with Grafana-style date range controls.</Description>
+  <Overview>AppRankly is a self-hosted analytics dashboard and data pipeline for Apple App Store (App Store Connect API) and Google Play Store (Google Cloud Storage reports). Track app downloads, installs, uninstalls, active devices, revenue, and country breakdowns in a glassmorphic dashboard with Grafana-style custom date controls and ntfy push notifications.</Overview>
+  <Description>AppRankly is an open-source, self-hosted mobile app analytics dashboard designed for developers to track performance across the Apple App Store and Google Play Store in a single unified view. Key features include: automated background data ingestion for App Store Connect API &amp; Google Play Console GCS reports; comprehensive metrics tracking for installs, uninstalls, active devices, sales revenue, and geographic breakdowns; Grafana-style date range selection controls; integrated ntfy push notification alerts for daily stats refresh; and a responsive glassmorphic web dashboard.</Description>
   <Category>Tools:Utilities Productivity:</Category>
   <WebUI>http://[IP]:[PORT:3020]</WebUI>
   <Icon>https://raw.githubusercontent.com/zmsp/AppRankly/main/images/logo.png</Icon>
+  <Banner>https://raw.githubusercontent.com/zmsp/AppRankly/main/images/overview.png</Banner>
+  <Screenshot>https://raw.githubusercontent.com/zmsp/AppRankly/main/images/overview.png</Screenshot>
+  <Screenshot>https://raw.githubusercontent.com/zmsp/AppRankly/main/images/app_details.png</Screenshot>
   <TemplateURL>https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml</TemplateURL>
   <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="The web interface host port mapped to container port 3000." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
   <Config Name="Appdata Directory" Target="/app/data" Default="/mnt/user/appdata/AppRankly" Mode="rw" Description="Main host path for persistent files (config.json, API keys, and cached stats). Ensure ownership is set to 1000:1000 (chown -R 1000:1000 /mnt/user/appdata/AppRankly)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/AppRankly</Config>
@@ -20,4 +23,5 @@
   <Config Name="Config File Path" Target="CONFIG_PATH" Default="/app/data/config/config.json" Mode="" Description="Internal path to the config.json configuration file." Type="Variable" Display="advanced" Required="true" Mask="false">/app/data/config/config.json</Config>
   <Config Name="Data Directory" Target="DATA_DIR" Default="/app/data" Mode="" Description="Internal directory path where app data is stored." Type="Variable" Display="advanced" Required="true" Mask="false">/app/data</Config>
 </Container>
+
 
