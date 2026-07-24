@@ -7,6 +7,8 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/zmsp/AppRankly/issues</Support>
   <Project>https://github.com/zmsp/AppRankly</Project>
+  <DonateText>Buy Me a Coffee</DonateText>
+  <DonateLink>https://buymeacoffee.com/zprimecreates</DonateLink>
   <Overview>AppRankly is a self-hosted analytics dashboard and data pipeline for Apple App Store (App Store Connect API) and Google Play Store (Google Cloud Storage reports). Track app downloads, installs, uninstalls, active devices, revenue, and country breakdowns in a glassmorphic dashboard with Grafana-style custom date controls and ntfy push notifications.</Overview>
   <Description>AppRankly is an open-source, self-hosted mobile app analytics dashboard designed for developers to track performance across the Apple App Store and Google Play Store in a single unified view. Key features include: automated background data ingestion for App Store Connect API &amp; Google Play Console GCS reports; comprehensive metrics tracking for installs, uninstalls, active devices, sales revenue, and geographic breakdowns; Grafana-style date range selection controls; integrated ntfy push notification alerts for daily stats refresh; and a responsive glassmorphic web dashboard.</Description>
   <Category>Tools:Utilities Productivity:</Category>

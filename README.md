@@ -8,6 +8,7 @@
 [![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](package.json)
 [![Unraid Template](https://img.shields.io/badge/Unraid-Supported-orange.svg)](unraid/README.md)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 A self-hosted, open-source analytics pipeline and glassmorphic web dashboard for aggregating, visualizing, and tracking mobile app performance across the **Google Play Store** (via Google Cloud Storage reports) and the **Apple App Store** (via App Store Connect API).
@@ -334,6 +335,14 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+---
+
+## Support & Donations
+
+If you find AppRankly useful and would like to support its ongoing development, consider buying me a coffee:
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 
 ---
 

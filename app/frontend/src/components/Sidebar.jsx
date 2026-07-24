@@ -9,7 +9,8 @@ import {
   Settings,
   BookOpen,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Coffee
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -84,6 +85,23 @@ export default function Sidebar({
           );
         })}
       </nav>
+
+      {/* Support / Buy Me a Coffee */}
+      <div className="p-3 border-t border-white/5 mt-auto">
+        <a
+          href="https://buymeacoffee.com/zprimecreates"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={clsx(
+            "flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 border border-amber-500/20 transition-all font-semibold text-xs",
+            collapsed && "justify-center px-0"
+          )}
+          title={collapsed ? "Buy Me a Coffee" : ""}
+        >
+          <Coffee size={18} className="flex-shrink-0 text-amber-400" />
+          {!collapsed && <span>Buy Me a Coffee</span>}
+        </a>
+      </div>
 
       {/* Collapse Toggle */}
       <button

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, Save, CheckCircle2, XCircle, AlertCircle,
   Zap, Code2, Sliders, Eye, EyeOff,
-  Folder, Key, Database, Globe, Copy, RotateCcw, Bot
+  Folder, Key, Database, Globe, Copy, RotateCcw, Bot, Coffee
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 
@@ -783,6 +783,22 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
               <InfoRow label="Key File" value={entry?.keyFilePath || '—'} mono />
             </div>
             <TestButton platform="google" authToken={authToken} isStaticMode={isStaticMode} isDemoMode={isDemoMode} />
+          </div>
+
+          <div className="glass-card p-6 border-amber-500/20 bg-amber-500/5">
+            <SectionHeader icon={Coffee} title="Support AppRankly" subtitle="Enjoying AppRankly? Consider buying the developer a coffee!" />
+            <p className="text-xs text-white/60 mb-4">
+              AppRankly is free and open-source. Your support helps maintain the project and add new features.
+            </p>
+            <a
+              href="https://buymeacoffee.com/zprimecreates"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
+            >
+              <Coffee size={16} />
+              <span>Buy Me a Coffee</span>
+            </a>
           </div>
         </div>
       )}
