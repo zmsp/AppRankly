@@ -19,15 +19,9 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {projects.map((proj) => {
-          const trendKey = Object.keys(appTrends).find(k => 
-            k === proj.name || 
-            k === proj.packageName || 
-            (proj.name && k.toLowerCase() === proj.name.toLowerCase()) || 
-            (proj.packageName && k.toLowerCase() === proj.packageName.toLowerCase()) ||
-            (proj.packageName && k.toLowerCase() === proj.packageName.split('.').pop().toLowerCase()) ||
-            (proj.name && k.toLowerCase().includes(proj.name.toLowerCase()))
-          );
-          const trendData = trendKey ? appTrends[trendKey] : [];
+          // Exact lookup by packageName (unique ID) — no fuzzy matching needed
+          const appTrendEntry = appTrends[proj.packageName];
+          const trendData = appTrendEntry?.trends || appTrendEntry || [];
           const totalInstalls = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
           const points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
 

@@ -11,25 +11,32 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
     : (platform === 'all' ? projects : projects.filter(p => p.platform === platform));
 
   const { appleTotal, googleTotal, combinedTotal, appleCount, googleCount } = useMemo(() => {
-    let appleT = 0, googleT = 0;
     let appleC = 0, googleC = 0;
-    
     projects.forEach(proj => {
-      if (proj.platform === 'apple') {
-        appleC++;
-      } else {
-        googleC++;
-      }
+      if (proj.platform === 'apple') appleC++;
+      else googleC++;
+    });
 
-      const trendKey = Object.keys(stats?.appTrends || {}).find(k => 
-        k === proj.name || k === proj.packageName || 
-        (proj.name && k.toLowerCase() === proj.name.toLowerCase()) || 
-        (proj.packageName && k.toLowerCase() === proj.packageName.toLowerCase()) ||
-        (proj.packageName && k.toLowerCase() === proj.packageName.split('.').pop().toLowerCase()) ||
-        (proj.name && k.toLowerCase().includes(proj.name.toLowerCase()))
-      );
-      
-      const trendData = trendKey ? stats.appTrends[trendKey] : [];
+    // Prefer server-computed platform totals (reliable, no key-matching fragility)
+    if (stats?.platformTotals) {
+      const googlePT = stats.platformTotals.google || {};
+      const applePT = stats.platformTotals.apple || {};
+      const googleT = googlePT.totalDailyUserInstalls || googlePT.totalInstalls || 0;
+      const appleT = applePT.totalDailyUserInstalls || applePT.totalInstalls || 0;
+      return {
+        appleTotal: appleT,
+        googleTotal: googleT,
+        combinedTotal: appleT + googleT,
+        appleCount: appleC,
+        googleCount: googleC
+      };
+    }
+
+    // Fallback: reconstruct from appTrends using exact packageName lookup
+    let appleT = 0, googleT = 0;
+    projects.forEach(proj => {
+      const entry = stats?.appTrends?.[proj.packageName];
+      const trendData = entry?.trends || entry || [];
       const installs = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
       
       if (proj.platform === 'apple') {

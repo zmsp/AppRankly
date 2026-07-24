@@ -174,10 +174,14 @@ function aggregateOverviews(overviewsWithNames) {
     const isGenerateDataFormat = !!item.overview;
     const curr = isGenerateDataFormat ? item.overview : item;
     
-    // Store app trends if we have package names
-    if (item.name || item.packageName || item.name) { // handling various name fields
-       const name = item.name || item.packageName;
-       appTrendsMap[name] = curr.dailyTrends || [];
+    // Store app trends keyed by actual packageName (unique ID) to avoid display-name collisions
+    const key = item.packageName || item.name;
+    if (key) {
+      appTrendsMap[key] = {
+        trends: curr.dailyTrends || [],
+        displayName: item.displayName || item.name || item.packageName,
+        platform: curr.platform
+      };
     }
 
     // Track per-platform install totals reliably
@@ -289,6 +293,9 @@ function aggregateOverviews(overviewsWithNames) {
 
   const platforms = new Set(validOverviews.map(item => (item.overview || item).platform).filter(Boolean));
   aggregated.platform = platforms.size === 1 ? Array.from(platforms)[0] : 'all';
+
+  // Attach platform-breakdown totals for frontend consumption
+  aggregated.platformTotals = platformTotals;
 
   return aggregated;
 }

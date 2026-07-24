@@ -802,7 +802,10 @@ app.post("/api/stats", authenticate, async (req, res) => {
 
       results.forEach((res, i) => {
         if (res) {
-          res.packageName = packages[i].name || packages[i].packageName;
+          // Keep the actual package ID for unique key-matching in appTrends
+          res.packageName = packages[i].packageName;
+          // Store display name separately for UI consumption
+          res.displayName = packages[i].name || packages[i].packageName;
         }
       });
 
