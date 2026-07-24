@@ -15,6 +15,8 @@ const resolver = require("./lib/resolver");
 const { aggregateOverviews } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
+const { sendNtfyNotification } = require("./lib/notifier");
+const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -331,6 +333,14 @@ const fetchPackagesByPlatform = async (platform, baseConfig) => {
   // 'all'
   const [applePkgs, googlePkgs] = await Promise.all([fetchApple(), fetchGoogle()]);
   return [...applePkgs, ...googlePkgs];
+};
+
+const schedulerHelpers = {
+  getBaseConfig,
+  DATA_DIR,
+  buildGoogleViewer,
+  buildAppleViewer,
+  fetchPackagesByPlatform
 };
 
 const PLAYSTORE_CACHE_FILE = path.join(DATA_DIR, "playstore_scrape_cache.json");
@@ -925,6 +935,50 @@ app.post("/api/releases", authenticate, (req, res) => {
   fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
   res.json({ success: true, release: newRelease });
 });
+
+// --- Notifications & Auto-Refresh Scheduler ---
+
+// Test notification endpoint
+app.post("/api/notifications/test", authenticate, async (req, res) => {
+  const { title, message, priority, tags, topic } = req.body;
+  const result = await sendNtfyNotification({
+    title: title || 'Test Notification',
+    message: message || 'Hi from App Store & Play Store Stats Dashboard! ntfy setup working.',
+    priority: priority || 'high',
+    tags: tags || 'warning,database',
+    topic: topic || 'zee_appstore'
+  });
+  res.json(result);
+});
+
+// Manual store stats refresh & notification check endpoint
+app.post("/api/refresh", authenticate, async (req, res) => {
+  try {
+    const result = await checkAndNotifyStats(schedulerHelpers, { force: true });
+    res.json(result);
+  } catch (error) {
+    console.error("Error running manual stats refresh:", error);
+    res.status(500).json({ error: "Failed to refresh stats", details: error.message });
+  }
+});
+
+// Notification scheduler status & configuration endpoint
+app.get("/api/notifications/status", authenticate, (req, res) => {
+  const baseConfig = getBaseConfig() || {};
+  res.json({
+    scheduler: getSchedulerStatus(),
+    config: {
+      topic: baseConfig.ntfyTopic || process.env.NTFY_TOPIC || 'zee_appstore',
+      refreshIntervalHours: baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1,
+      statsCheckRangeDays: baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30,
+      activeStartHour: baseConfig.activeStartHour !== undefined ? baseConfig.activeStartHour : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9),
+      activeEndHour: baseConfig.activeEndHour !== undefined ? baseConfig.activeEndHour : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20)
+    }
+  });
+});
+
+// Initialize periodic background stats auto-refresh scheduler
+startPeriodicScheduler(schedulerHelpers);
 
 // Serve static frontend files from 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
