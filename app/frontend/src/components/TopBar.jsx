@@ -17,6 +17,7 @@ import {
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
+import AppIcon from './AppIcon';
 import { getPresetDateRange } from '../lib/dateUtils';
 
 export default function TopBar({
@@ -252,13 +253,7 @@ export default function TopBar({
                 )}
                 title={proj.name}
               >
-                {proj.iconUrl ? (
-                  <img src={proj.iconUrl} alt={proj.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === proj.index.toString() || selectedProjectIndex === proj.index ? "bg-accent-blue/20 text-accent-blue" : "bg-white/10 text-white/60")}>
-                    {platform === 'google' ? <PlayStoreIcon size={18} /> : <AppleStoreIcon size={18} />}
-                  </div>
-                )}
+                <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-full h-full rounded-[10px] sm:rounded-xl" />
               </button>
             ))}
 

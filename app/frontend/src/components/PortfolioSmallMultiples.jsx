@@ -1,8 +1,9 @@
 import React from 'react';
 import Sparkline from './Sparkline';
-import { Layers, TrendingUp, Smartphone } from 'lucide-react';
+import { Layers } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
-import { formatNumber, formatDelta } from '../lib/format';
+import { formatNumber } from '../lib/format';
+import AppIcon from './AppIcon';
 
 export default function PortfolioSmallMultiples({ projects = [], appTrends = {}, onSelectProject }) {
   if (!projects || projects.length === 0) return null;
@@ -33,13 +34,7 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2 truncate">
-                  {proj.iconUrl ? (
-                    <img src={proj.iconUrl} alt={proj.name} className="w-6 h-6 rounded-md object-cover border border-white/10" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-md bg-accent-blue/10 flex items-center justify-center">
-                      <Smartphone size={14} className="text-accent-blue" />
-                    </div>
-                  )}
+                  <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-6 h-6 rounded-md" />
                   <div className="flex items-center space-x-1.5 truncate">
                     {proj.platform === 'apple' ? (
                       <AppleStoreIcon size={12} className="text-white/60 shrink-0" />

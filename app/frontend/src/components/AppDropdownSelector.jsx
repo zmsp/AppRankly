@@ -3,6 +3,8 @@ import { Search, ChevronDown, LayoutGrid, Smartphone, Check, X } from 'lucide-re
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 
+import AppIcon from './AppIcon';
+
 export default function AppDropdownSelector({
   projects = [],
   selectedProjectIndex,
@@ -66,16 +68,8 @@ export default function AppDropdownSelector({
           <div className="w-6 h-6 rounded-lg bg-accent-blue/20 border border-accent-blue/40 flex items-center justify-center text-accent-blue shrink-0">
             <LayoutGrid size={14} />
           </div>
-        ) : activeProject?.iconUrl ? (
-          <img
-            src={activeProject.iconUrl}
-            alt={activeProject.name}
-            className="w-6 h-6 rounded-lg object-cover border border-white/10 shrink-0"
-          />
         ) : (
-          <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-white/70 shrink-0">
-            <Smartphone size={14} />
-          </div>
+          <AppIcon iconUrl={activeProject?.iconUrl} name={activeProject?.name} platform={activeProject?.platform || platform} className="w-6 h-6 rounded-lg" />
         )}
 
         <span className="font-extrabold text-sm text-white tracking-tight truncate max-w-[180px] sm:max-w-[240px] group-hover:text-accent-blue transition-colors">
@@ -161,17 +155,7 @@ export default function AppDropdownSelector({
                     )}
                   >
                     <div className="flex items-center space-x-3 truncate">
-                      {proj.iconUrl ? (
-                        <img
-                          src={proj.iconUrl}
-                          alt={proj.name}
-                          className="w-7 h-7 rounded-lg object-cover border border-white/10 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                          <Smartphone size={15} className="text-white/60" />
-                        </div>
-                      )}
+                      <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-7 h-7 rounded-lg" />
                       <div className="truncate">
                         <p className={clsx("text-xs font-semibold truncate group-hover:text-white", isSelected && "text-accent-blue font-bold")}>
                           {proj.name}

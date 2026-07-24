@@ -11,6 +11,7 @@ import Reports from './pages/Reports';
 import Config from './pages/Config';
 import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
+import DemoPopup from './components/DemoPopup';
 import { useAppState } from './hooks/useAppState';
 
 function App() {
@@ -92,6 +93,8 @@ function App() {
         {!state.authToken && !state.isDemoMode && !state.noPass && (
           <AuthOverlay {...state} />
         )}
+
+        <DemoPopup isDemoMode={state.isDemoMode} />
 
         {/* Bottom Circular Loader */}
         {isWorking && (
