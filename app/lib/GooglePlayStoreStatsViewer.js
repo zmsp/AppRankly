@@ -53,184 +53,168 @@ class GooglePlayStoreStatsViewer {
   }
 
   async getAppStats(startDate, endDate) {
-    try {
-      await this.initializeStorage();
+    await this.initializeStorage();
 
-      const [files] = await this.packageUtils.getCorrectFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName
-      });
+    const [files] = await this.packageUtils.getCorrectFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName
+    });
 
-      const [ratingFiles] = await this.packageUtils.getCorrectFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        type: "ratings"
-      });
+    const [ratingFiles] = await this.packageUtils.getCorrectFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      type: 'ratings'
+    });
 
-      const [vitalsCrashesFiles] = await this.packageUtils.getCorrectFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        type: "vitals_crashes"
-      });
+    const [vitalsCrashesFiles] = await this.packageUtils.getCorrectFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      type: 'vitals_crashes'
+    });
 
-      const [vitalsAnrsFiles] = await this.packageUtils.getCorrectFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        type: "vitals_anrs"
-      });
+    const [vitalsAnrsFiles] = await this.packageUtils.getCorrectFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      type: 'vitals_anrs'
+    });
 
-      const downloadDir = path.join(this.dataDir, "download_stats", this.inputParamsModel.packageName);
-      if (!fs.existsSync(downloadDir)) {
-        fs.mkdirSync(downloadDir, { recursive: true });
-      }
-
-      const cleanedFileNames = await this.packageUtils.downloadCsvFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        files: files,
-        dimension: "overview",
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      const cleanedRatingFiles = await this.packageUtils.downloadCsvFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        files: ratingFiles,
-        dimension: "overview",
-        type: "ratings",
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      const cleanedCrashFiles = await this.packageUtils.downloadCsvFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        files: vitalsCrashesFiles,
-        dimension: "overview",
-        type: "vitals_crashes",
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      const cleanedAnrFiles = await this.packageUtils.downloadCsvFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        files: vitalsAnrsFiles,
-        dimension: "overview",
-        type: "vitals_anrs",
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      console.log(`Downloaded ${cleanedFileNames.length} overview, ${cleanedRatingFiles.length} ratings, and ${cleanedCrashFiles.length + cleanedAnrFiles.length} vitals`);
-
-      if (cleanedFileNames.length === 0) {
-        throw new Error(`No overview reports found for package: ${this.inputParamsModel.packageName}`);
-      }
-
-      const totals = await this.packageUtils.findSumTotalOfValues({
-        cleanedFileNames: [
-          ...cleanedFileNames,
-          ...cleanedRatingFiles.map(f => f.startsWith('ratings') ? f : 'ratings_' + f),
-          ...cleanedCrashFiles.map(f => f.startsWith('vitals') ? f : 'vitals_' + f),
-          ...cleanedAnrFiles.map(f => f.startsWith('vitals') ? f : 'vitals_' + f)
-        ],
-        packageName: this.inputParamsModel.packageName,
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      return totals;
-    } catch (e) {
-      throw e;
+    const downloadDir = path.join(this.dataDir, 'download_stats', this.inputParamsModel.packageName);
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
     }
+
+    const cleanedFileNames = await this.packageUtils.downloadCsvFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      files,
+      dimension: 'overview',
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
+
+    const cleanedRatingFiles = await this.packageUtils.downloadCsvFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      files: ratingFiles,
+      dimension: 'overview',
+      type: 'ratings',
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
+
+    const cleanedCrashFiles = await this.packageUtils.downloadCsvFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      files: vitalsCrashesFiles,
+      dimension: 'overview',
+      type: 'vitals_crashes',
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
+
+    const cleanedAnrFiles = await this.packageUtils.downloadCsvFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      files: vitalsAnrsFiles,
+      dimension: 'overview',
+      type: 'vitals_anrs',
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
+
+    console.log(`Downloaded ${cleanedFileNames.length} overview, ${cleanedRatingFiles.length} ratings, and ${cleanedCrashFiles.length + cleanedAnrFiles.length} vitals`);
+
+    if (cleanedFileNames.length === 0) {
+      throw new Error(`No overview reports found for package: ${this.inputParamsModel.packageName}`);
+    }
+
+    return this.packageUtils.findSumTotalOfValues({
+      cleanedFileNames: [
+        ...cleanedFileNames,
+        ...cleanedRatingFiles.map(f => f.startsWith('ratings') ? f : 'ratings_' + f),
+        ...cleanedCrashFiles.map(f => f.startsWith('vitals') ? f : 'vitals_' + f),
+        ...cleanedAnrFiles.map(f => f.startsWith('vitals') ? f : 'vitals_' + f)
+      ],
+      packageName: this.inputParamsModel.packageName,
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
   }
 
   async getDimensionStats(dimension, startDate, endDate) {
-    try {
-      await this.initializeStorage();
+    await this.initializeStorage();
 
-      const [files] = await this.packageUtils.getCorrectFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName
-      });
+    const [files] = await this.packageUtils.getCorrectFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName
+    });
 
-      const downloadDir = path.join(this.dataDir, "download_stats", this.inputParamsModel.packageName);
-      if (!fs.existsSync(downloadDir)) {
-        fs.mkdirSync(downloadDir, { recursive: true });
-      }
-
-      const downloaded = await this.packageUtils.downloadCsvFiles({
-        storage: this.packageUtils.authenticatedStorageObj,
-        bucketName: this.inputParamsModel.bucketName,
-        packageName: this.inputParamsModel.packageName,
-        files,
-        dimension,
-        targetLocation: downloadDir,
-        startDate,
-        endDate
-      });
-
-      if (downloaded.length === 0) {
-        throw new Error(`No CSV report found for dimension: ${dimension}`);
-      }
-
-      // If multiple files, we might need to parse all and merge.
-      // For now, let's assume we want to parse all downloaded files for this dimension.
-      const results = await Promise.all(downloaded.map(fileName => {
-        const localFilePath = path.join(downloadDir, fileName);
-        return this.packageUtils.parseDimensionFile(localFilePath, dimension, startDate, endDate);
-      }));
-
-      // Merge results from multiple files
-      const mergedMap = new Map();
-      results.flat().forEach(item => {
-        if (!mergedMap.has(item.label)) {
-          mergedMap.set(item.label, { ...item });
-        } else {
-          const existing = mergedMap.get(item.label);
-          existing.activeDevices = Math.max(existing.activeDevices, item.activeDevices);
-          existing.totalInstalls = Math.max(existing.totalInstalls, item.totalInstalls);
-          existing.dailyUserInstalls += item.dailyUserInstalls;
-          existing.dailyUserUninstalls += item.dailyUserUninstalls;
-          existing.dailyDeviceInstalls += item.dailyDeviceInstalls;
-          existing.dailyDeviceUninstalls += item.dailyDeviceUninstalls;
-          existing.dailyDeviceUpgrades += item.dailyDeviceUpgrades;
-          existing.installEvents += item.installEvents;
-          existing.updateEvents += item.updateEvents;
-          existing.uninstallEvents += item.uninstallEvents;
-        }
-      });
-
-      const finalResults = Array.from(mergedMap.values()).map(item => {
-        const netUserGrowth = item.dailyUserInstalls - item.dailyUserUninstalls;
-        const retentionRate = item.totalInstalls > 0 ? (item.activeDevices / item.totalInstalls) * 100 : 0;
-        return {
-          ...item,
-          netUserGrowth,
-          retentionRate: parseFloat(retentionRate.toFixed(2))
-        };
-      });
-
-      return finalResults.sort((a, b) => b.activeDevices - a.activeDevices).slice(0, 20);
-    } catch (e) {
-      throw e;
+    const downloadDir = path.join(this.dataDir, 'download_stats', this.inputParamsModel.packageName);
+    if (!fs.existsSync(downloadDir)) {
+      fs.mkdirSync(downloadDir, { recursive: true });
     }
+
+    const downloaded = await this.packageUtils.downloadCsvFiles({
+      storage: this.packageUtils.authenticatedStorageObj,
+      bucketName: this.inputParamsModel.bucketName,
+      packageName: this.inputParamsModel.packageName,
+      files,
+      dimension,
+      targetLocation: downloadDir,
+      startDate,
+      endDate
+    });
+
+    if (downloaded.length === 0) {
+      throw new Error(`No CSV report found for dimension: ${dimension}`);
+    }
+
+    const results = await Promise.all(downloaded.map(fileName => {
+      const localFilePath = path.join(downloadDir, fileName);
+      return this.packageUtils.parseDimensionFile(localFilePath, dimension, startDate, endDate);
+    }));
+
+    // Merge results from multiple files
+    const mergedMap = new Map();
+    results.flat().forEach(item => {
+      if (!mergedMap.has(item.label)) {
+        mergedMap.set(item.label, { ...item });
+      } else {
+        const existing = mergedMap.get(item.label);
+        existing.activeDevices = Math.max(existing.activeDevices, item.activeDevices);
+        existing.totalInstalls = Math.max(existing.totalInstalls, item.totalInstalls);
+        existing.dailyUserInstalls += item.dailyUserInstalls;
+        existing.dailyUserUninstalls += item.dailyUserUninstalls;
+        existing.dailyDeviceInstalls += item.dailyDeviceInstalls;
+        existing.dailyDeviceUninstalls += item.dailyDeviceUninstalls;
+        existing.dailyDeviceUpgrades += item.dailyDeviceUpgrades;
+        existing.installEvents += item.installEvents;
+        existing.updateEvents += item.updateEvents;
+        existing.uninstallEvents += item.uninstallEvents;
+      }
+    });
+
+    const finalResults = Array.from(mergedMap.values()).map(item => {
+      const netUserGrowth = item.dailyUserInstalls - item.dailyUserUninstalls;
+      const retentionRate = item.totalInstalls > 0 ? (item.activeDevices / item.totalInstalls) * 100 : 0;
+      return { ...item, netUserGrowth, retentionRate: parseFloat(retentionRate.toFixed(2)) };
+    });
+
+    return finalResults.sort((a, b) => b.activeDevices - a.activeDevices).slice(0, 20);
   }
 
   async listPackages() {
@@ -268,18 +252,16 @@ class GooglePlayStoreStatsViewer {
 class PackageUtils {
   getHeaderIndexes(row) {
     const normalized = row.map(c => {
-      let str = (c || "").toString().toLowerCase().trim();
-      // Remove BOM if present
-      if (str.startsWith('\ufeff')) {
-        str = str.substring(1);
-      }
+      let str = (c || '').toString().toLowerCase().trim();
+      if (str.startsWith('\uFEFF')) str = str.substring(1);
       return str;
     });
+    const labelCols = ['country', 'country / region', 'device', 'os version', 'android os version', 'app version', 'carrier', 'language'];
     return {
       date: normalized.findIndex(c => c === 'date'),
-      label: normalized.findIndex(c => c === 'country' || c === 'country / region' || c === 'device' || c === 'os version' || c === 'android os version' || c === 'app version' || c === 'carrier' || c === 'language') !== -1
-             ? normalized.findIndex(c => c === 'country' || c === 'country / region' || c === 'device' || c === 'os version' || c === 'android os version' || c === 'app version' || c === 'carrier' || c === 'language')
-             : 2,
+      label: normalized.findIndex(c => labelCols.includes(c)) !== -1
+        ? normalized.findIndex(c => labelCols.includes(c))
+        : 2,
       activeDevices: normalized.findIndex(c => c === 'active device installs'),
       totalInstalls: normalized.findIndex(c => c === 'total user installs'),
       dailyInstalls: normalized.findIndex(c => c === 'daily user installs'),

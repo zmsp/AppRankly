@@ -254,6 +254,85 @@ const resolveKeyFilePath = (keyPath) => {
 const gplayModule = require("google-play-scraper");
 const gplay = gplayModule.default || gplayModule;
 
+// --- Viewer Factory Helpers ---
+
+/**
+ * Constructs an AppleAppStoreStatsViewer with credentials from config.
+ * Resolves the key file and reads the private key.
+ * @param {object} baseConfig
+ * @param {string} [appId]
+ * @returns {AppleAppStoreStatsViewer}
+ */
+const buildAppleViewer = (baseConfig, appId) => {
+  const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
+  if (!appleKeyPath) throw new Error('Apple key file not found or access denied.');
+  const privateKey = require('fs').readFileSync(appleKeyPath, 'utf8');
+  return new AppleAppStoreStatsViewer({
+    issuerId: baseConfig.appleIssuerId,
+    keyId: baseConfig.appleKeyId,
+    vendorId: baseConfig.appleVendorId,
+    privateKey,
+    appId,
+    dataDir: DATA_DIR
+  });
+};
+
+/**
+ * Constructs a GooglePlayStoreStatsViewer with credentials from config.
+ * @param {object} baseConfig
+ * @param {string} packageName
+ * @returns {GooglePlayStoreStatsViewer}
+ */
+const buildGoogleViewer = (baseConfig, packageName) => {
+  return new GooglePlayStoreStatsViewer({
+    keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
+    keyJson: baseConfig.keyJson,
+    projectID: baseConfig.projectID,
+    bucketName: baseConfig.bucketName,
+    packageName,
+    dataDir: DATA_DIR
+  });
+};
+
+/**
+ * Fetches all packages for the given platform(s) from the configured stores.
+ * Returns an array of package objects, each with a `.platform` property.
+ * @param {'apple'|'google'|'all'} platform
+ * @param {object} baseConfig
+ * @returns {Promise<Array>}
+ */
+const fetchPackagesByPlatform = async (platform, baseConfig) => {
+  const fetchApple = async () => {
+    try {
+      const viewer = buildAppleViewer(baseConfig);
+      const pkgs = await viewer.listPackages();
+      return pkgs.map(p => ({ ...p, platform: 'apple' }));
+    } catch (e) {
+      console.error('Error fetching Apple packages:', e.message);
+      return [];
+    }
+  };
+
+  const fetchGoogle = async () => {
+    try {
+      const viewer = buildGoogleViewer(baseConfig, 'dummy');
+      let pkgs = await viewer.listPackages();
+      const ignoredSet = getIgnoredSet(baseConfig);
+      pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
+      return pkgs.map(p => ({ ...p, platform: 'google' }));
+    } catch (e) {
+      console.error('Error fetching Google packages:', e.message);
+      return [];
+    }
+  };
+
+  if (platform === 'apple') return fetchApple();
+  if (platform === 'google') return fetchGoogle();
+  // 'all'
+  const [applePkgs, googlePkgs] = await Promise.all([fetchApple(), fetchGoogle()]);
+  return [...applePkgs, ...googlePkgs];
+};
+
 const PLAYSTORE_CACHE_FILE = path.join(DATA_DIR, "playstore_scrape_cache.json");
 const APPSTORE_CACHE_FILE = path.join(DATA_DIR, "appstore_scrape_cache.json");
 
@@ -509,14 +588,7 @@ app.post("/api/test/apple", authenticate, async (req, res) => {
       console.warn(`[Test Connection] [Apple] Key file not found at: ${appleKeyPath}`);
       return res.json({ success: false, error: "Apple private key file not found" });
     }
-    const privateKey = fs.readFileSync(appleKeyPath, "utf8");
-    const appleStatsViewer = new AppleAppStoreStatsViewer({
-      issuerId: baseConfig.appleIssuerId,
-      keyId: baseConfig.appleKeyId,
-      vendorId: baseConfig.appleVendorId,
-      privateKey,
-      dataDir: DATA_DIR
-    });
+    const appleStatsViewer = buildAppleViewer(baseConfig);
     const apps = await appleStatsViewer.listPackages();
     console.log(`[Test Connection] [Apple] SUCCESS — Found ${apps.length} apps.`);
     res.json({ success: true, appCount: apps.length, apps: apps.slice(0, 5).map(a => ({ name: a.name, bundleId: a.bundleId || a.packageName })) });
@@ -537,14 +609,7 @@ app.post("/api/test/google", authenticate, async (req, res) => {
   try {
     const keyPath = resolveKeyFilePath(baseConfig.keyFilePath);
     console.log(`[Test Connection] [Google] ProjectID: ${baseConfig.projectID}, Bucket: ${baseConfig.bucketName}, KeyPath: ${keyPath}`);
-    const googleStatsViewer = new GooglePlayStoreStatsViewer({
-      keyFilePath: keyPath,
-      keyJson: baseConfig.keyJson,
-      projectID: baseConfig.projectID,
-      bucketName: baseConfig.bucketName,
-      packageName: "dummy",
-      dataDir: DATA_DIR
-    });
+    const googleStatsViewer = buildGoogleViewer(baseConfig, 'dummy');
     let packages = await googleStatsViewer.listPackages();
     const ignoredSet = getIgnoredSet(baseConfig);
     packages = packages.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
@@ -607,15 +672,7 @@ app.get("/api/projects", authenticate, async (req, res) => {
 
     // Google Play Projects
     try {
-      const googleStatsViewer = new GooglePlayStoreStatsViewer({
-        keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-        keyJson: baseConfig.keyJson,
-        projectID: baseConfig.projectID,
-        bucketName: baseConfig.bucketName,
-        packageName: "dummy",
-        dataDir: DATA_DIR
-      });
-
+      const googleStatsViewer = buildGoogleViewer(baseConfig, 'dummy');
       let packages = await googleStatsViewer.listPackages();
       const ignoredSet = getIgnoredSet(baseConfig);
       packages = packages.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
@@ -623,16 +680,13 @@ app.get("/api/projects", authenticate, async (req, res) => {
       for (let idx = 0; idx < packages.length; idx++) {
         const p = packages[idx];
         const metadata = baseConfig.appMetadata?.[p.packageName] || {};
-        let cachedScraped = await getScrapedPlayStoreData(p.packageName);
+        const cachedScraped = await getScrapedPlayStoreData(p.packageName);
 
         const storeUrl = metadata.storeUrl || cachedScraped?.url || `https://play.google.com/store/apps/details?id=${p.packageName}`;
-        
         const consoleBase = baseConfig.PlaystoreConsoleUrl
           ? baseConfig.PlaystoreConsoleUrl.replace(/\/+$/, '')
           : `https://play.google.com/console/u/0/developers/${metadata.developerConsoleId || baseConfig.developerConsoleId || '7018441398256771959'}`;
-
         const appId = metadata.consoleAppId || (p.packageName === 'io.github.zmsp.addaboard' ? '4976209752217554327' : null);
-
         const consoleUrl = metadata.consoleUrl || (appId ? `${consoleBase}/app/${appId}/app-dashboard` : consoleBase);
         const iconUrl = metadata.iconUrl || cachedScraped?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=play.google.com&sz=128`;
         const name = metadata.displayName || cachedScraped?.title || p.name;
@@ -640,7 +694,7 @@ app.get("/api/projects", authenticate, async (req, res) => {
         list.push({
           index: `g-${idx}`,
           name,
-          platform: "google",
+          platform: 'google',
           packageName: p.packageName,
           storeUrl,
           consoleUrl,
@@ -649,52 +703,40 @@ app.get("/api/projects", authenticate, async (req, res) => {
         });
       }
     } catch (error) {
-      console.error("Error discovering Google projects:", error);
+      console.error('Error discovering Google projects:', error);
     }
 
     // Apple App Store Projects
     if (baseConfig.keyFilePath_apple) {
       try {
-        const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-        if (appleKeyPath && fs.existsSync(appleKeyPath)) {
-          const privateKey = fs.readFileSync(appleKeyPath, "utf8");
+        const appleStatsViewer = buildAppleViewer(baseConfig);
+        const apps = await appleStatsViewer.listPackages();
+        for (let idx = 0; idx < apps.length; idx++) {
+          const app = apps[idx];
+          const metadata = baseConfig.appMetadata?.[app.packageName || app.bundleId] || {};
+          const appleStoreData = await getScrapedAppleStoreData(app.bundleId || app.appId || app.packageName);
 
-          const appleStatsViewer = new AppleAppStoreStatsViewer({
-            issuerId: baseConfig.appleIssuerId,
-            keyId: baseConfig.appleKeyId,
-            vendorId: baseConfig.appleVendorId,
-            privateKey: privateKey,
-            dataDir: DATA_DIR
+          const storeUrl = metadata.storeUrl || appleStoreData?.url || (app.adamId ? `https://apps.apple.com/app/id${app.adamId}` : null);
+          const consoleUrl = metadata.consoleUrl || 'https://appstoreconnect.apple.com/apps';
+          const iconUrl = metadata.iconUrl || appleStoreData?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=apps.apple.com&sz=128`;
+          const name = metadata.displayName || appleStoreData?.title || `${app.name} (App Store)`;
+
+          list.push({
+            index: `a-${idx}`,
+            name,
+            platform: 'apple',
+            packageName: app.packageName,
+            bundleId: app.bundleId,
+            sku: app.sku,
+            storeUrl,
+            consoleUrl,
+            iconUrl,
+            primaryLocale: app.primaryLocale,
+            hasKey: true
           });
-
-          const apps = await appleStatsViewer.listPackages();
-          for (let idx = 0; idx < apps.length; idx++) {
-            const app = apps[idx];
-            const metadata = baseConfig.appMetadata?.[app.packageName || app.bundleId] || {};
-            const appleStoreData = await getScrapedAppleStoreData(app.bundleId || app.appId || app.packageName);
-
-            const storeUrl = metadata.storeUrl || appleStoreData?.url || (app.adamId ? `https://apps.apple.com/app/id${app.adamId}` : null);
-            const consoleUrl = metadata.consoleUrl || `https://appstoreconnect.apple.com/apps`;
-            const iconUrl = metadata.iconUrl || appleStoreData?.iconUrl || `https://s2.googleusercontent.com/s2/favicons?domain=apps.apple.com&sz=128`;
-            const name = metadata.displayName || appleStoreData?.title || `${app.name} (App Store)`;
-
-            list.push({
-              index: `a-${idx}`,
-              name,
-              platform: "apple",
-              packageName: app.packageName,
-              bundleId: app.bundleId,
-              sku: app.sku,
-              storeUrl,
-              consoleUrl,
-              iconUrl,
-              primaryLocale: app.primaryLocale,
-              hasKey: true
-            });
-          }
         }
       } catch (error) {
-        console.error("Error discovering Apple projects:", error.message);
+        console.error('Error discovering Apple projects:', error.message);
       }
     }
 
@@ -714,112 +756,36 @@ app.post("/api/stats", authenticate, async (req, res) => {
 
   if (req.body.projectIndex === "all") {
     try {
-      let packages = [];
-      let applePrivateKey = null;
-
-      // Helper function to fetch Apple packages
-      const fetchApplePackages = async () => {
-        try {
-          const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-          if (!appleKeyPath) return [];
-          applePrivateKey = fs.readFileSync(appleKeyPath, "utf8");
-          const statsViewer = new AppleAppStoreStatsViewer({
-            issuerId: baseConfig.appleIssuerId,
-            keyId: baseConfig.appleKeyId,
-            vendorId: baseConfig.appleVendorId,
-            privateKey: applePrivateKey,
-            dataDir: DATA_DIR
-          });
-          const pkgs = await statsViewer.listPackages();
-          return pkgs.map(p => ({ ...p, platform: "apple" }));
-        } catch (e) {
-          console.error("Error fetching Apple packages:", e.message);
-          return [];
-        }
-      };
-
-      // Helper function to fetch Google packages
-      const fetchGooglePackages = async () => {
-        try {
-          const statsViewer = new GooglePlayStoreStatsViewer({
-            keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-            keyJson: baseConfig.keyJson,
-            projectID: baseConfig.projectID,
-            bucketName: baseConfig.bucketName,
-            packageName: "dummy",
-            dataDir: DATA_DIR
-          });
-          let pkgs = await statsViewer.listPackages();
-          const ignoredSet = getIgnoredSet(baseConfig);
-          pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
-          return pkgs.map(p => ({ ...p, platform: "google" }));
-        } catch (e) {
-          console.error("Error fetching Google packages:", e.message);
-          return [];
-        }
-      };
-
-      if (platform === "apple") {
-        packages = await fetchApplePackages();
-      } else if (platform === "google") {
-        packages = await fetchGooglePackages();
-      } else if (platform === "all") {
-        const [applePkgs, googlePkgs] = await Promise.all([
-          fetchApplePackages(),
-          fetchGooglePackages()
-        ]);
-        packages = [...applePkgs, ...googlePkgs];
-      }
+      const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
 
       const results = await Promise.all(packages.map(async (pkg) => {
         try {
-          if (pkg.platform === "apple") {
-            const v = new AppleAppStoreStatsViewer({
-              issuerId: baseConfig.appleIssuerId,
-              keyId: baseConfig.appleKeyId,
-              vendorId: baseConfig.appleVendorId,
-              privateKey: applePrivateKey,
-              appId: pkg.packageName,
-              dataDir: DATA_DIR
-            });
-            return await v.getAppStats(req.body.startDate, req.body.endDate);
-          } else {
-            const v = new GooglePlayStoreStatsViewer({
-              keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-              keyJson: baseConfig.keyJson,
-              projectID: baseConfig.projectID,
-              bucketName: baseConfig.bucketName,
-              packageName: pkg.packageName,
-              dataDir: DATA_DIR
-            });
-            return await v.getAppStats(req.body.startDate, req.body.endDate);
-          }
+          const viewer = pkg.platform === 'apple'
+            ? buildAppleViewer(baseConfig, pkg.packageName)
+            : buildGoogleViewer(baseConfig, pkg.packageName);
+          return await viewer.getAppStats(req.body.startDate, req.body.endDate);
         } catch (e) {
           console.error(`Failed to fetch stats for ${pkg.packageName}:`, e.message);
           return null;
         }
       }));
 
-      results.forEach((res, i) => {
-        if (res) {
-          // Keep the actual package ID for unique key-matching in appTrends
-          res.packageName = packages[i].packageName;
-          // Store display name separately for UI consumption
-          res.displayName = packages[i].name || packages[i].packageName;
+      results.forEach((result, i) => {
+        if (result) {
+          result.packageName = packages[i].packageName;
+          result.displayName = packages[i].name || packages[i].packageName;
         }
       });
 
-      const validResults = results.filter(r => r !== null);
-      if (validResults.length === 0) throw new Error("No data found for any package");
+      const validResults = results.filter(Boolean);
+      if (validResults.length === 0) throw new Error('No data found for any package');
 
-      const aggregated = aggregateOverviews(validResults);
-
-      return res.json(aggregated);
+      return res.json(aggregateOverviews(validResults));
     } catch (error) {
       console.error(`Error in /api/stats (all):`, error);
       return res.status(500).json({
-        error: "Failed to aggregate stats",
-        details: process.env.NODE_ENV === "production" ? "Internal Server Error" : (error.message || error)
+        error: 'Failed to aggregate stats',
+        details: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : (error.message || error)
       });
     }
   }
@@ -827,33 +793,10 @@ app.post("/api/stats", authenticate, async (req, res) => {
   try {
     let stats;
     if (platform === "apple") {
-      const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-      if (!appleKeyPath) {
-        console.error("Apple key path could not be resolved for single app stats:", baseConfig.keyFilePath_apple);
-        throw new Error("Apple key file not found or access denied.");
-      }
-      const privateKey = fs.readFileSync(appleKeyPath, "utf8");
-      console.log(`Read Apple private key for single app (length: ${privateKey.length})`);
-
-      const statsViewer = new AppleAppStoreStatsViewer({
-        issuerId: baseConfig.appleIssuerId,
-        keyId: baseConfig.appleKeyId,
-        vendorId: baseConfig.appleVendorId,
-        privateKey: privateKey,
-        appId: req.body.packageName,
-        dataDir: DATA_DIR
-      });
+      const statsViewer = buildAppleViewer(baseConfig, req.body.packageName);
       stats = await statsViewer.getAppStats(req.body.startDate, req.body.endDate);
     } else {
-      const config = getProjectConfig(req.body);
-      const statsViewer = new GooglePlayStoreStatsViewer({
-        keyFilePath: config.keyFilePath,
-        keyJson: config.keyJson,
-        packageName: config.packageName,
-        projectID: config.projectID,
-        bucketName: config.bucketName,
-        dataDir: DATA_DIR
-      });
+      const statsViewer = buildGoogleViewer(baseConfig, req.body.packageName);
       stats = await statsViewer.getAppStats(req.body.startDate, req.body.endDate);
     }
 
@@ -879,84 +822,14 @@ app.post("/api/dimension", authenticate, async (req, res) => {
 
   if (req.body.projectIndex === "all" || platform === "all") {
     try {
-      let packages = [];
-      let applePrivateKey = null;
-
-      const fetchApplePackages = async () => {
-        try {
-          const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-          if (!appleKeyPath) return [];
-          applePrivateKey = fs.readFileSync(appleKeyPath, "utf8");
-          const statsViewer = new AppleAppStoreStatsViewer({
-            issuerId: baseConfig.appleIssuerId,
-            keyId: baseConfig.appleKeyId,
-            vendorId: baseConfig.appleVendorId,
-            privateKey: applePrivateKey,
-            dataDir: DATA_DIR
-          });
-          const pkgs = await statsViewer.listPackages();
-          return pkgs.map(p => ({ ...p, platform: "apple" }));
-        } catch (e) {
-          console.error("Error fetching Apple packages for dimension:", e.message);
-          return [];
-        }
-      };
-
-      const fetchGooglePackages = async () => {
-        try {
-          const statsViewer = new GooglePlayStoreStatsViewer({
-            keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-            keyJson: baseConfig.keyJson,
-            projectID: baseConfig.projectID,
-            bucketName: baseConfig.bucketName,
-            packageName: "dummy",
-            dataDir: DATA_DIR
-          });
-          let pkgs = await statsViewer.listPackages();
-          const ignoredSet = getIgnoredSet(baseConfig);
-          pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
-          return pkgs.map(p => ({ ...p, platform: "google" }));
-        } catch (e) {
-          console.error("Error fetching Google packages for dimension:", e.message);
-          return [];
-        }
-      };
-
-      if (platform === "apple") {
-        packages = await fetchApplePackages();
-      } else if (platform === "google") {
-        packages = await fetchGooglePackages();
-      } else {
-        const [applePkgs, googlePkgs] = await Promise.all([
-          fetchApplePackages(),
-          fetchGooglePackages()
-        ]);
-        packages = [...applePkgs, ...googlePkgs];
-      }
+      const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
 
       const results = await Promise.all(packages.map(async (pkg) => {
         try {
-          if (pkg.platform === "apple") {
-            const v = new AppleAppStoreStatsViewer({
-              issuerId: baseConfig.appleIssuerId,
-              keyId: baseConfig.appleKeyId,
-              vendorId: baseConfig.appleVendorId,
-              privateKey: applePrivateKey,
-              appId: pkg.packageName,
-              dataDir: DATA_DIR
-            });
-            return await v.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-          } else {
-            const v = new GooglePlayStoreStatsViewer({
-              keyFilePath: resolveKeyFilePath(baseConfig.keyFilePath),
-              keyJson: baseConfig.keyJson,
-              projectID: baseConfig.projectID,
-              bucketName: baseConfig.bucketName,
-              packageName: pkg.packageName,
-              dataDir: DATA_DIR
-            });
-            return await v.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-          }
+          const viewer = pkg.platform === 'apple'
+            ? buildAppleViewer(baseConfig, pkg.packageName)
+            : buildGoogleViewer(baseConfig, pkg.packageName);
+          return await viewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
         } catch (e) {
           console.error(`Failed dimension stats for ${pkg.packageName}:`, e.message);
           return null;
@@ -969,15 +842,7 @@ app.post("/api/dimension", authenticate, async (req, res) => {
         list.forEach(item => {
           const label = item.label || item.key || 'Unknown';
           if (!mergedMap.has(label)) {
-            mergedMap.set(label, {
-              label,
-              key: label,
-              totalInstalls: 0,
-              activeDevices: 0,
-              dailyUserInstalls: 0,
-              dailyUserUninstalls: 0,
-              installs: 0
-            });
+            mergedMap.set(label, { label, key: label, totalInstalls: 0, activeDevices: 0, dailyUserInstalls: 0, dailyUserUninstalls: 0, installs: 0 });
           }
           const curr = mergedMap.get(label);
           curr.totalInstalls += (item.totalInstalls || item.installs || 0);
@@ -998,43 +863,15 @@ app.post("/api/dimension", authenticate, async (req, res) => {
       return res.json(aggregatedDimensions);
     } catch (error) {
       console.error(`Error in /api/dimension (all):`, error);
-      return res.status(500).json({ error: "Failed to aggregate dimension stats" });
+      return res.status(500).json({ error: 'Failed to aggregate dimension stats' });
     }
   }
 
   try {
-    let dimensionStats;
-    if (platform === "apple") {
-      const appleKeyPath = resolveKeyFilePath(baseConfig.keyFilePath_apple);
-      if (!appleKeyPath) {
-        console.error("Apple key path could not be resolved for single app stats:", baseConfig.keyFilePath_apple);
-        throw new Error("Apple key file not found or access denied.");
-      }
-      const privateKey = fs.readFileSync(appleKeyPath, "utf8");
-      console.log(`Read Apple private key for single app (length: ${privateKey.length})`);
-
-      const statsViewer = new AppleAppStoreStatsViewer({
-        issuerId: baseConfig.appleIssuerId,
-        keyId: baseConfig.appleKeyId,
-        vendorId: baseConfig.appleVendorId,
-        privateKey: privateKey,
-        appId: req.body.packageName,
-        dataDir: DATA_DIR
-      });
-      dimensionStats = await statsViewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-    } else {
-      const config = getProjectConfig(req.body);
-      const statsViewer = new GooglePlayStoreStatsViewer({
-        keyFilePath: config.keyFilePath,
-        keyJson: config.keyJson,
-        packageName: config.packageName,
-        projectID: config.projectID,
-        bucketName: config.bucketName,
-        dataDir: DATA_DIR
-      });
-
-      dimensionStats = await statsViewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-    }
+    const viewer = platform === 'apple'
+      ? buildAppleViewer(baseConfig, req.body.packageName)
+      : buildGoogleViewer(baseConfig, req.body.packageName);
+    const dimensionStats = await viewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
     res.json(dimensionStats);
   } catch (error) {
     console.error(`Error in /api/dimension for ${dimension} on ${platform}:`, error);

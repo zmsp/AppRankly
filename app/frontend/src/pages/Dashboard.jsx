@@ -15,6 +15,7 @@ import NetGrowthChart from '../components/NetGrowthChart';
 import UpgradesChart from '../components/UpgradesChart';
 import ActiveDevicesChart from '../components/ActiveDevicesChart';
 import AllPlatformDashboard from '../components/AllPlatformDashboard';
+import ChartPanel from '../components/ChartPanel';
 import { calculateHealthScore } from '../lib/healthScore';
 import SkeletonDashboard from '../components/SkeletonDashboard';
 import { formatNumber } from '../lib/format';
@@ -472,33 +473,15 @@ export default function Dashboard({
 
       {/* Secondary Trends */}
       <div id="active-chart" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="glass-card p-4 sm:p-6 h-[340px] flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-bold">Daily Net Growth</h4>
-          </div>
-          {renderSummary(netGrowthTotal, netGrowthAvg)}
-          <div className="flex-1 min-h-0">
-            <NetGrowthChart data={stats.dailyTrends} />
-          </div>
-        </div>
-        <div className="glass-card p-4 sm:p-6 h-[340px] flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-bold">Daily Upgrades</h4>
-          </div>
-          {renderSummary(upgradesTotal, upgradesAvg)}
-          <div className="flex-1 min-h-0">
-            <UpgradesChart data={stats.dailyTrends} />
-          </div>
-        </div>
-        <div className="glass-card p-4 sm:p-6 h-[340px] flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-bold">Active Devices Trend</h4>
-          </div>
-          {renderSummary(activeDevicesMax, activeDevicesAvg, "Max", "Avg")}
-          <div className="flex-1 min-h-0">
-            <ActiveDevicesChart data={stats.dailyTrends} />
-          </div>
-        </div>
+        <ChartPanel title="Daily Net Growth" total={netGrowthTotal} avg={netGrowthAvg}>
+          <NetGrowthChart data={stats.dailyTrends} />
+        </ChartPanel>
+        <ChartPanel title="Daily Upgrades" total={upgradesTotal} avg={upgradesAvg}>
+          <UpgradesChart data={stats.dailyTrends} />
+        </ChartPanel>
+        <ChartPanel title="Active Devices Trend" total={activeDevicesMax} avg={activeDevicesAvg} label1="Max" label2="Avg">
+          <ActiveDevicesChart data={stats.dailyTrends} />
+        </ChartPanel>
       </div>
 
       {/* Device Hardware Table */}

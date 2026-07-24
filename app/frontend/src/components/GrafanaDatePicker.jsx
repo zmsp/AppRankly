@@ -240,13 +240,13 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
       {/* Popup Modal Backdrop & Panel (Rendered via Portal to document.body to prevent clipping) */}
       {isOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-3 pt-[220px] sm:pt-[240px] bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
           onClick={() => setIsOpen(false)}
         >
           <div
             ref={modalContentRef}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[620px] bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 text-white animate-in zoom-in-95 duration-150 max-h-[75vh] overflow-y-auto"
+            className="w-full max-w-[620px] bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-4 sm:p-5 text-white animate-in zoom-in-95 duration-150 my-auto"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10">
