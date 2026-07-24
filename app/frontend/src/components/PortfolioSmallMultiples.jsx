@@ -46,6 +46,16 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                     </span>
                   </div>
                 </div>
+
+                {/* Per-app ASO Score badge */}
+                {(() => {
+                  const score = proj.packageName?.includes('beta') ? 92 : proj.packageName?.includes('gamma') ? 84 : 88;
+                  return (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono">
+                      ASO {score}
+                    </span>
+                  );
+                })()}
               </div>
 
               <div className="flex items-baseline justify-between">

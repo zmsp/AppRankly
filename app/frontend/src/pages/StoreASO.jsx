@@ -6,8 +6,104 @@ import {
 import MetricCard from '../components/MetricCard';
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
+import AppIcon from '../components/AppIcon';
+import { MOCK_PROJECTS } from '../lib/mockData';
 
-export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken }) {
+function clsx(...classes) {
+  return classes.filter(Boolean).join(' ');
+}
+
+export function getDemoAsoData(pkgName = '', project = {}) {
+  const name = project?.name || 'Selected App';
+  const isBeta = pkgName.includes('beta') || name.includes('Beta');
+  const isGamma = pkgName.includes('gamma') || name.includes('Gamma');
+
+  if (isBeta) {
+    return {
+      listingSnapshot: {
+        title: `${name} - Fitness & Calorie Macro Counter`,
+        developer: "Demo Studios",
+        category: "Health & Fitness",
+        score: 4.8,
+        content_rating: "Everyone",
+        price: "Free",
+        icon_url: project?.iconUrl
+      },
+      lastAudit: {
+        score: 92,
+        headline: "Excellent screenshot conversion & high keyword coverage! Strong category ranking potential.",
+        improvements: [
+          { type: "Localization", impact: "high", issue: "Global Market Reach", recommendation: "Translate short description into Spanish (ES) & German (DE) to capture non-English search traffic (+18% growth)." },
+          { type: "Subtitle", impact: "high", issue: "Brand vs Generic Keywords", recommendation: "Replace redundant brand word with high-volume search query 'Macro Tracker' in subtitle." },
+          { type: "Keywords Field", impact: "medium", issue: "Unused Character Limit", recommendation: "Utilize remaining 18 characters in Apple 100-char keyword field with 'meal,planner'." }
+        ]
+      },
+      keywords: [
+        { id: 1, term: 'calorie counter', search_volume: 88, difficulty: 64, current_rank: 3, tracked: 1 },
+        { id: 2, term: 'macro tracker', search_volume: 79, difficulty: 52, current_rank: 5, tracked: 1 },
+        { id: 3, term: 'workout log', search_volume: 74, difficulty: 48, current_rank: 7, tracked: 1 },
+        { id: 4, term: 'diet planner', search_volume: 68, difficulty: 41, current_rank: 4, tracked: 1 }
+      ]
+    };
+  } else if (isGamma) {
+    return {
+      listingSnapshot: {
+        title: `${name} - Budget & Expense Tracker`,
+        developer: "Demo Studios",
+        category: "Finance",
+        score: 4.6,
+        content_rating: "Everyone",
+        price: "Free",
+        icon_url: project?.iconUrl
+      },
+      lastAudit: {
+        score: 84,
+        headline: "Solid base metadata; subtitle and description require secondary keyword enrichment to improve indexation.",
+        improvements: [
+          { type: "Subtitle", impact: "high", issue: "Search Relevance", recommendation: "Incorporate 'Money Manager' and 'Bill Organizer' into subtitle for targeted search indexation." },
+          { type: "Description", impact: "high", issue: "Formatting Retention", recommendation: "Format top 5 feature benefits as bullet points to increase reader retention by 22%." },
+          { type: "Rating Prompt", impact: "medium", issue: "In-App Prompting", recommendation: "Trigger rating dialog after 3rd completed budget entry to boost 5-star review volume." }
+        ]
+      },
+      keywords: [
+        { id: 1, term: 'budget planner', search_volume: 82, difficulty: 58, current_rank: 4, tracked: 1 },
+        { id: 2, term: 'expense tracker', search_volume: 85, difficulty: 62, current_rank: 6, tracked: 1 },
+        { id: 3, term: 'money manager', search_volume: 71, difficulty: 45, current_rank: 8, tracked: 1 },
+        { id: 4, term: 'bill reminder', search_volume: 64, difficulty: 38, current_rank: 5, tracked: 1 }
+      ]
+    };
+  } else {
+    return {
+      listingSnapshot: {
+        title: `${name} - AI Task Manager & Todo List`,
+        developer: "Demo Studios",
+        category: "Productivity",
+        score: 4.9,
+        content_rating: "Everyone",
+        price: "Free",
+        icon_url: project?.iconUrl
+      },
+      lastAudit: {
+        score: 88,
+        headline: "Strong title keyword density; short description requires a clearer value proposition & call-to-action.",
+        improvements: [
+          { type: "Title", impact: "high", issue: "Keyword Placement", recommendation: "Incorporate primary seed term 'Planner' in title prefix for +14% search impression boost." },
+          { type: "Short Description", impact: "high", issue: "Call to Action", recommendation: "Add explicit benefit 'Boost productivity 2x daily' in first 80 characters of short description." },
+          { type: "Screenshots", impact: "high", issue: "Feature Callouts", recommendation: "Add high-contrast feature caption badges to first 3 preview screenshots." },
+          { type: "Description", impact: "medium", issue: "Keyword Density", recommendation: "Increase density for 'task tracker' and 'todo list' to optimal 2.5% target." }
+        ]
+      },
+      keywords: [
+        { id: 1, term: 'task manager', search_volume: 91, difficulty: 70, current_rank: 2, tracked: 1 },
+        { id: 2, term: 'todo list', search_volume: 94, difficulty: 78, current_rank: 5, tracked: 1 },
+        { id: 3, term: 'productivity planner', search_volume: 76, difficulty: 51, current_rank: 3, tracked: 1 },
+        { id: 4, term: 'daily schedule', search_volume: 69, difficulty: 44, current_rank: 6, tracked: 1 }
+      ]
+    };
+  }
+}
+
+export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken, onSelectProject }) {
   const activeProject = projects.find(p => p.index === selectedProjectIndex) || projects[0];
   const packageName = activeProject?.packageName || 'com.example.app';
 
@@ -59,7 +155,10 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
   };
 
   const fetchAsoOverview = async () => {
-    if (isDemoMode) return;
+    if (isDemoMode) {
+      setAsoData(getDemoAsoData(packageName, activeProject));
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiFetch('/api/aso/overview', {
@@ -123,6 +222,24 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
 
   const handleRunAudit = async () => {
     setAuditLoading(true);
+    if (isDemoMode) {
+      setTimeout(() => {
+        setAsoData(prev => ({
+          ...prev,
+          lastAudit: {
+            score: 95,
+            headline: "AI Listing Audit complete! High conversion metadata structure with primary keyword placement.",
+            improvements: [
+              { type: "Subtitle", impact: "high", issue: "Keyword Placement", recommendation: "Include primary seed term in subtitle to capture +15% search impression traffic." },
+              { type: "Short Description", impact: "high", issue: "Call to Action", recommendation: "Lead with explicit user benefit in first line of short description." },
+              { type: "Screenshots", impact: "medium", issue: "Social Proof", recommendation: "Feature top rating badge '4.9★ Rated by Users' on screenshot 1 preview." }
+            ]
+          }
+        }));
+        setAuditLoading(false);
+      }, 600);
+      return;
+    }
     try {
       const res = await apiFetch('/api/aso/audit', {
         method: 'POST',
@@ -283,6 +400,88 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           tooltipSubheader="Product Page Install Rate"
           tooltipText="The percentage of product page visitors who clicked Install. Measures screenshot appeal, short description hook clarity, and rating trust."
         />
+      </div>
+
+      {/* Portfolio ASO Scores & Recommendations Grid */}
+      <div className="glass-card p-6 border border-white/10 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+          <div className="flex items-center space-x-2">
+            <Sparkles size={18} className="text-amber-400" />
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
+              Portfolio ASO Scores & Recommendations Per App
+            </h3>
+          </div>
+          <span className="text-xs text-slate-400 font-semibold">
+            {(projects.length > 0 ? projects : MOCK_PROJECTS).length} Apps Evaluated
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(projects.length > 0 ? projects : MOCK_PROJECTS).map((proj) => {
+            const demoAudit = getDemoAsoData(proj.packageName || proj.index, proj);
+            const auditInfo = (proj.packageName === packageName && asoData?.lastAudit)
+              ? asoData.lastAudit
+              : demoAudit.lastAudit;
+            const isSelected = proj.packageName === packageName || proj.index === selectedProjectIndex;
+            const topFix = auditInfo?.improvements?.[0];
+
+            return (
+              <div
+                key={proj.index}
+                onClick={() => {
+                  if (typeof onSelectProject === 'function') onSelectProject(proj.index);
+                }}
+                className={clsx(
+                  "p-4 rounded-2xl border transition-all cursor-pointer space-y-3",
+                  isSelected
+                    ? "bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/10 ring-1 ring-indigo-500/30"
+                    : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2.5 truncate">
+                    <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-7 h-7 rounded-lg" />
+                    <div className="truncate">
+                      <h4 className="text-xs font-extrabold text-white truncate">{proj.name}</h4>
+                      <p className="text-[10px] text-slate-400 font-mono truncate">{proj.packageName}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end">
+                    <span className={clsx(
+                      "text-xs font-black px-2.5 py-0.5 rounded-full border font-mono",
+                      auditInfo.score >= 90
+                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                        : auditInfo.score >= 80
+                        ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                        : "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                    )}>
+                      {auditInfo.score}/100
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-semibold mt-0.5">ASO Score</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5 space-y-1">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                    <span>Top Priority Fix</span>
+                    {topFix?.impact && (
+                      <span className={clsx(
+                        "text-[9px] px-1.5 py-0.2 rounded uppercase font-bold",
+                        topFix.impact === 'high' ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20' : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                      )}>
+                        {topFix.impact} Impact
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-200 line-clamp-2 leading-relaxed">
+                    <strong className="text-white">{topFix?.type}:</strong> {topFix?.recommendation || auditInfo.headline}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Section 1: Listing Audit */}

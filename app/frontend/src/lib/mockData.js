@@ -116,9 +116,9 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
     const upgradesBeta = 700 + Math.floor(Math.random() * 300);
     const upgradesGamma = 300 + Math.floor(Math.random() * 200);
 
-    appTrends["App Alpha"].push({ 
-      date: formattedDate, 
-      dailyUserInstalls: alphaInstalls, 
+    appTrends["App Alpha"].push({
+      date: formattedDate,
+      dailyUserInstalls: alphaInstalls,
       dailyInstalls: alphaInstalls,
       dailyUninstalls: alphaUninstalls,
       dailyUserUninstalls: alphaUninstalls,
@@ -127,9 +127,9 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
       netGrowth: alphaInstalls - alphaUninstalls,
       dailyDeviceInstalls: Math.floor(alphaInstalls * 1.1)
     });
-    appTrends["App Beta"].push({ 
-      date: formattedDate, 
-      dailyUserInstalls: betaInstalls, 
+    appTrends["App Beta"].push({
+      date: formattedDate,
+      dailyUserInstalls: betaInstalls,
       dailyInstalls: betaInstalls,
       dailyUninstalls: betaUninstalls,
       dailyUserUninstalls: betaUninstalls,
@@ -138,9 +138,9 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
       netGrowth: betaInstalls - betaUninstalls,
       dailyDeviceInstalls: Math.floor(betaInstalls * 1.1)
     });
-    appTrends["App Gamma"].push({ 
-      date: formattedDate, 
-      dailyUserInstalls: gammaInstalls, 
+    appTrends["App Gamma"].push({
+      date: formattedDate,
+      dailyUserInstalls: gammaInstalls,
       dailyInstalls: gammaInstalls,
       dailyUninstalls: gammaUninstalls,
       dailyUserUninstalls: gammaUninstalls,
