@@ -1388,19 +1388,30 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           </div>
 
           <div className="glass-card p-6 border-amber-500/20 bg-amber-500/5">
-            <SectionHeader icon={Coffee} title="Support AppRankly" subtitle="Enjoying AppRankly? Consider buying the developer a coffee!" />
+            <SectionHeader icon={Coffee} title="Support AppRankly & More Apps" subtitle="Enjoying AppRankly? Check out my other apps or consider buying the developer a coffee!" />
             <p className="text-xs text-white/60 mb-4">
               AppRankly is free and open-source. Your support helps maintain the project and add new features.
             </p>
-            <a
-              href="https://buymeacoffee.com/zprimecreates"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
-            >
-              <Coffee size={16} />
-              <span>Buy Me a Coffee</span>
-            </a>
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href="https://apps.shahadat.us/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 font-semibold text-xs transition-colors"
+              >
+                <img src="https://apps.shahadat.us/images/zprime-logo.png" alt="My Apps" className="w-4 h-4 object-contain" />
+                <span>My Apps</span>
+              </a>
+              <a
+                href="https://buymeacoffee.com/zprimecreates"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20"
+              >
+                <Coffee size={16} />
+                <span>Buy Me a Coffee</span>
+              </a>
+            </div>
           </div>
         </div>
       )}

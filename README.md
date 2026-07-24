@@ -8,6 +8,7 @@
 [![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](package.json)
 [![Unraid Template](https://img.shields.io/badge/Unraid-Supported-orange.svg)](unraid/README.md)
+[![My Apps](https://img.shields.io/badge/My%20Apps-apps.shahadat.us-indigo.svg?logo=googleplay&logoColor=white)](https://apps.shahadat.us/)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -383,10 +384,11 @@ Contributions are welcome! Please feel free to submit a Pull Request or open an 
 
 ---
 
-## Support & Donations
+## Support & My Apps
 
-If you find AppRankly useful and would like to support its ongoing development, consider buying me a coffee:
+Explore more self-hosted applications at **[apps.shahadat.us](https://apps.shahadat.us/)** or support ongoing development:
 
+[![My Apps](https://img.shields.io/badge/My%20Apps-apps.shahadat.us-indigo.svg?style=for-the-badge&logo=googleplay&logoColor=white)](https://apps.shahadat.us/)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 
 ---

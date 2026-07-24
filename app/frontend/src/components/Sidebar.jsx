@@ -86,8 +86,22 @@ export default function Sidebar({
         })}
       </nav>
 
-      {/* Support / Buy Me a Coffee */}
-      <div className="p-3 border-t border-white/5 mt-auto">
+      {/* My Apps & Support */}
+      <div className="p-3 border-t border-white/5 mt-auto space-y-2">
+        <a
+          href="https://apps.shahadat.us/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={clsx(
+            "flex items-center space-x-2.5 px-3 py-2 rounded-xl bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 border border-indigo-500/20 transition-all font-semibold text-xs",
+            collapsed && "justify-center px-0"
+          )}
+          title={collapsed ? "My Apps" : ""}
+        >
+          <img src="https://apps.shahadat.us/images/zprime-logo.png" alt="My Apps" className="w-4 h-4 object-contain flex-shrink-0" />
+          {!collapsed && <span>My Apps</span>}
+        </a>
+
         <a
           href="https://buymeacoffee.com/zprimecreates"
           target="_blank"
