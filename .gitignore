@@ -34,6 +34,9 @@ data/
 !package-lock.json
 !app/frontend/package.json
 !app/package.json
+!example.config.json
+!config/example.config.json
+
 
 # IDEs
 .idea/

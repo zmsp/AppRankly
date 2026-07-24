@@ -57,7 +57,7 @@ const ensureDirectoriesAndTemplates = (dataDirOption, configPathOption) => {
         appleKeyId: "XXXXXXXXXX",
         appleVendorId: "12345678",
         PlaystoreConsoleUrl: "https://play.google.com/console",
-        ntfyTopic: "zee_appstore",
+        ntfyTopic: "",
         refreshIntervalHours: 1,
         statsCheckRangeDays: 30,
         activeStartHour: 9,

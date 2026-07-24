@@ -1,0 +1,85 @@
+[
+  {
+    "name": "YOUR_FIRST_PROJECT_NAME (e.g. Production Apps)",
+    "projectID": "YOUR_FIRST_GCP_PROJECT_ID (GCP Console -> Project Selector at top)",
+    "bucketName": "pubsite_prod_12345678901234567890 (Google Play Console -> Download reports -> Statistics -> Copy Cloud Storage URI -> String right after gs://)",
+    "keyFilePath": "keys/google_key.json (Path to GCP Service Account JSON key inside data/config/)",
+    "keyFilePath_apple": "keys/AuthKey_XXXXXXXXXX.p8 (Path to App Store Connect .p8 key file inside data/config/)",
+    "appleIssuerId": "YOUR_APPLE_ISSUER_ID_UUID (App Store Connect -> Users and Access -> Integrations (Keys) -> Issuer ID at top)",
+    "appleKeyId": "YOUR_APPLE_KEY_ID_10_CHARS (App Store Connect -> Users and Access -> Integrations (Keys) -> Key ID next to key)",
+    "appleVendorId": "YOUR_APPLE_VENDOR_ID_8_DIGITS (App Store Connect -> Payments and Financial Reports -> Vendor Number at top left)",
+    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/YOUR_DEVELOPER_ID (URL of your Google Play Console homepage)",
+    "ntfyTopic": "",
+    "refreshIntervalHours": 1,
+    "statsCheckRangeDays": 30,
+    "activeStartHour": 9,
+    "activeEndHour": 20,
+    "appMetadata": {
+      "com.example.app1": {
+        "consoleAppId": "YOUR_CONSOLE_APP_ID_1 (Found in Play Console URL: .../app/YOUR_CONSOLE_APP_ID/app-dashboard)"
+      },
+      "com.example.app2": {
+        "consoleAppId": "YOUR_CONSOLE_APP_ID_2 (Found in Play Console URL: .../app/YOUR_CONSOLE_APP_ID/app-dashboard)"
+      }
+    },
+    "ignoredPackages": [
+      "com.example.internaltest",
+      "com.example.deprecatedapp"
+    ],
+    "ai": {
+      "defaultProvider": "openai",
+      "providers": {
+        "openai": {
+          "apiKey": "YOUR_OPENAI_API_KEY (Get from https://platform.openai.com/api-keys)",
+          "model": "gpt-4.1-nano"
+        },
+        "anthropic": {
+          "apiKey": "YOUR_ANTHROPIC_API_KEY (Get from https://console.anthropic.com/settings/keys)",
+          "model": "claude-3-5-sonnet-20241022"
+        },
+        "gemini": {
+          "apiKey": "YOUR_GEMINI_API_KEY (Get from https://aistudio.google.com/app/apikey)",
+          "model": "gemini-3.6-flash"
+        }
+      }
+    }
+  },
+  {
+    "name": "YOUR_SECOND_PROJECT_NAME (e.g. Staging or Enterprise Apps)",
+    "projectID": "YOUR_SECOND_GCP_PROJECT_ID (GCP Console -> Project Selector at top)",
+    "bucketName": "pubsite_prod_09876543210987654321 (Google Play Console -> Download reports -> Statistics -> Copy Cloud Storage URI -> String right after gs://)",
+    "keyFilePath": "keys/google_key_secondary.json (Path to GCP Service Account JSON key inside data/config/)",
+    "keyFilePath_apple": "keys/AuthKey_YYYYYYYYYY.p8 (Path to App Store Connect .p8 key file inside data/config/)",
+    "appleIssuerId": "YOUR_SECOND_APPLE_ISSUER_ID_UUID (App Store Connect -> Users and Access -> Integrations (Keys) -> Issuer ID)",
+    "appleKeyId": "YOUR_SECOND_APPLE_KEY_ID_10_CHARS (App Store Connect -> Users and Access -> Integrations (Keys) -> Key ID)",
+    "appleVendorId": "YOUR_SECOND_APPLE_VENDOR_ID_8_DIGITS (App Store Connect -> Payments and Financial Reports -> Vendor Number)",
+    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/YOUR_SECOND_DEVELOPER_ID (URL of your Google Play Console homepage)",
+    "ntfyTopic": "",
+    "refreshIntervalHours": 2,
+    "statsCheckRangeDays": 30,
+    "activeStartHour": 9,
+    "activeEndHour": 20,
+    "appMetadata": {
+      "com.example.enterpriseapp": {
+        "consoleAppId": "YOUR_CONSOLE_APP_ID_ENTERPRISE (Found in Play Console URL: .../app/YOUR_CONSOLE_APP_ID/app-dashboard)"
+      }
+    },
+    "ignoredPackages": [
+      "com.example.stagingtest",
+      "com.example.betaapp"
+    ],
+    "ai": {
+      "defaultProvider": "gemini",
+      "providers": {
+        "openai": {
+          "apiKey": "YOUR_OPENAI_API_KEY (Get from https://platform.openai.com/api-keys)",
+          "model": "gpt-4.1-nano"
+        },
+        "gemini": {
+          "apiKey": "YOUR_GEMINI_API_KEY (Get from https://aistudio.google.com/app/apikey)",
+          "model": "gemini-3.6-flash"
+        }
+      }
+    }
+  }
+]

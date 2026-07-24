@@ -941,12 +941,17 @@ app.post("/api/releases", authenticate, (req, res) => {
 // Test notification endpoint
 app.post("/api/notifications/test", authenticate, async (req, res) => {
   const { title, message, priority, tags, topic } = req.body;
+  const baseConfig = getBaseConfig() || {};
+  const targetTopic = topic || baseConfig.ntfyTopic || process.env.NTFY_TOPIC;
+  if (!targetTopic || !targetTopic.trim()) {
+    return res.status(400).json({ success: false, error: "Ntfy alert is off: No topic configured." });
+  }
   const result = await sendNtfyNotification({
     title: title || 'Test Notification',
     message: message || 'Hi from App Store & Play Store Stats Dashboard! ntfy setup working.',
     priority: priority || 'high',
     tags: tags || 'warning,database',
-    topic: topic || 'zee_appstore'
+    topic: targetTopic
   });
   res.json(result);
 });
@@ -968,7 +973,7 @@ app.get("/api/notifications/status", authenticate, (req, res) => {
   res.json({
     scheduler: getSchedulerStatus(),
     config: {
-      topic: baseConfig.ntfyTopic || process.env.NTFY_TOPIC || 'zee_appstore',
+      topic: baseConfig.ntfyTopic || process.env.NTFY_TOPIC || '',
       refreshIntervalHours: baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1,
       statsCheckRangeDays: baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30,
       activeStartHour: baseConfig.activeStartHour !== undefined ? baseConfig.activeStartHour : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9),

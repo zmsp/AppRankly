@@ -11,13 +11,24 @@
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A self-hosted, open-source analytics pipeline and glassmorphic web dashboard for aggregating, visualizing, and tracking mobile app performance across the **Google Play Store** (via Google Cloud Storage reports) and the **Apple App Store** (via App Store Connect API).
+A self-hosted, open-source analytics pipeline, AI-powered App Store Optimization (ASO) studio, and glassmorphic web dashboard for aggregating, visualizing, and tracking mobile app performance across the **Google Play Store** (via Google Cloud Storage reports) and the **Apple App Store** (via App Store Connect API).
 
-Includes a single-page analytics web application, a headless CLI for automated cron jobs/scripting, and full Docker & Unraid container support.
+Includes a single-page analytics web application, an ASO suite for keyword discovery & AI metadata audits, a headless CLI for automated cron jobs/scripting, and full Docker & Unraid container support.
+
+### Unified Analytics Dashboard
+Track total installs, uninstalls, active devices, and country breakdowns across Google Play & Apple App Store in one glassmorphic interface.
 
 ![Overview Dashboard](images/overview.png)
 
+### Detailed App Metrics
+Drill down into individual app metrics, version performance, daily trends, and country-level user distribution tables.
+
 ![App Details View](images/app_details.png)
+
+### AI-Powered ASO Studio
+Mine store autocomplete queries for zero-cost keyword discovery, run listing health audits, and generate AI-driven metadata optimizations (supporting OpenAI, Anthropic, and Gemini).
+
+![AI-Powered ASO Studio](images/aso_screenshot.png)
 
 ---
 
@@ -27,7 +38,7 @@ Most users deploy this application using **Docker** or **Unraid**. Pick your pre
 
 ### Live Interactive Demo
 Try the dashboard instantly without installing anything:  
-**[Explore the Live Interactive Demo](https://www.zobairshahadat.com/apprankly/)** *(Running in simulated demo mode with sample data)*
+**[Explore the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** *(Running in simulated demo mode with sample data)*
 
 ---
 
@@ -107,6 +118,7 @@ npm run dev
 ## Key Features
 
 - **Unified Cross-Platform Metrics**: Aggregate installs, uninstalls, active devices, and country/device breakdowns across Google Play and Apple App Store in one unified interface.
+- **AI-Powered ASO Studio**: Zero-cost keyword discovery, store autocomplete fan-out mining, listing health audits, and metadata optimization powered by LLMs (OpenAI, Anthropic, Gemini).
 - **Grafana-Style Date Selector**: Quick relative presets (Last 7 days, 30 days, 90 days, 1 year, Custom Range) with single-day drill-downs.
 - **Glassmorphic Dark Dashboard**: Interactive Chart.js graphs, platform filters, country distribution tables, and app version metrics.
 - **Privacy & Self-Hosted Security**: Keep your App Store credentials, Google Play Cloud Storage keys, and metric data 100% on your own server. JWT authentication protected.
@@ -154,9 +166,22 @@ Google Play Console exports daily CSV reports directly into a private Google Clo
 
 ---
 
+### 3. Push Notifications Setup (via ntfy.sh)
+
+AppRankly can automatically send real-time push notification alerts whenever new daily stats or updated install numbers are fetched from Google Play or Apple App Store.
+
+1. **Configure your Topic Name**:
+   - Set `"ntfyTopic"` in `data/config/config.json` to a unique topic string (e.g. `"my_secret_apprankly_topic"`).
+   - **Disabling Alerts**: If you leave `"ntfyTopic": ""` empty (or omit it), push notifications are completely **OFF** and no alerts will be sent.
+2. **Subscribe on your Device**:
+   - Install the free [ntfy app](https://ntfy.sh/) on iOS or Android (or open [ntfy.sh](https://ntfy.sh/) in your browser).
+   - Subscribe to your configured topic string to start receiving daily install & uninstall alert notifications.
+
+---
+
 ## Configuration Reference
 
-The application reads app configurations from `data/config/config.json`. Below is a template example:
+The application reads app configurations from `data/config/config.json`. Below is a template example (see also `example.config.json` in the root directory):
 
 ```json
 [
@@ -169,10 +194,15 @@ The application reads app configurations from `data/config/config.json`. Below i
     "appleKeyId": "XXXXXXXXXX",
     "appleVendorId": "85000000",
     "keyFilePath_apple": "keys/apple_key.p8",
-    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/7018441398256771959",
+    "PlaystoreConsoleUrl": "https://play.google.com/console/u/0/developers/123456(changeme)",
+    "ntfyTopic": "",
+    "refreshIntervalHours": 1,
+    "statsCheckRangeDays": 30,
+    "activeStartHour": 9,
+    "activeEndHour": 20,
     "appMetadata": {
       "com.example.app": {
-        "consoleAppId": "4976209752217554327"
+        "consoleAppId": "123456...(changeme)"
       }
     },
     "ignoredPackages": [
@@ -212,6 +242,11 @@ The application reads app configurations from `data/config/config.json`. Below i
 | `appleVendorId` | Apple | 8-digit Apple Vendor ID (found in App Store Connect -> Reports) | Optional |
 | `keyFilePath_apple` | Apple | Path to `.p8` key file relative to `config.json` | Yes (for Apple App Store) |
 | `PlaystoreConsoleUrl` | Google | Base URL to your Google Play Console developer account for direct deep-linking | Optional |
+| `ntfyTopic` | Notifications | ntfy.sh topic string for push notifications. Leave empty (`""`) to turn alerts off | Optional |
+| `refreshIntervalHours` | Scheduler | Auto-sync frequency in hours (default: `1`) | Optional |
+| `statsCheckRangeDays` | Scheduler | Lookback window in days for metric aggregations (default: `30`) | Optional |
+| `activeStartHour` | Scheduler | Push notification window start hour 0-23 in local time (default: `9` AM) | Optional |
+| `activeEndHour` | Scheduler | Push notification window end hour 0-23 in local time (default: `20` / 8 PM) | Optional |
 | `appMetadata` | Google | Map of package names to metadata objects (e.g. `consoleAppId` for direct links) | Optional |
 | `ignoredPackages` | Both | Array of package names or bundle IDs to exclude from dashboard | Optional |
 | `ai` | AI / ASO | AI service provider configurations for automated ASO suggestions & analysis | Optional |
@@ -224,6 +259,7 @@ The application reads app configurations from `data/config/config.json`. Below i
 | `JWT_SECRET` | `change-me...` | Secret key used for admin authentication tokens |
 | `CONFIG_PATH` | `/app/data/config/config.json` | Path to global JSON configuration file |
 | `DATA_DIR` | `/app/data` | Path to persistent app storage (database cache & system state) |
+| `NTFY_TOPIC` | `""` | Fallback ntfy push notification topic name |
 
 ---
 

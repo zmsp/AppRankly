@@ -60,7 +60,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
   const hoursInterval = baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1;
   const rangeDays = baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30;
-  const ntfyTopic = baseConfig.ntfyTopic || process.env.NTFY_TOPIC || 'zee_appstore';
+  const ntfyTopic = (baseConfig.ntfyTopic !== undefined ? baseConfig.ntfyTopic : process.env.NTFY_TOPIC) || '';
   const startHour = baseConfig.activeStartHour !== undefined ? Number(baseConfig.activeStartHour) : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9);
   const endHour = baseConfig.activeEndHour !== undefined ? Number(baseConfig.activeEndHour) : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20);
 
@@ -160,18 +160,23 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
       }
 
       if (isNewData) {
-        console.log(`[Scheduler] Discovered new stats for ${displayName}! Sending notification...`);
-        const res = await sendNtfyNotification({
-          title: notifTitle,
-          message: notifMsg,
-          priority: 'high',
-          tags: 'chart_with_upwards_trend,package',
-          topic: ntfyTopic
-        });
+        if (ntfyTopic && ntfyTopic.trim()) {
+          console.log(`[Scheduler] Discovered new stats for ${displayName}! Sending notification...`);
+          const res = await sendNtfyNotification({
+            title: notifTitle,
+            message: notifMsg,
+            priority: 'high',
+            tags: 'chart_with_upwards_trend,package',
+            topic: ntfyTopic
+          });
 
-        if (res.success) {
-          notificationsSent++;
-          details.push({ app: displayName, platform, date: latestTrend.date, status: 'Notified' });
+          if (res.success) {
+            notificationsSent++;
+            details.push({ app: displayName, platform, date: latestTrend.date, status: 'Notified' });
+          }
+        } else {
+          console.log(`[Scheduler] Discovered new stats for ${displayName}, but ntfy alert is off (no ntfyTopic configured).`);
+          details.push({ app: displayName, platform, date: latestTrend.date, status: 'Ntfy Alert Off' });
         }
       }
 
