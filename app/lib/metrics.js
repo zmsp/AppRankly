@@ -167,6 +167,8 @@ function aggregateOverviews(overviewsWithNames) {
   if (validOverviews.length === 0) return null;
 
   const appTrendsMap = {};
+  // Platform-specific totals for reliable breakdown display
+  const platformTotals = {};
   
   const aggregated = validOverviews.reduce((acc, item) => {
     const isGenerateDataFormat = !!item.overview;
@@ -177,6 +179,17 @@ function aggregateOverviews(overviewsWithNames) {
        const name = item.name || item.packageName;
        appTrendsMap[name] = curr.dailyTrends || [];
     }
+
+    // Track per-platform install totals reliably
+    const plat = curr.platform || 'unknown';
+    if (!platformTotals[plat]) {
+      platformTotals[plat] = { totalInstalls: 0, totalDailyUserInstalls: 0, totalDailyUserUninstalls: 0, currentlyActiveDevices: 0, appCount: 0 };
+    }
+    platformTotals[plat].totalInstalls += (curr.totalInstallCountByUser || curr.totalDailyUserInstalls || 0);
+    platformTotals[plat].totalDailyUserInstalls += (curr.totalDailyUserInstalls || curr.totalInstallCountByUser || 0);
+    platformTotals[plat].totalDailyUserUninstalls += (curr.totalDailyUserUninstalls || 0);
+    platformTotals[plat].currentlyActiveDevices += (curr.currentlyActiveDevices || 0);
+    platformTotals[plat].appCount += 1;
 
     acc.totalInstallCountByUser += (curr.totalInstallCountByUser || 0);
     acc.totalUninstallCountByUser += (curr.totalUninstallCountByUser || 0);
