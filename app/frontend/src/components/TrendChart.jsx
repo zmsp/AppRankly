@@ -26,7 +26,7 @@ ChartJS.register(
   Legend
 );
 
-export default function TrendChart({ data, releases = [], platform = 'google', isLogarithmic = false, onSelectPoint }) {
+export default function TrendChart({ data, releases = [], platform = 'google', hasUninstallData, isLogarithmic = false, onSelectPoint }) {
   if (!data) return null;
 
   const labels = data.map(item => {
@@ -36,46 +36,55 @@ export default function TrendChart({ data, releases = [], platform = 'google', i
 
   const filteredReleases = releases.filter(r => r.platform === platform || r.platform === 'both');
 
+  const showUninstalls = hasUninstallData !== undefined
+    ? hasUninstallData
+    : (platform !== 'apple' && platform !== 'appstore');
+
+  const datasets = [
+    {
+      label: 'Daily Installs',
+      data: data.map(item => {
+        const val = item.dailyUserInstalls || item.dailyInstalls || 0;
+        return isLogarithmic ? Math.max(val, 1) : val;
+      }),
+      borderColor: CHART_COLORS.accent.blue,
+      backgroundColor: (context) => {
+        const chart = context.chart;
+        const {ctx, chartArea} = chart;
+        if (!chartArea) return null;
+        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        gradient.addColorStop(0, 'rgba(0, 210, 255, 0.2)');
+        gradient.addColorStop(1, 'rgba(0, 210, 255, 0)');
+        return gradient;
+      },
+      borderWidth: 3,
+      pointRadius: 2,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.4
+    }
+  ];
+
+  if (showUninstalls) {
+    datasets.push({
+      label: 'Daily Uninstalls',
+      data: data.map(item => {
+        const val = item.dailyUserUninstalls || item.dailyUninstalls || 0;
+        return isLogarithmic ? Math.max(val, 1) : val;
+      }),
+      borderColor: CHART_COLORS.accent.rose,
+      borderDash: [5, 5],
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 6,
+      fill: false,
+      tension: 0.4
+    });
+  }
+
   const chartData = {
     labels,
-    datasets: [
-      {
-        label: 'Daily Installs',
-        data: data.map(item => {
-          const val = item.dailyUserInstalls || item.dailyInstalls || 0;
-          return isLogarithmic ? Math.max(val, 1) : val;
-        }),
-        borderColor: CHART_COLORS.accent.blue,
-        backgroundColor: (context) => {
-          const chart = context.chart;
-          const {ctx, chartArea} = chart;
-          if (!chartArea) return null;
-          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, 'rgba(0, 210, 255, 0.2)');
-          gradient.addColorStop(1, 'rgba(0, 210, 255, 0)');
-          return gradient;
-        },
-        borderWidth: 3,
-        pointRadius: 2,
-        pointHoverRadius: 6,
-        fill: true,
-        tension: 0.4
-      },
-      {
-        label: 'Daily Uninstalls',
-        data: data.map(item => {
-          const val = item.dailyUserUninstalls || item.dailyUninstalls || 0;
-          return isLogarithmic ? Math.max(val, 1) : val;
-        }),
-        borderColor: CHART_COLORS.accent.rose,
-        borderDash: [5, 5],
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 6,
-        fill: false,
-        tension: 0.4
-      }
-    ]
+    datasets
   };
 
   const options = {

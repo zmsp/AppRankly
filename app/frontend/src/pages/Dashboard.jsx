@@ -139,6 +139,11 @@ export default function Dashboard({
   const activeProject = projects.find(p => p.index === selectedProjectIndex);
   const lastDataDate = stats.lastDate || (stats.dailyTrends?.length > 0 ? stats.dailyTrends[stats.dailyTrends.length - 1].date : null);
 
+  const hasUninstallData = stats.hasUninstallData !== false &&
+    !['apple', 'appstore', 'ios'].includes(platform?.toLowerCase()) &&
+    !['apple', 'appstore', 'ios'].includes(stats.platform?.toLowerCase()) &&
+    !['apple', 'appstore', 'ios'].includes(activeProject?.platform?.toLowerCase());
+
   const handleNavigateChart = (targetChartId) => {
     const el = document.getElementById(targetChartId);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -290,6 +295,27 @@ export default function Dashboard({
         </div>
       )}
 
+      {/* Scope Indicator Banner */}
+      {isAllProjects ? (
+        <div className="p-3.5 rounded-xl bg-accent-blue/10 border border-accent-blue/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-2">
+            <LayoutGrid size={16} className="text-accent-blue" />
+            <span className="font-bold text-white">Aggregated Portfolio View</span>
+            <span className="text-slate-400">— Showing combined metrics across {filteredProjects.length} active apps ({platform === 'all' ? 'All Platforms' : platform})</span>
+          </div>
+          <span className="text-[10px] font-mono bg-accent-blue/20 text-accent-blue px-2 py-0.5 rounded-full font-bold">ALL PROJECTS</span>
+        </div>
+      ) : activeProject && (
+        <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-2">
+            {activeProject.platform === 'google' ? <PlayStoreIcon size={16} /> : <AppleStoreIcon size={16} />}
+            <span className="font-bold text-white">{activeProject.name}</span>
+            <span className="text-slate-400">— Single App Analytics Dashboard</span>
+          </div>
+          <span className="text-[10px] font-mono bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase">{activeProject.platform}</span>
+        </div>
+      )}
+
       {/* Hero KPI Card */}
       <HeroKPI
         value={healthScore}
@@ -299,6 +325,7 @@ export default function Dashboard({
         authToken={authToken}
         isStaticMode={isStaticMode}
         lastDataDate={lastDataDate}
+        hasUninstallData={hasUninstallData}
       />
 
       {/* Auto-Generated "What Changed" Digest */}
@@ -325,14 +352,14 @@ export default function Dashboard({
         />
         <MetricCard
           label="Uninstall Ratio"
-          value={`${churnRate}%`}
-          sublabel="Uninstalls / Active Devices"
-          trend={computeTrend('dailyUserUninstalls')}
+          value={hasUninstallData ? `${churnRate}%` : 'N/A'}
+          sublabel={hasUninstallData ? "Uninstalls / Active Devices" : "Not tracked by Apple App Store"}
+          trend={hasUninstallData ? computeTrend('dailyUserUninstalls') : null}
           icon={LogOut}
           color="rose"
-          progress={parseFloat(churnRate)}
+          progress={hasUninstallData ? parseFloat(churnRate) : 0}
           tooltipSubheader="Uninstall Ratio"
-          tooltipText="The percentage of currently active devices that uninstalled during the selected window."
+          tooltipText={hasUninstallData ? "The percentage of currently active devices that uninstalled during the selected window." : "Apple App Store Connect does not report uninstall metrics."}
         />
         <MetricCard
           label="Install Survival Rate"
@@ -353,39 +380,43 @@ export default function Dashboard({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
             <div>
               <h3 className="text-base sm:text-lg font-bold">
-                {isAllProjects ? 'Combined Installs per App & Total' : 'Installs vs Uninstalls'}
+                {isAllProjects ? 'Combined Installs per App & Total' : (hasUninstallData ? 'Installs vs Uninstalls' : 'Daily Installs & Acquisitions')}
               </h3>
               <p className="text-xs text-slate-400">
-                {isAllProjects ? 'Individual app installs alongside total aggregate installs' : 'User acquisition and churn trend (click points for drilldown)'}
+                {isAllProjects ? 'Individual app installs alongside total aggregate installs' : (hasUninstallData ? 'User acquisition and churn trend (click points for drilldown)' : 'User acquisition trend over time (click points for drilldown)')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
               {/* Log Scale Toggle */}
               <button
                 onClick={() => setIsLogarithmic(!isLogarithmic)}
-                className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold transition-all border ${
-                  isLogarithmic
-                    ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/40'
-                    : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
-                }`}
-                title="Toggle Logarithmic Scale (Default linear scale)"
+                className={clsx(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center space-x-1.5",
+                  isLogarithmic 
+                    ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue" 
+                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                )}
+                title="Toggle logarithmic vertical scale for wide-range data"
               >
-                <BarChart2 size={12} />
+                <Percent size={12} />
                 <span>Log Scale</span>
               </button>
-
-              {!isAllProjects && (
-                <>
-                  <div className="flex items-center space-x-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
-                    <span className="text-[10px] font-bold text-slate-300">Installs</span>
-                  </div>
-                  <div className="flex items-center space-x-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-accent-rose" />
-                    <span className="text-[10px] font-bold text-slate-300">Uninstalls</span>
-                  </div>
-                </>
-              )}
+              
+              <div className="flex items-center space-x-3 text-xs bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
+                  <span className="text-[10px] font-bold text-slate-300">Installs</span>
+                </div>
+                {hasUninstallData && (
+                  <>
+                    <span className="text-slate-600">|</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-accent-rose" />
+                      <span className="text-[10px] font-bold text-slate-300">Uninstalls</span>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           {isAllProjects && renderSummary(
@@ -406,6 +437,7 @@ export default function Dashboard({
                 data={stats.dailyTrends}
                 releases={releases}
                 platform={platform}
+                hasUninstallData={hasUninstallData}
                 isLogarithmic={isLogarithmic}
                 onSelectPoint={(point) => setSelectedDrilldownPoint(point)}
               />

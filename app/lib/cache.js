@@ -58,8 +58,10 @@ function invalidate(keyOrPrefix) {
     _cache.clear();
     return;
   }
+  const search = String(keyOrPrefix).toLowerCase().trim();
   for (const key of _cache.keys()) {
-    if (key === keyOrPrefix || key.startsWith(keyOrPrefix)) {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === search || lowerKey.startsWith(search) || lowerKey.includes(`:${search}`)) {
       _cache.delete(key);
     }
   }

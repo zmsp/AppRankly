@@ -40,19 +40,25 @@ export default function WhatChangedDigest({ stats, dimensionStats, deviceStats, 
     }
   }
 
-  // 2. Churn spike check
-  const maxUninstallDay = trends.reduce((max, d) => (d.dailyUserUninstalls > (max?.dailyUserUninstalls || 0) ? d : max), null);
-  const avgUninstalls = trends.reduce((sum, d) => sum + (d.dailyUserUninstalls || 0), 0) / trends.length;
-  if (maxUninstallDay && maxUninstallDay.dailyUserUninstalls > Math.max(5, avgUninstalls * 2.5)) {
-    findings.push({
-      id: 'churn-spike',
-      type: 'warning',
-      icon: AlertTriangle,
-      color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
-      text: `Uninstall spike detected on ${maxUninstallDay.date} (${maxUninstallDay.dailyUserUninstalls} uninstalls, ${(maxUninstallDay.dailyUserUninstalls / avgUninstalls).toFixed(1)}× normal rate).`,
-      action: 'Decompose Segment',
-      target: 'churn-chart'
-    });
+  const hasUninstallData = stats.hasUninstallData !== false &&
+    !['apple', 'appstore', 'ios'].includes(stats.platform?.toLowerCase()) &&
+    !['apple', 'appstore', 'ios'].includes(stats.store?.toLowerCase());
+
+  // 2. Churn spike check (Only if uninstall data exists)
+  if (hasUninstallData) {
+    const maxUninstallDay = trends.reduce((max, d) => (d.dailyUserUninstalls > (max?.dailyUserUninstalls || 0) ? d : max), null);
+    const avgUninstalls = trends.reduce((sum, d) => sum + (d.dailyUserUninstalls || 0), 0) / trends.length;
+    if (maxUninstallDay && maxUninstallDay.dailyUserUninstalls > Math.max(5, avgUninstalls * 2.5)) {
+      findings.push({
+        id: 'churn-spike',
+        type: 'warning',
+        icon: AlertTriangle,
+        color: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+        text: `Uninstall spike detected on ${maxUninstallDay.date} (${maxUninstallDay.dailyUserUninstalls} uninstalls, ${(maxUninstallDay.dailyUserUninstalls / avgUninstalls).toFixed(1)}× normal rate).`,
+        action: 'Decompose Segment',
+        target: 'churn-chart'
+      });
+    }
   }
 
   // 3. Top country market finding

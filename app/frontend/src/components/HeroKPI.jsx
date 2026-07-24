@@ -32,9 +32,10 @@ const BAND_STYLES = {
   },
 };
 
-export default function HeroKPI({ value, totalInstalls, activeDevices, activeProject, authToken, isStaticMode, lastDataDate }) {
+export default function HeroKPI({ value, totalInstalls, activeDevices, activeProject, authToken, isStaticMode, lastDataDate, hasUninstallData = true }) {
   const band = getHealthBand(value);
   const styles = BAND_STYLES[band.color] || BAND_STYLES.blue;
+  const isApple = activeProject?.platform === 'apple' || activeProject?.platform === 'appstore' || hasUninstallData === false;
 
   const [storeDetails, setStoreDetails] = useState(null);
   const [loadingScrape, setLoadingScrape] = useState(false);
@@ -112,7 +113,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
             </div>
             <InfoTooltip
               subheader="Overall App Health Score"
-              text="A composite score (0-100) calculated from ratings, install-to-uninstall ratio, retention proxy, and recent trends. It gives you a single signal to monitor your app's overall market and technical standing."
+              text={isApple ? "A composite score (0-100) calculated from ratings, retention proxy, and recent trends (uninstall ratio excluded for Apple App Store)." : "A composite score (0-100) calculated from ratings, install-to-uninstall ratio, retention proxy, and recent trends. It gives you a single signal to monitor your app's overall market and technical standing."}
             />
 
             {/* App Icon & Direct Store/Console Links */}
@@ -181,8 +182,8 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
           </h1>
           <p className="text-white/60 max-w-md text-sm">
             {band.label === 'Excellent' && "Your app is in great shape. Keep focusing on growth and feature parity."}
-            {band.label === 'Good' && "Overall performance is solid. Monitor slight regressions in ratings or uninstalls."}
-            {band.label === 'Needs Work' && "Some metrics are underperforming. Check your rating trends and uninstall rates."}
+            {band.label === 'Good' && (isApple ? "Overall performance is solid. Monitor slight regressions in ratings or retention." : "Overall performance is solid. Monitor slight regressions in ratings or uninstalls.")}
+            {band.label === 'Needs Work' && (isApple ? "Some metrics are underperforming. Check your rating trends and active retention." : "Some metrics are underperforming. Check your rating trends and uninstall rates.")}
             {band.label === 'At Risk' && "Immediate action recommended. Significant issues detected in retention or ratings."}
           </p>
         </div>

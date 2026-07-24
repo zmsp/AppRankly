@@ -11,6 +11,10 @@ export default function HealthBreakdown({ stats }) {
   const ratingTrendData = stats.dailyTrends?.map(t => t.totalAvgRating || t.dailyAvgRating || 0).filter(v => v > 0);
   const installTrendData = stats.dailyTrends?.map(t => t.dailyUserInstalls || 0);
 
+  const hasUninstallData = stats.hasUninstallData !== false &&
+    !['apple', 'appstore', 'ios'].includes(stats.platform?.toLowerCase()) &&
+    !['apple', 'appstore', 'ios'].includes(stats.store?.toLowerCase());
+
   const signals = [
     {
       label: 'Avg Rating',
@@ -24,11 +28,13 @@ export default function HealthBreakdown({ stats }) {
     },
     {
       label: 'Install/Uninstall',
-      value: `${(stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)).toFixed(1)}:1`,
+      value: hasUninstallData ? `${(stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)).toFixed(1)}:1` : 'N/A',
       change: null,
       icon: TrendingUp,
-      status: (stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)) > 2 ? 'Healthy' : 'Uninstalls rising',
-      sparkline: installTrendData,
+      status: hasUninstallData
+        ? ((stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)) > 2 ? 'Healthy' : 'Uninstalls rising')
+        : 'Not tracked by Apple',
+      sparkline: hasUninstallData ? installTrendData : null,
       sparklineColor: '#10b981'
     },
     {
@@ -40,10 +46,10 @@ export default function HealthBreakdown({ stats }) {
     },
     {
       label: 'Active Retention',
-      value: stats.totalInstallCountByUser > 0 ? `${((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100).toFixed(1)}%` : 'N/A',
+      value: (stats.totalInstallCountByUser > 0 && stats.currentlyActiveDevices > 0) ? `${((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100).toFixed(1)}%` : 'N/A',
       change: null,
       icon: Activity,
-      status: 'On target'
+      status: stats.currentlyActiveDevices > 0 ? 'On target' : 'Not tracked by Apple'
     }
   ];
 

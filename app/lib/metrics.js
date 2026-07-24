@@ -267,6 +267,16 @@ function aggregateOverviews(overviewsWithNames) {
     aggregated.appTrends = appTrendsMap;
   }
 
+  // Determine if aggregated data includes any source with uninstall tracking
+  const hasUninstallData = validOverviews.some(item => {
+    const curr = item.overview || item;
+    return curr.hasUninstallData !== false && curr.platform !== 'apple' && curr.platform !== 'appstore';
+  });
+  aggregated.hasUninstallData = hasUninstallData;
+
+  const platforms = new Set(validOverviews.map(item => (item.overview || item).platform).filter(Boolean));
+  aggregated.platform = platforms.size === 1 ? Array.from(platforms)[0] : 'all';
+
   return aggregated;
 }
 

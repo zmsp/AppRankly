@@ -159,40 +159,50 @@ const getActualConfigPath = () => {
 
 let _configCache = null;
 let _configCacheTime = 0;
+let _configCacheMTime = 0;
 
 const invalidateConfigCache = () => {
   _configCache = null;
   _configCacheTime = 0;
-  cache.invalidate('config');
-  cache.invalidate('projects');
-  cache.invalidate('stats');
-  cache.invalidate('packages');
+  _configCacheMTime = 0;
+  resolver.clearCache('projects');
+  resolver.clearCache('packages');
+  resolver.clearCache('stats');
+  resolver.clearCache('config');
 };
 
 const getBaseConfig = () => {
   const now = Date.now();
-  if (_configCache && (now - _configCacheTime < 60 * 1000)) {
-    return _configCache;
-  }
-
   const activePath = getActualConfigPath();
   if (!fs.existsSync(activePath)) {
     _configCache = null;
     _configCacheTime = now;
+    _configCacheMTime = 0;
     return null;
   }
   try {
+    const stat = fs.statSync(activePath);
+    if (_configCache && (now - _configCacheTime < 60 * 1000) && _configCacheMTime === stat.mtimeMs) {
+      return _configCache;
+    }
     const rawData = fs.readFileSync(activePath, "utf8");
     const parsed = JSON.parse(rawData);
     _configCache = Array.isArray(parsed) ? parsed[0] : parsed;
     _configCacheTime = now;
+    _configCacheMTime = stat.mtimeMs;
     return _configCache;
   } catch (error) {
     console.error("Critical configuration failure:", error.message);
     _configCache = null;
     _configCacheTime = now;
+    _configCacheMTime = 0;
     return null;
   }
+};
+
+const getIgnoredSet = (baseConfig) => {
+  const list = baseConfig?.ignoredPackages || [];
+  return new Set(list.map(p => String(p).trim().toLowerCase()).filter(Boolean));
 };
 
 // Helper to resolve relative/absolute key file path - SANITIZED
@@ -536,8 +546,8 @@ app.post("/api/test/google", authenticate, async (req, res) => {
       dataDir: DATA_DIR
     });
     let packages = await googleStatsViewer.listPackages();
-    const ignored = baseConfig.ignoredPackages || [];
-    packages = packages.filter(p => !ignored.includes(p.packageName));
+    const ignoredSet = getIgnoredSet(baseConfig);
+    packages = packages.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
     console.log(`[Test Connection] [Google] SUCCESS — Found ${packages.length} apps.`);
     res.json({ success: true, appCount: packages.length, apps: packages.slice(0, 5).map(p => ({ name: p.name, packageName: p.packageName })) });
   } catch (err) {
@@ -607,8 +617,8 @@ app.get("/api/projects", authenticate, async (req, res) => {
       });
 
       let packages = await googleStatsViewer.listPackages();
-      const ignored = baseConfig.ignoredPackages || [];
-      packages = packages.filter(p => !ignored.includes(p.packageName));
+      const ignoredSet = getIgnoredSet(baseConfig);
+      packages = packages.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
 
       for (let idx = 0; idx < packages.length; idx++) {
         const p = packages[idx];
@@ -740,8 +750,8 @@ app.post("/api/stats", authenticate, async (req, res) => {
             dataDir: DATA_DIR
           });
           let pkgs = await statsViewer.listPackages();
-          const ignored = baseConfig.ignoredPackages || [];
-          pkgs = pkgs.filter(p => !ignored.includes(p.packageName));
+          const ignoredSet = getIgnoredSet(baseConfig);
+          pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
           return pkgs.map(p => ({ ...p, platform: "google" }));
         } catch (e) {
           console.error("Error fetching Google packages:", e.message);
@@ -844,6 +854,9 @@ app.post("/api/stats", authenticate, async (req, res) => {
       stats = await statsViewer.getAppStats(req.body.startDate, req.body.endDate);
     }
 
+    stats.platform = platform === "apple" ? "apple" : "google";
+    stats.hasUninstallData = platform !== "apple";
+
     console.log(`Stats fetched for ${req.body.packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
     res.json(stats);
   } catch (error) {
@@ -897,8 +910,8 @@ app.post("/api/dimension", authenticate, async (req, res) => {
             dataDir: DATA_DIR
           });
           let pkgs = await statsViewer.listPackages();
-          const ignored = baseConfig.ignoredPackages || [];
-          pkgs = pkgs.filter(p => !ignored.includes(p.packageName));
+          const ignoredSet = getIgnoredSet(baseConfig);
+          pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
           return pkgs.map(p => ({ ...p, platform: "google" }));
         } catch (e) {
           console.error("Error fetching Google packages for dimension:", e.message);

@@ -607,6 +607,8 @@ class PackageUtils {
       averageRating,
       ratingsDistribution,
       dailyTrends: uniqueTrends,
+      platform: 'google',
+      hasUninstallData: true,
       ...aggregated
     };
 

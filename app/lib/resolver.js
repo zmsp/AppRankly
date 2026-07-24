@@ -197,9 +197,39 @@ function getMetrics() {
   };
 }
 
+function clearCache(resource) {
+  cache.invalidate(resource);
+  try {
+    const cacheDir = path.join(dataDir, '.resolve_cache');
+    if (fs.existsSync(cacheDir)) {
+      if (!resource) {
+        fs.rmSync(cacheDir, { recursive: true, force: true });
+      } else {
+        const search = resource.toLowerCase();
+        const files = fs.readdirSync(cacheDir);
+        for (const file of files) {
+          if (file.endsWith('.json')) {
+            const filePath = path.join(cacheDir, file);
+            try {
+              const raw = fs.readFileSync(filePath, 'utf8');
+              const parsed = JSON.parse(raw);
+              if (parsed.key && parsed.key.toLowerCase().includes(`:${search}`)) {
+                fs.unlinkSync(filePath);
+              }
+            } catch {}
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[resolver] clearCache error:', err.message);
+  }
+}
+
 module.exports = {
   resolve,
   singleFlight,
+  clearCache,
   getMetrics,
   makeKey: cache.makeKey
 };

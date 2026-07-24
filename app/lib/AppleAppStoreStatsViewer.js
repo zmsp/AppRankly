@@ -282,8 +282,11 @@ class AppleAppStoreStatsViewer {
     aggregated.totalInstallEventsDetected = aggregated.totalInstallCountByUser;
     aggregated.totalUninstallEventsDetected = aggregated.totalUninstallCountByUser;
     aggregated.totalDeviceUpgrades = aggregated.totalUpdateEventsDetected;
+    aggregated.totalDailyUserInstalls = aggregated.totalInstallCountByUser;
+    aggregated.totalDailyDeviceInstalls = aggregated.totalInstallCountByUser;
+    aggregated.totalDailyUserUninstalls = aggregated.totalUninstallCountByUser;
 
-    return { ...aggregated, dailyTrends };
+    return { ...aggregated, dailyTrends, platform: 'apple', hasUninstallData: false };
   }
 
   async getDimensionStats(dimension, startDate, endDate) {
