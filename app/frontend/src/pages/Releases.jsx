@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Tag, CheckCircle, Clock, Calendar, AlertTriangle, Plus, Edit2, Trash2, Sparkles, RefreshCw, Layers, X, Smartphone, ArrowUpRight } from 'lucide-react';
+import { Tag, CheckCircle, Clock, Calendar, AlertTriangle, Plus, Edit2, Trash2, Sparkles, RefreshCw, Layers, X, Smartphone, ArrowUpRight, Filter, LineChart as LineChartIcon, BarChart2, Zap } from 'lucide-react';
 import { formatNumber } from '../lib/format';
+import TrendChart from '../components/TrendChart';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -11,6 +12,7 @@ export default function Releases({
   projects = [],
   selectedProjectIndex = 'all',
   platform = 'all',
+  dateRange,
   addRelease,
   updateRelease,
   deleteRelease,
@@ -25,6 +27,8 @@ export default function Releases({
 
   // Local filter state ('auto' syncs with active project/platform selection)
   const [selectedAppFilter, setSelectedAppFilter] = useState('auto');
+  const [onlyInDateRange, setOnlyInDateRange] = useState(false);
+  const [expandedReleaseId, setExpandedReleaseId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRelease, setEditingRelease] = useState(null);
   const [isDetecting, setIsDetecting] = useState(false);
@@ -56,9 +60,31 @@ export default function Releases({
 
   // Filter releases by active app and platform
   const filteredReleases = useMemo(() => {
-    const rawList = (stats?.releaseCorrelations && stats.releaseCorrelations.length > 0)
-      ? stats.releaseCorrelations
-      : releases;
+    const correlatedMap = new Map();
+    if (Array.isArray(stats?.releaseCorrelations)) {
+      stats.releaseCorrelations.forEach(c => {
+        const key = c.id || `${c.version}_${c.date || c.releaseDate}`;
+        correlatedMap.set(key, c);
+      });
+    }
+
+    const mergedMap = new Map();
+    (releases || []).forEach(r => {
+      const key = r.id || `${r.version}_${r.date || r.releaseDate}`;
+      const corr = correlatedMap.get(key);
+      mergedMap.set(key, corr ? { ...r, ...corr } : r);
+    });
+
+    if (Array.isArray(stats?.releaseCorrelations)) {
+      stats.releaseCorrelations.forEach(c => {
+        const key = c.id || `${c.version}_${c.date || c.releaseDate}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, c);
+        }
+      });
+    }
+
+    const rawList = Array.from(mergedMap.values());
 
     if (!Array.isArray(rawList)) return [];
 
@@ -75,19 +101,39 @@ export default function Releases({
           return false;
         }
       }
+      // Filter by Date Range if enabled
+      if (onlyInDateRange && dateRange?.start && dateRange?.end) {
+        const d = rel.releaseDate || rel.date;
+        if (d < dateRange.start || d > dateRange.end) {
+          return false;
+        }
+      }
       return true;
     });
-  }, [stats?.releaseCorrelations, releases, effectivePackageName, effectivePlatform]);
+  }, [stats?.releaseCorrelations, releases, effectivePackageName, effectivePlatform, onlyInDateRange, dateRange]);
 
   const sortedReleases = useMemo(() => {
     return [...filteredReleases].reverse();
   }, [filteredReleases]);
+
+  // Date-filtered metrics calculation
+  const releasesInCurrentDateRange = useMemo(() => {
+    if (!dateRange?.start || !dateRange?.end) return sortedReleases;
+    return sortedReleases.filter(r => {
+      const d = r.releaseDate || r.date;
+      return d >= dateRange.start && d <= dateRange.end;
+    });
+  }, [sortedReleases, dateRange]);
 
   // Calculate average churn delta across releases with valid impact data
   const impactsWithData = sortedReleases.map(r => r.impact).filter(Boolean);
   
   const avgChurnDelta = impactsWithData.length > 0
     ? impactsWithData.reduce((acc, imp) => acc + (imp.uninstallDeltaPct || 0), 0) / impactsWithData.length
+    : null;
+
+  const avgInstallDelta = impactsWithData.length > 0
+    ? impactsWithData.reduce((acc, imp) => acc + (imp.installDeltaPct || 0), 0) / impactsWithData.length
     : null;
 
   const totalPostUninstalls = impactsWithData.reduce((acc, imp) => acc + (imp.avgPostUninstalls || 0), 0);
@@ -118,7 +164,6 @@ export default function Releases({
         isScraped: false
       };
     }
-    // Check if any projects have scraped store version
     const projectWithVersion = projects.find(p => p.version || p.storeVersion);
     if (projectWithVersion) {
       return {
@@ -141,7 +186,7 @@ export default function Releases({
       version: '',
       date: new Date().toISOString().split('T')[0],
       platform: selectedAppFilter !== 'all' ? (projects.find(p => p.packageName === selectedAppFilter)?.platform || 'google') : 'google',
-      packageName: selectedAppFilter,
+      packageName: selectedAppFilter === 'auto' ? (activeProject?.packageName || 'all') : selectedAppFilter,
       notes: ''
     });
     setIsModalOpen(true);
@@ -227,7 +272,7 @@ export default function Releases({
     }
   };
 
-  // Version adoption breakdown mock/stats
+  // Version adoption breakdown
   const versionBreakdown = useMemo(() => {
     if (Array.isArray(dimensionStats) && dimensionStats.length > 0) {
       return dimensionStats;
@@ -247,7 +292,7 @@ export default function Releases({
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">App Version Releases & Adoption</h1>
           <p className="text-xs sm:text-sm text-slate-400">
-            Track real post-release uninstalls, release impacts, version adoption, and build stability.
+            Track post-release uninstall deltas, version adoption velocity, and build stability across date filters.
           </p>
         </div>
 
@@ -273,6 +318,20 @@ export default function Releases({
             </div>
           )}
 
+          {/* Date Range Strict Filter Toggle */}
+          <button
+            onClick={() => setOnlyInDateRange(!onlyInDateRange)}
+            className={`text-xs font-bold px-3 py-2 rounded-xl transition-all border flex items-center space-x-1.5 ${
+              onlyInDateRange
+                ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/40'
+                : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+            }`}
+            title="Toggle filtering releases strictly to the active date range"
+          >
+            <Filter size={14} />
+            <span>{onlyInDateRange ? 'Date Filter: ON' : 'Date Filter: OFF'}</span>
+          </button>
+
           {/* Auto-Detect Store Releases Button */}
           <button
             onClick={handleAutoDetect}
@@ -295,6 +354,31 @@ export default function Releases({
         </div>
       </div>
 
+      {/* Date Range Context Banner */}
+      {dateRange && (
+        <div className="glass-card p-3 px-4 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-2">
+            <Calendar size={15} className="text-accent-blue" />
+            <span className="text-slate-400 font-medium">Active Date Window:</span>
+            <span className="text-white font-bold">{dateRange.start} → {dateRange.end}</span>
+            {dateRange.label && (
+              <span className="bg-accent-blue/10 text-accent-blue px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                {dateRange.label}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-4 text-slate-300 font-medium">
+            <span>
+              Releases in Range: <strong className="text-white">{releasesInCurrentDateRange.length}</strong>
+            </span>
+            <span>
+              Total Tracked: <strong className="text-white">{sortedReleases.length}</strong>
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Auto-Detect Feedback Toast */}
       {detectStatus && (
         <div className="bg-accent-blue/10 border border-accent-blue/30 text-accent-blue text-xs px-4 py-2.5 rounded-xl flex items-center justify-between animate-fadeIn">
@@ -309,49 +393,79 @@ export default function Releases({
       )}
 
       {/* Summary KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-card p-6 border border-white/10 space-y-2 relative overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="glass-card p-5 border border-white/10 space-y-1.5 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Latest Tracked Version</span>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Latest Tracked Build</span>
             {metadataLatestVersion.isScraped && (
-              <span className="text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-300 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-[9px] bg-amber-500/10 border border-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full font-semibold">
                 Store Metadata
               </span>
             )}
           </div>
-          <p className="text-3xl font-extrabold text-accent-blue">
+          <p className="text-2xl font-extrabold text-accent-blue">
             {metadataLatestVersion.version}
           </p>
-          <p className="text-xs text-slate-400 flex items-center gap-1">
-            <Calendar size={13} /> {metadataLatestVersion.date}
+          <p className="text-[11px] text-slate-400 flex items-center gap-1">
+            <Calendar size={12} /> {metadataLatestVersion.date}
           </p>
         </div>
 
-        <div className="glass-card p-6 border border-white/10 space-y-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Best Shipping Day</span>
-          <p className="text-3xl font-extrabold text-accent-emerald">
-            {bestDayName ? bestDayName : 'N/A'}
+        <div className="glass-card p-5 border border-white/10 space-y-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Avg Post-Release Install Shift</span>
+          <p className={`text-2xl font-extrabold ${avgInstallDelta !== null && avgInstallDelta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {avgInstallDelta !== null ? `${avgInstallDelta > 0 ? '+' : ''}${avgInstallDelta.toFixed(1)}%` : '—'}
           </p>
-          <p className="text-xs text-slate-400">
-            {bestDayName ? `Installs peak on ${bestDayName} (~${Math.round(bestDayAvg)}/day)` : 'Requires trend data to compute'}
-          </p>
+          <p className="text-[11px] text-slate-400">7-day post vs pre-release install delta</p>
         </div>
 
-        <div className="glass-card p-6 border border-white/10 space-y-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg Post-Release Churn Delta</span>
+        <div className="glass-card p-5 border border-white/10 space-y-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Avg Post-Release Churn Shift</span>
           <div className="flex items-baseline space-x-2">
-            <p className={`text-3xl font-extrabold ${avgChurnDelta !== null && avgChurnDelta > 10 ? 'text-rose-400' : 'text-emerald-400'}`}>
+            <p className={`text-2xl font-extrabold ${avgChurnDelta !== null && avgChurnDelta > 10 ? 'text-rose-400' : 'text-emerald-400'}`}>
               {avgChurnDelta !== null ? `${avgChurnDelta > 0 ? '+' : ''}${avgChurnDelta.toFixed(1)}%` : '—'}
             </p>
             {isLowVolume && (
-              <span className="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-mono">
+              <span className="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1 py-0.5 rounded font-mono">
                 Low volume
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400">7-day post vs pre-release uninstall delta</p>
+          <p className="text-[11px] text-slate-400">7-day post vs pre-release uninstall delta</p>
+        </div>
+
+        <div className="glass-card p-5 border border-white/10 space-y-1.5">
+          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Best Shipping Day</span>
+          <p className="text-2xl font-extrabold text-accent-emerald">
+            {bestDayName ? bestDayName : 'N/A'}
+          </p>
+          <p className="text-[11px] text-slate-400">
+            {bestDayName ? `Installs peak on ${bestDayName} (~${Math.round(bestDayAvg)}/day)` : 'Requires trend data to compute'}
+          </p>
         </div>
       </div>
+
+      {/* Embedded Build Impact & Timeline Chart */}
+      {stats?.dailyTrends && stats.dailyTrends.length > 0 && (
+        <div className="glass-card p-6 border border-white/10 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+            <div className="flex items-center space-x-2">
+              <LineChartIcon size={18} className="text-accent-blue" />
+              <h3 className="text-base sm:text-lg font-bold text-white">Release Markers & Daily Trend Impact Timeline</h3>
+            </div>
+            <span className="text-xs text-slate-400">Vertical dashed markers represent build release dates</span>
+          </div>
+
+          <div className="h-72 w-full pt-2">
+            <TrendChart
+              data={stats.dailyTrends}
+              releases={sortedReleases}
+              platform={effectivePlatform}
+              hasUninstallData={stats.hasUninstallData}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Version Adoption Breakdown Card */}
       <div className="glass-card p-6 border border-white/10 space-y-4">
@@ -410,98 +524,142 @@ export default function Releases({
               const isLowVolRow = imp && (imp.avgPostUninstalls < 5);
               const relId = rel.id || rel.version;
               const matchedProj = projects.find(p => p.packageName === rel.packageName);
+              const isExpanded = expandedReleaseId === relId;
 
               return (
-                <div key={relId || idx} className="p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/5 transition-colors">
-                  <div className="space-y-1.5 flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-bold text-white bg-accent-blue/10 border border-accent-blue/20 text-accent-blue px-2.5 py-1 rounded-lg">
-                        {rel.version || rel.releaseName || `Release ${idx + 1}`}
-                      </span>
-
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Calendar size={13} /> {rel.releaseDate || rel.date}
-                      </span>
-
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${
-                        rel.platform === 'apple' ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/20' :
-                        rel.platform === 'google' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                        'bg-white/10 text-white border-white/20'
-                      }`}>
-                        {rel.platform === 'apple' ? 'App Store' : rel.platform === 'google' ? 'Google Play' : 'All Platforms'}
-                      </span>
-
-                      {matchedProj && (
-                        <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium truncate max-w-[150px]">
-                          {matchedProj.name}
+                <div key={relId || idx} className="hover:bg-white/5 transition-colors">
+                  <div
+                    onClick={() => setExpandedReleaseId(isExpanded ? null : relId)}
+                    className="p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer"
+                  >
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-white bg-accent-blue/10 border border-accent-blue/20 text-accent-blue px-2.5 py-1 rounded-lg">
+                          {rel.version || rel.releaseName || `Release ${idx + 1}`}
                         </span>
-                      )}
 
-                      {rel.source === 'auto' && (
-                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded font-mono">
-                          Auto-detected
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Calendar size={13} /> {rel.releaseDate || rel.date}
                         </span>
+
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${
+                          rel.platform === 'apple' ? 'bg-accent-blue/10 text-accent-blue border-accent-blue/20' :
+                          rel.platform === 'google' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                          'bg-white/10 text-white border-white/20'
+                        }`}>
+                          {rel.platform === 'apple' ? 'App Store' : rel.platform === 'google' ? 'Google Play' : 'All Platforms'}
+                        </span>
+
+                        {matchedProj && (
+                          <span className="text-[10px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded font-medium truncate max-w-[150px]">
+                            {matchedProj.name}
+                          </span>
+                        )}
+
+                        {rel.source === 'auto' && (
+                          <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded font-mono">
+                            Auto-detected
+                          </span>
+                        )}
+                      </div>
+                      {rel.notes && (
+                        <p className="text-xs text-slate-300 pt-0.5 leading-relaxed max-w-2xl">{rel.notes}</p>
                       )}
                     </div>
-                    {rel.notes && (
-                      <p className="text-xs text-slate-300 pt-0.5 leading-relaxed max-w-2xl">{rel.notes}</p>
-                    )}
+
+                    <div className="flex items-center space-x-6 text-xs shrink-0">
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Post Avg Installs</span>
+                        <span className="text-white font-bold">
+                          {imp ? `${imp.avgPostInstalls}/day` : '—'}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Churn Delta</span>
+                        <span className={`font-bold ${imp && imp.uninstallDeltaPct > 20 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {imp ? `${imp.uninstallDeltaPct > 0 ? '+' : ''}${imp.uninstallDeltaPct}%` : '—'}
+                        </span>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Status</span>
+                        {!hasImpact ? (
+                          <span className="text-slate-400 font-semibold flex items-center gap-1">
+                            <Clock size={13} /> No data yet
+                          </span>
+                        ) : imp.uninstallDeltaPct > 20 ? (
+                          <span className="text-rose-400 font-semibold flex items-center gap-1">
+                            <AlertTriangle size={13} /> Churn Spike
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                            <CheckCircle size={13} /> Stable
+                          </span>
+                        )}
+                        {isLowVolRow && hasImpact && (
+                          <span className="text-[9px] text-slate-500 block">low volume</span>
+                        )}
+                      </div>
+
+                      {/* Edit & Delete Action Buttons */}
+                      <div className="flex items-center space-x-1 pl-2 border-l border-white/10" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleOpenEditModal(rel)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                          title="Edit release"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(relId)}
+                          disabled={deletingId === relId}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
+                          title="Delete release"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center space-x-6 text-xs shrink-0">
-                    <div className="text-right">
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Post Avg Installs</span>
-                      <span className="text-white font-bold">
-                        {imp ? `${imp.avgPostInstalls}/day` : '—'}
-                      </span>
-                    </div>
+                  {/* Expanded Pre vs Post 7-Day Performance Comparison */}
+                  {isExpanded && imp && (
+                    <div className="p-4 sm:p-6 bg-slate-900/60 border-t border-white/5 space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Zap size={14} className="text-accent-blue" />
+                          Pre vs Post 7-Day Release Impact Metrics ({rel.version})
+                        </h4>
+                        <span className="text-[10px] text-slate-400">Release Date: {rel.releaseDate || rel.date}</span>
+                      </div>
 
-                    <div className="text-right">
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Churn Delta</span>
-                      <span className={`font-bold ${imp && imp.uninstallDeltaPct > 20 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        {imp ? `${imp.uninstallDeltaPct > 0 ? '+' : ''}${imp.uninstallDeltaPct}%` : '—'}
-                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+                        <div className="p-3 rounded-lg bg-white/5 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-slate-400 font-semibold block">Pre 7D Installs/Day</span>
+                          <span className="text-sm font-bold text-white">{imp.avgPreInstalls || 0}</span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/5 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-slate-400 font-semibold block">Post 7D Installs/Day</span>
+                          <span className="text-sm font-bold text-white">{imp.avgPostInstalls || 0}</span>
+                          <span className={`text-[10px] font-bold block ${imp.installDeltaPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {imp.installDeltaPct > 0 ? '+' : ''}{imp.installDeltaPct}%
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/5 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-slate-400 font-semibold block">Pre 7D Uninstalls/Day</span>
+                          <span className="text-sm font-bold text-white">{imp.avgPreUninstalls || 0}</span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-white/5 border border-white/5 space-y-1">
+                          <span className="text-[10px] text-slate-400 font-semibold block">Post 7D Uninstalls/Day</span>
+                          <span className="text-sm font-bold text-white">{imp.avgPostUninstalls || 0}</span>
+                          <span className={`text-[10px] font-bold block ${imp.uninstallDeltaPct > 10 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            {imp.uninstallDeltaPct > 0 ? '+' : ''}{imp.uninstallDeltaPct}%
+                          </span>
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="text-right">
-                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Status</span>
-                      {!hasImpact ? (
-                        <span className="text-slate-400 font-semibold flex items-center gap-1">
-                          <Clock size={13} /> No data yet
-                        </span>
-                      ) : imp.uninstallDeltaPct > 20 ? (
-                        <span className="text-rose-400 font-semibold flex items-center gap-1">
-                          <AlertTriangle size={13} /> Churn Spike
-                        </span>
-                      ) : (
-                        <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                          <CheckCircle size={13} /> Stable
-                        </span>
-                      )}
-                      {isLowVolRow && hasImpact && (
-                        <span className="text-[9px] text-slate-500 block">low volume</span>
-                      )}
-                    </div>
-
-                    {/* Edit & Delete Action Buttons */}
-                    <div className="flex items-center space-x-1 pl-2 border-l border-white/10">
-                      <button
-                        onClick={() => handleOpenEditModal(rel)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                        title="Edit release"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(relId)}
-                        disabled={deletingId === relId}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-50"
-                        title="Delete release"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
