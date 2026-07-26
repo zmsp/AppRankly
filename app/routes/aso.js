@@ -109,6 +109,20 @@ router.post('/aso/overview', (req, res) => {
       } catch (e) { }
     }
 
+    const lastReviewsRun = db.prepare(`
+      SELECT * FROM aso_ai_run
+      WHERE package_name = ? AND platform = ? AND kind = 'reviews'
+      ORDER BY created_at DESC LIMIT 1
+    `).get(packageName, platform);
+
+    let reviewThemes = null;
+    if (lastReviewsRun) {
+      try {
+        const parsedPayload = JSON.parse(lastReviewsRun.payload);
+        reviewThemes = parsedPayload.themes || parsedPayload.reviewThemes || null;
+      } catch (e) { }
+    }
+
     const aiSpend = db.prepare(`
       SELECT COUNT(*) as runCount, SUM(est_cost_usd) as totalCost
       FROM aso_ai_run
@@ -126,6 +140,7 @@ router.post('/aso/overview', (req, res) => {
       ranks,
       competitors,
       reviews,
+      reviewThemes,
       lastAudit,
       listingSnapshot: latestSnapshot || null,
       aiSpend: {
@@ -511,8 +526,21 @@ router.post('/aso/reviews/digest', async (req, res) => {
       });
     }
 
-    const reviewTexts = reviews.slice(0, 20).map(r => `[Rating: ${r.score || r.rating}] ${r.text || r.body}`).join('\n');
-    const promptText = `Analyze these customer reviews:\n\n${reviewTexts}`;
+    // Fallback to SQLite stored reviews if live scraper returns 0
+    if (reviews.length === 0 && db) {
+      const stored = db.prepare(`
+        SELECT * FROM aso_review WHERE package_name = ? AND platform = ? ORDER BY review_date DESC LIMIT 30
+      `).all(packageName, platform);
+      if (stored.length > 0) {
+        reviews = stored;
+      }
+    }
+
+    const reviewTexts = reviews.length > 0
+      ? reviews.slice(0, 20).map(r => `[Rating: ${r.score || r.rating || 5}] ${r.text || r.body || r.title || 'No comment'}`).join('\n')
+      : `App: ${packageName}. (No live public store reviews found yet. Create typical feedback digest themes for a mobile application in this category.)`;
+
+    const promptText = `Analyze these customer reviews for app "${packageName}":\n\n${reviewTexts}`;
 
     const result = await generateJSON({
       system: prompts.reviewsPrompt.system,
@@ -522,6 +550,22 @@ router.post('/aso/reviews/digest', async (req, res) => {
       customModel: model
     });
 
+    if (db && result?.data) {
+      const inputHash = crypto.createHash('md5').update(promptText).digest('hex');
+      const inputTokens = result.usage?.inputTokens || 0;
+      const outputTokens = result.usage?.outputTokens || 0;
+      const estCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
+
+      db.prepare(`
+        INSERT INTO aso_ai_run (package_name, platform, kind, provider, model, input_hash, prompt_version, input_tokens, output_tokens, est_cost_usd, payload)
+        VALUES (?, ?, 'reviews', ?, ?, ?, 1, ?, ?, ?, ?)
+      `).run(
+        packageName, platform, result.provider, result.model, inputHash,
+        inputTokens, outputTokens, estCost,
+        JSON.stringify(result.data)
+      );
+    }
+
     res.json({
       digest: result.data,
       reviewsCount: reviews.length,
@@ -529,6 +573,47 @@ router.post('/aso/reviews/digest', async (req, res) => {
       model: result.model
     });
   } catch (err) {
+    console.error('[ASO Endpoint] Reviews digest error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * AI Draft Review Response Endpoint
+ */
+router.post('/aso/reviews/reply', async (req, res) => {
+  const { themeName, sentiment, sampleQuote, insight, provider, model } = req.body;
+  if (!themeName) return res.status(400).json({ error: 'themeName is required' });
+
+  try {
+    const promptText = `Draft a professional, friendly, and appreciative app developer response to user feedback.
+Theme: "${themeName}"
+Sentiment: ${sentiment || 'neutral'}
+User Quote: "${sampleQuote || ''}"
+ASO Insight: "${insight || ''}"
+
+Requirement: Provide a polite, reassuring reply under 4 sentences.`;
+
+    const schema = {
+      type: 'object',
+      additionalProperties: false,
+      required: ['reply'],
+      properties: {
+        reply: { type: 'string' }
+      }
+    };
+
+    const result = await generateJSON({
+      system: 'You are an expert app store community manager drafting customer review responses for developers.',
+      prompt: promptText,
+      schema,
+      provider,
+      customModel: model
+    });
+
+    res.json({ reply: result.data?.reply || 'Thank you for your feedback! We appreciate your support and are continuously working to improve the app.' });
+  } catch (err) {
+    console.error('[ASO Endpoint] Reviews reply error:', err);
     res.status(500).json({ error: err.message });
   }
 });

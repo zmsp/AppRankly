@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import PortfolioAsoScores from '../components/PortfolioAsoScores';
-import { saveCachedAudit, getCachedAudit } from '../lib/asoCache';
+import { saveCachedAudit, getCachedAudit, getCachedAuditStats, getAppAsoAudit } from '../lib/asoCache';
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
@@ -276,9 +276,11 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         const data = await res.json();
         const demoFallback = getDemoAsoData(packageName, activeProject);
         const finalAudit = cachedAudit || data.lastAudit || demoFallback.lastAudit;
+        const reviewThemes = data.reviewThemes || demoFallback.reviewThemes;
         setAsoData({
           ...demoFallback,
           ...data,
+          reviewThemes,
           lastAudit: finalAudit
         });
       }
@@ -479,13 +481,41 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     }
   };
 
-  const handleDraftReviewResponse = (theme) => {
+  const handleDraftReviewResponse = async (theme) => {
     setSelectedThemeForResponse(theme);
     setDraftingLoading(true);
-    setTimeout(() => {
-      setDraftedResponse(`Hi there! Thank you so much for your feedback regarding "${theme.themeName}". We're excited to share that our team is actively working on enhancing this feature in our upcoming update. Stay tuned, and feel free to reach out to support if you have any questions!`);
+    setDraftedResponse('');
+    if (isDemoMode) {
+      setTimeout(() => {
+        setDraftedResponse(`Hi there! Thank you so much for your feedback regarding "${theme.themeName}". We're excited to share that our team is actively working on enhancing this feature in our upcoming update. Stay tuned, and feel free to reach out to support if you have any questions!`);
+        setDraftingLoading(false);
+      }, 400);
+      return;
+    }
+    try {
+      const res = await apiFetch('/api/aso/reviews/reply', {
+        method: 'POST',
+        body: JSON.stringify({
+          themeName: theme.themeName,
+          sentiment: theme.sentiment,
+          sampleQuote: theme.sampleQuote,
+          insight: theme.insight,
+          provider: selectedProvider,
+          model: customModel || undefined
+        })
+      }, authToken);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.reply) {
+          setDraftedResponse(data.reply);
+        }
+      }
+    } catch (e) {
+      console.warn('Draft reply error:', e.message);
+      setDraftedResponse(`Hi there! Thank you so much for your feedback regarding "${theme.themeName}". We appreciate your input and are actively working on improvements for our next release!`);
+    } finally {
       setDraftingLoading(false);
-    }, 400);
+    }
   };
 
   const handleGenerateVariants = async () => {
@@ -591,15 +621,59 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
 
   if (isAllScope) {
     const scopeLabel = platform === 'apple' ? 'Apple Store' : platform === 'google' ? 'Play Store' : 'All App';
+    const filteredForScope = projects.filter(p => {
+      if (platform === 'apple') return p.platform === 'apple';
+      if (platform === 'google' || platform === 'android') return p.platform === 'google' || p.platform === 'android';
+      return true;
+    });
+    const cacheStats = getCachedAuditStats(filteredForScope);
+    const analyzedCount = isDemoMode ? filteredForScope.length : cacheStats.cached;
+    const avgScoreDisplay = isDemoMode
+      ? Math.round(filteredForScope.reduce((acc, proj) => {
+          const demo = getDemoAsoData(proj.packageName || proj.index, proj);
+          return acc + (demo?.lastAudit?.score || 0);
+        }, 0) / Math.max(filteredForScope.length, 1))
+      : cacheStats.avgScore;
+
     return (
       <div className="space-y-6 pb-12">
         {/* Custom Portfolio Scope Header Banner */}
         <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900/90 via-indigo-950/40 to-slate-900/90 border border-white/10 space-y-3 shadow-xl">
-          <div className="flex items-center space-x-3 text-accent-blue">
-            <LayoutGrid size={24} />
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white">
-              Portfolio ASO Studio ({scopeLabel})
-            </h1>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center space-x-3 text-accent-blue">
+              <LayoutGrid size={24} />
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white">
+                Portfolio ASO Studio ({scopeLabel})
+              </h1>
+            </div>
+            {/* Cache / Audit Stats Strip */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                <Layers size={13} className="text-accent-blue" />
+                <span className="text-[11px] text-slate-400 font-semibold">Total Apps</span>
+                <span className="text-xs font-black text-white font-mono">{filteredForScope.length}</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <Sparkles size={13} className="text-emerald-400" />
+                <span className="text-[11px] text-slate-400 font-semibold">AI Audited</span>
+                <span className="text-xs font-black text-emerald-400 font-mono">{analyzedCount}/{filteredForScope.length}</span>
+              </div>
+              {avgScoreDisplay != null && (
+                <div className={clsx(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-xl border",
+                  avgScoreDisplay >= 90 ? "bg-emerald-500/10 border-emerald-500/20" :
+                  avgScoreDisplay >= 80 ? "bg-indigo-500/10 border-indigo-500/20" :
+                  "bg-amber-500/10 border-amber-500/20"
+                )}>
+                  <TrendingUp size={13} className={avgScoreDisplay >= 90 ? "text-emerald-400" : avgScoreDisplay >= 80 ? "text-indigo-300" : "text-amber-400"} />
+                  <span className="text-[11px] text-slate-400 font-semibold">Avg Score</span>
+                  <span className={clsx(
+                    "text-xs font-black font-mono",
+                    avgScoreDisplay >= 90 ? "text-emerald-400" : avgScoreDisplay >= 80 ? "text-indigo-300" : "text-amber-400"
+                  )}>{avgScoreDisplay}/100</span>
+                </div>
+              )}
+            </div>
           </div>
           <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
             Viewing aggregated portfolio ASO health scores and top priority fixes. Select an individual app below or from the top navigation to unlock per-app AI listing audit, keyword workspace, competitor gap intelligence, review digest, and metadata sandbox.
@@ -1292,20 +1366,29 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
             </div>
 
             {/* Feedback Themes Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(asoData?.reviewThemes || []).map((theme, idx) => (
-                <div key={idx} className="bg-slate-900/60 p-4 rounded-2xl border border-white/10 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className={clsx(
-                      "px-2 py-0.5 rounded text-[10px] font-extrabold uppercase",
-                      theme.sentiment === 'positive' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                        theme.sentiment === 'negative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                          'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                    )}>
-                      {theme.sentiment.replace('_', ' ')}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono font-bold">{theme.count} mentions</span>
-                  </div>
+            {(!asoData?.reviewThemes || asoData.reviewThemes.length === 0) ? (
+              <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-8 text-center space-y-3">
+                <MessageSquare size={32} className="mx-auto text-emerald-400/60" />
+                <h3 className="text-sm font-bold text-white">No Review Sentiment Themes Digested Yet</h3>
+                <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                  Click <strong>"Sync & Digest Reviews"</strong> above to analyze user reviews and generate AI feedback sentiment themes.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {asoData.reviewThemes.map((theme, idx) => (
+                  <div key={idx} className="bg-slate-900/60 p-4 rounded-2xl border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className={clsx(
+                        "px-2 py-0.5 rounded text-[10px] font-extrabold uppercase",
+                        theme.sentiment === 'positive' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                          theme.sentiment === 'negative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                            'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                      )}>
+                        {(theme.sentiment || 'neutral').replace('_', ' ')}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono font-bold">{theme.count || 0} mentions</span>
+                    </div>
 
                   <h4 className="text-xs font-bold text-white leading-snug">{theme.themeName}</h4>
 
@@ -1326,6 +1409,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                 </div>
               ))}
             </div>
+            )}
 
             {/* AI Draft Response Modal / Drawer */}
             {selectedThemeForResponse && (

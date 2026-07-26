@@ -4,7 +4,7 @@
 
 # AppRankly — Mobile App Store Analytics Dashboard
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
 [![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue.svg)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](package.json)
 [![Unraid Template](https://img.shields.io/badge/Unraid-Supported-orange.svg)](unraid/README.md)
@@ -395,4 +395,4 @@ Explore more self-hosted applications at **[apps.shahadat.us](https://apps.shaha
 
 ## License
 
-This project is open-source and licensed under the **[MIT License](LICENSE)**.
+This project is open-source and licensed under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.

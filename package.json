@@ -2,6 +2,7 @@
   "name": "apprankly",
   "version": "1.0.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "scripts": {
     "start": "cd app && npm start",
     "dev": "cd app && npm run dev",

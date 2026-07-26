@@ -88,3 +88,28 @@ export function getAppAsoAudit(proj, isDemoMode = true, getDemoAsoData = null) {
     isAnalyzed: false
   };
 }
+
+/**
+ * Returns stats about how many apps have AI-cached audits in localStorage.
+ * @param {Array} projects - list of project objects with packageName
+ * @returns {{ total: number, cached: number, avgScore: number|null }}
+ */
+export function getCachedAuditStats(projects = []) {
+  if (typeof window === 'undefined') return { total: 0, cached: 0, avgScore: null };
+  let cached = 0;
+  let scoreSum = 0;
+  for (const proj of projects) {
+    const pkgName = proj.packageName || proj.index;
+    const audit = getCachedAudit(pkgName);
+    if (audit && audit.score != null) {
+      cached++;
+      scoreSum += audit.score;
+    }
+  }
+  return {
+    total: projects.length,
+    cached,
+    avgScore: cached > 0 ? Math.round(scoreSum / cached) : null
+  };
+}
+

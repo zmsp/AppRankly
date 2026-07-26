@@ -42,11 +42,13 @@ export default function PortfolioAsoScores({
   const scopeLabel = isApple ? 'Apple Store' : isGoogle ? 'Play Store' : 'All App';
 
   const handleCardClick = (proj) => {
-    if (typeof onSelectProject === 'function') {
-      onSelectProject(proj.index);
-    }
+    // Set platform first, then select project — this ensures the ASO page
+    // resolves to the correct per-app view instead of staying on "all" scope
     if (typeof setPlatform === 'function') {
       setPlatform(proj.platform || 'google');
+    }
+    if (typeof onSelectProject === 'function') {
+      onSelectProject(proj.index);
     }
     navigate('/store');
   };

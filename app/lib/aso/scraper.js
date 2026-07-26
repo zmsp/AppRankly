@@ -141,9 +141,16 @@ function formatAppleRawData(raw) {
   };
 }
 
-async function getAppleReviewsRSS(trackId, country = 'us') {
+async function getAppleReviewsRSS(trackIdOrBundleId, country = 'us') {
   try {
-    const url = `https://itunes.apple.com/${country}/rss/customerreviews/id=${trackId}/sortBy=mostRecent/json`;
+    let numericTrackId = trackIdOrBundleId;
+    if (!/^\d+$/.test(String(trackIdOrBundleId))) {
+      const appInfo = await getAppleLookup(trackIdOrBundleId);
+      if (appInfo && appInfo.trackId) {
+        numericTrackId = appInfo.trackId;
+      }
+    }
+    const url = `https://itunes.apple.com/${country}/rss/customerreviews/id=${numericTrackId}/sortBy=mostRecent/json`;
     const resp = await axios.get(url, { timeout: 10000 });
     const entries = resp.data?.feed?.entry || [];
     const reviews = [];
@@ -161,7 +168,7 @@ async function getAppleReviewsRSS(trackId, country = 'us') {
     }
     return reviews;
   } catch (err) {
-    console.warn(`[ASO Scraper] Apple RSS reviews failed for ${trackId}:`, err.message);
+    console.warn(`[ASO Scraper] Apple RSS reviews failed for ${trackIdOrBundleId}:`, err.message);
     return [];
   }
 }

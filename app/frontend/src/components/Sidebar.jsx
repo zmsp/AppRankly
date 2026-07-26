@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -34,6 +34,8 @@ export default function Sidebar({
   selectedProjectIndex,
   setSelectedProjectIndex
 }) {
+  const location = useLocation();
+
   return (
     <aside className={clsx(
       "glass-card transition-all duration-300 z-40 shadow-2xl flex flex-col",
@@ -61,15 +63,17 @@ export default function Sidebar({
                 if (window.innerWidth < 768) setCollapsed(true);
                 if (item.id === 'overview') {
                   if (setSelectedProjectIndex) setSelectedProjectIndex('all');
-                } else if (platform === 'all') {
-                  if (setRawPlatform) setRawPlatform('google');
                 }
               }}
               className={({ isActive }) => {
-                const currentPath = window.location.pathname;
+                const currentPath = location.pathname;
+                const firstSegment = currentPath.split('/')[1] || '';
+                const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary', 'demo'];
                 let isReallyActive = isActive;
                 if (item.id === 'overview') {
-                  isReallyActive = currentPath === '/' || currentPath.startsWith('/all') || currentPath.startsWith('/android') || currentPath.startsWith('/apple') || currentPath.startsWith('/google');
+                  isReallyActive = !knownSubRoutes.includes(firstSegment);
+                } else {
+                  isReallyActive = firstSegment === item.id;
                 }
                 return clsx(
                   "nav-link flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold",

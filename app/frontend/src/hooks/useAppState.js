@@ -27,8 +27,7 @@ export function useAppState() {
   const rawPlat = pathParts[platIdx];
   const initialPlatform = (rawPlat === 'android' || rawPlat === 'google') ? 'google'
     : (rawPlat === 'apple' || rawPlat === 'ios') ? 'apple'
-    : (rawPlat === 'all') ? 'all'
-    : (pathParts.length === 0) ? 'all'
+    : (rawPlat === 'all' || !rawPlat) ? 'all'
     : 'google';
 
   const initialProject = pathParts[projIdx] ? pathParts[projIdx] : (initialPlatform === 'all' ? 'all' : 'manual');
