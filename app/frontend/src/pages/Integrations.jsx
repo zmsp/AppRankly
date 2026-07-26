@@ -179,7 +179,7 @@ function ReleaseManager({ authToken, releases, fetchReleases, isStaticMode }) {
           <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
             <div className="flex items-center space-x-6">
               <div className="flex flex-col">
-                <span className="font-bold text-lg">v{release.version}</span>
+                <span className="font-bold text-lg">{release.version ? (release.version.startsWith('v') ? release.version : `v${release.version}`) : 'v1.0.0'}</span>
                 <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{release.date}</span>
               </div>
               <div className="h-8 w-px bg-white/10" />

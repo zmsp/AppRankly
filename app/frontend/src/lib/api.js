@@ -20,7 +20,10 @@ export async function apiFetch(url, options = {}, authToken = null, isStaticMode
       const body = options.body ? JSON.parse(options.body) : {};
       return fetch(`data/${body.packageName}/store-details.json`);
     }
-    if (url === '/api/releases') {
+    if (url.startsWith('/api/releases')) {
+      if (options.method === 'POST' || options.method === 'PUT' || options.method === 'DELETE') {
+        return new Response(JSON.stringify({ success: true, message: 'Static mode response' }), { status: 200 });
+      }
       return fetch('data/releases.json');
     }
   }

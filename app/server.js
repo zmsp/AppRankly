@@ -953,44 +953,193 @@ app.post("/api/dimension", authenticate, async (req, res) => {
 
 // Get releases
 app.get("/api/releases", authenticate, (req, res) => {
-  if (!fs.existsSync(RELEASES_FILE)) {
-    return res.json([]);
-  }
-  try {
-    const data = fs.readFileSync(RELEASES_FILE, "utf8");
-    res.json(JSON.parse(data));
-  } catch (error) {
-    res.status(500).json({ error: "Failed to read releases" });
-  }
+  const releases = getReleasesFromFile();
+  res.json(releases);
 });
 
 // Add a release
 app.post("/api/releases", authenticate, (req, res) => {
-  const { version, platform, date, notes } = req.body;
-  if (!version || !platform || !date) {
+  const { version, platform, packageName, date, notes, releaseDate, source } = req.body;
+  const targetDate = date || releaseDate;
+  if (!version || !platform || !targetDate) {
     return res.status(400).json({ error: "Missing required fields: version, platform, date" });
   }
 
-  let releases = [];
-  if (fs.existsSync(RELEASES_FILE)) {
-    try {
-      const content = fs.readFileSync(RELEASES_FILE, "utf8");
-      if (content.trim()) {
-        releases = JSON.parse(content);
-      }
-    } catch (e) {
-      console.error("Error parsing releases file, resetting:", e);
-    }
-  }
+  let releases = getReleasesFromFile();
 
-  const newRelease = { version, platform, date, notes };
+  const newRelease = {
+    id: req.body.id || `rel_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    version,
+    platform,
+    packageName: packageName || 'all',
+    date: targetDate,
+    releaseDate: targetDate,
+    notes: notes || '',
+    source: source || 'manual'
+  };
+
   releases.push(newRelease);
 
   // Sort by date descending
-  releases.sort((a, b) => new Date(b.date) - new Date(a.date));
+  releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
 
   fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
   res.json({ success: true, release: newRelease });
+});
+
+// Update a release
+app.put("/api/releases/:id", authenticate, (req, res) => {
+  const { id } = req.params;
+  const { version, platform, packageName, date, notes, releaseDate } = req.body;
+
+  let releases = getReleasesFromFile();
+  const index = releases.findIndex(r => String(r.id) === String(id) || String(r.id) === String(req.body.id));
+
+  if (index === -1) {
+    return res.status(404).json({ error: "Release not found" });
+  }
+
+  const targetDate = date || releaseDate || releases[index].date;
+
+  releases[index] = {
+    ...releases[index],
+    version: version || releases[index].version,
+    platform: platform || releases[index].platform,
+    packageName: packageName !== undefined ? packageName : releases[index].packageName,
+    date: targetDate,
+    releaseDate: targetDate,
+    notes: notes !== undefined ? notes : releases[index].notes
+  };
+
+  releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
+  fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+
+  res.json({ success: true, release: releases[index] });
+});
+
+// Delete a release
+app.delete("/api/releases/:id", authenticate, (req, res) => {
+  const { id } = req.params;
+  let releases = getReleasesFromFile();
+
+  const initialLen = releases.length;
+  releases = releases.filter(r => String(r.id) !== String(id));
+
+  if (releases.length === initialLen) {
+    return res.status(404).json({ error: "Release not found" });
+  }
+
+  fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+  res.json({ success: true, deletedId: id });
+});
+
+// Auto-detect store releases from store metadata APIs & web scrapers
+app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
+  const baseConfig = getBaseConfig();
+  if (!baseConfig) {
+    return res.json({ success: true, addedCount: 0, scannedCount: 0, message: "No base configuration found.", releases: getReleasesFromFile() });
+  }
+
+  let releases = getReleasesFromFile();
+  let addedCount = 0;
+  let scannedCount = 0;
+
+  try {
+    const rawProjects = await fetchPackagesByPlatform('all', baseConfig);
+    scannedCount = rawProjects.length;
+
+    for (const proj of rawProjects) {
+      try {
+        let versionFound = null;
+        let releaseDateFound = null;
+        let appTitle = proj.name || proj.packageName;
+
+        if (proj.platform === 'apple') {
+          // 1. Apple: Direct iTunes Search API Call (Official Public Apple API)
+          const bundleOrId = proj.bundleId || proj.packageName;
+          const isNumeric = /^\d+$/.test(bundleOrId);
+          const lookupUrl = isNumeric
+            ? `https://itunes.apple.com/lookup?id=${bundleOrId}`
+            : `https://itunes.apple.com/lookup?bundleId=${bundleOrId}`;
+
+          try {
+            const apiRes = await axios.get(lookupUrl, { timeout: 8000 });
+            if (apiRes.data?.results?.length > 0) {
+              const item = apiRes.data.results[0];
+              versionFound = item.version;
+              releaseDateFound = item.currentVersionReleaseDate || item.releaseDate;
+              appTitle = item.trackName || appTitle;
+            }
+          } catch (e) {
+            console.warn(`iTunes API lookup failed for ${bundleOrId}:`, e.message);
+          }
+        } else {
+          // 2. Google Play: Live Scraper Call
+          try {
+            const scraped = await gplay.app({ appId: proj.packageName });
+            if (scraped && scraped.version && scraped.version !== 'Varies with device') {
+              versionFound = scraped.version;
+              releaseDateFound = scraped.updated;
+              appTitle = scraped.title || appTitle;
+            }
+          } catch (e) {
+            console.warn(`Play Store scrape failed for ${proj.packageName}:`, e.message);
+          }
+        }
+
+        // Clean version string
+        if (versionFound && typeof versionFound === 'string' && versionFound !== 'Varies with device' && versionFound !== 'N/A') {
+          const verStr = versionFound.startsWith('v') ? versionFound : `v${versionFound}`;
+
+          let releaseDate = releaseDateFound;
+          if (releaseDate) {
+            const parsed = new Date(releaseDate);
+            if (!isNaN(parsed.getTime())) {
+              releaseDate = parsed.toISOString().split('T')[0];
+            } else {
+              releaseDate = new Date().toISOString().split('T')[0];
+            }
+          } else {
+            releaseDate = new Date().toISOString().split('T')[0];
+          }
+
+          const exists = releases.some(r =>
+            (r.version === verStr || r.version === versionFound) &&
+            (!r.packageName || r.packageName === proj.packageName || r.packageName === 'all')
+          );
+
+          if (!exists) {
+            const newRel = {
+              id: `rel_auto_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+              version: verStr,
+              platform: proj.platform || 'all',
+              packageName: proj.packageName,
+              date: releaseDate,
+              releaseDate: releaseDate,
+              notes: `Auto-detected store release for ${appTitle}`,
+              source: 'auto'
+            };
+            releases.push(newRel);
+            addedCount++;
+          }
+        }
+      } catch (e) {
+        console.warn(`Auto-detect process error for project ${proj.packageName}:`, e.message);
+      }
+    }
+
+    releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
+    fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+
+    const message = addedCount > 0
+      ? `Scanned ${scannedCount} app(s). Added ${addedCount} new store version release(s).`
+      : `Scanned ${scannedCount} app(s). All detected store versions are already logged.`;
+
+    return res.json({ success: true, addedCount, scannedCount, message, releases });
+  } catch (err) {
+    console.error("Error auto-detecting releases:", err);
+    return res.status(500).json({ error: "Failed to auto-detect store releases", details: err.message });
+  }
 });
 
 // --- Notifications & Auto-Refresh Scheduler ---

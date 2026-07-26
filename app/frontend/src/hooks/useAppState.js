@@ -200,6 +200,101 @@ export function useAppState() {
     }
   }, [authToken, isStaticMode]);
 
+  const addRelease = useCallback(async (releaseData) => {
+    if (isDemoMode) {
+      const newRel = {
+        id: `demo_${Date.now()}`,
+        source: 'manual',
+        ...releaseData
+      };
+      setReleases(prev => [newRel, ...prev]);
+      return { success: true, release: newRel };
+    }
+    try {
+      const res = await apiFetch('/api/releases', {
+        method: 'POST',
+        body: JSON.stringify(releaseData)
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchReleases();
+        return result;
+      }
+    } catch (err) {
+      console.error('Failed to add release:', err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchReleases]);
+
+  const updateRelease = useCallback(async (id, releaseData) => {
+    if (isDemoMode) {
+      setReleases(prev => prev.map(r => String(r.id) === String(id) ? { ...r, ...releaseData } : r));
+      return { success: true };
+    }
+    try {
+      const res = await apiFetch(`/api/releases/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(releaseData)
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchReleases();
+        return result;
+      }
+    } catch (err) {
+      console.error(`Failed to update release ${id}:`, err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchReleases]);
+
+  const deleteRelease = useCallback(async (id) => {
+    if (isDemoMode) {
+      setReleases(prev => prev.filter(r => String(r.id) !== String(id)));
+      return { success: true };
+    }
+    try {
+      const res = await apiFetch(`/api/releases/${id}`, {
+        method: 'DELETE'
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchReleases();
+        return result;
+      }
+    } catch (err) {
+      console.error(`Failed to delete release ${id}:`, err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchReleases]);
+
+  const autoDetectReleases = useCallback(async () => {
+    if (isDemoMode) {
+      const mockAuto = [
+        { id: 'demo_auto_1', version: 'v2.4.0', platform: 'google', packageName: 'com.demo.alpha', date: '2026-07-20', notes: 'Auto-detected store release for App Alpha', source: 'auto' },
+        { id: 'demo_auto_2', version: 'v2.3.1', platform: 'apple', packageName: 'com.demo.gamma', date: '2026-07-15', notes: 'Auto-detected store release for App Gamma', source: 'auto' }
+      ];
+      setReleases(prev => {
+        const existingVersions = new Set(prev.map(r => r.version));
+        const newOnes = mockAuto.filter(m => !existingVersions.has(m.version));
+        return [...newOnes, ...prev];
+      });
+      return { success: true, addedCount: 2 };
+    }
+    try {
+      const res = await apiFetch('/api/releases/auto-detect', {
+        method: 'POST'
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchReleases();
+        return result;
+      }
+    } catch (err) {
+      console.error('Failed to auto-detect releases:', err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchReleases]);
+
   useEffect(() => {
     async function checkStatic() {
       try {
@@ -467,7 +562,11 @@ export function useAppState() {
     refreshData: forceRefresh,
     switchToDemoMode,
     fetchProjects,
-    fetchReleases
+    fetchReleases,
+    addRelease,
+    updateRelease,
+    deleteRelease,
+    autoDetectReleases
   };
 }
 
