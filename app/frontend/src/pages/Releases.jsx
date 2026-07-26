@@ -9,17 +9,39 @@ export default function Releases({
   stats,
   dimensionStats,
   projects = [],
+  selectedProjectIndex = 'all',
+  platform = 'all',
   addRelease,
   updateRelease,
   deleteRelease,
   autoDetectReleases,
   fetchReleases
 }) {
-  const [selectedAppFilter, setSelectedAppFilter] = useState('all');
+  // Find active project from global selection
+  const activeProject = useMemo(() => {
+    if (!selectedProjectIndex || selectedProjectIndex === 'all' || selectedProjectIndex === 'manual') return null;
+    return projects.find(p => String(p.index) === String(selectedProjectIndex));
+  }, [projects, selectedProjectIndex]);
+
+  // Local filter state ('auto' syncs with active project/platform selection)
+  const [selectedAppFilter, setSelectedAppFilter] = useState('auto');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRelease, setEditingRelease] = useState(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectStatus, setDetectStatus] = useState(null);
+
+  // Compute effective package name and platform filter
+  const effectivePackageName = useMemo(() => {
+    if (selectedAppFilter !== 'auto') return selectedAppFilter;
+    if (activeProject?.packageName) return activeProject.packageName;
+    return 'all';
+  }, [selectedAppFilter, activeProject]);
+
+  const effectivePlatform = useMemo(() => {
+    if (activeProject?.platform) return activeProject.platform;
+    if (platform && platform !== 'all') return platform;
+    return 'all';
+  }, [activeProject, platform]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -32,16 +54,34 @@ export default function Releases({
   const [formSaving, setFormSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Filter releases by selected app if filtered
+  // Filter releases by active app and platform
   const filteredReleases = useMemo(() => {
-    if (!Array.isArray(releases)) return [];
-    if (selectedAppFilter === 'all') return releases;
-    return releases.filter(r => !r.packageName || r.packageName === 'all' || r.packageName === selectedAppFilter);
-  }, [releases, selectedAppFilter]);
+    const rawList = (stats?.releaseCorrelations && stats.releaseCorrelations.length > 0)
+      ? stats.releaseCorrelations
+      : releases;
 
-  // Prefer releaseCorrelations if provided in stats
-  const correlated = stats?.releaseCorrelations || filteredReleases;
-  const sortedReleases = Array.isArray(correlated) ? [...correlated].reverse() : [];
+    if (!Array.isArray(rawList)) return [];
+
+    return rawList.filter(rel => {
+      // Filter by Package Name
+      if (effectivePackageName !== 'all') {
+        if (rel.packageName && rel.packageName !== 'all' && rel.packageName !== effectivePackageName) {
+          return false;
+        }
+      }
+      // Filter by Platform
+      if (effectivePlatform !== 'all') {
+        if (rel.platform && rel.platform !== 'both' && rel.platform !== 'all' && rel.platform !== effectivePlatform) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [stats?.releaseCorrelations, releases, effectivePackageName, effectivePlatform]);
+
+  const sortedReleases = useMemo(() => {
+    return [...filteredReleases].reverse();
+  }, [filteredReleases]);
 
   // Calculate average churn delta across releases with valid impact data
   const impactsWithData = sortedReleases.map(r => r.impact).filter(Boolean);
@@ -220,7 +260,10 @@ export default function Releases({
                 value={selectedAppFilter}
                 onChange={e => setSelectedAppFilter(e.target.value)}
               >
-                <option value="all" className="bg-slate-900 text-white">All Apps ({projects.length})</option>
+                <option value="auto" className="bg-slate-900 text-white">
+                  {activeProject ? `App: ${activeProject.name}` : 'Auto (All Apps)'}
+                </option>
+                <option value="all" className="bg-slate-900 text-white">Show All Apps ({projects.length})</option>
                 {projects.map(p => (
                   <option key={p.index} value={p.packageName} className="bg-slate-900 text-white">
                     {p.name} ({p.platform === 'apple' ? 'iOS' : 'Android'})

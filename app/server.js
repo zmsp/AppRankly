@@ -865,7 +865,7 @@ app.post("/api/stats", authenticate, async (req, res) => {
 
     if (stats.dailyTrends) {
       stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
-      stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases);
+      stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases, req.body.packageName, platform);
       stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
       stats.linearForecast = linearForecast(stats.dailyTrends.map(t => t.dailyInstalls || 0), 14);
     }

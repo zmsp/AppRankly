@@ -381,14 +381,24 @@ function matchAndPairApps(googleApps = [], appleApps = [], manualPairings = []) 
  * Release & Version Correlation Engine:
  * Maps app version releases onto daily trend metrics (installs, uninstalls, crash rates).
  */
-function correlateReleases(dailyTrends = [], releases = []) {
+function correlateReleases(dailyTrends = [], releases = [], packageName = null, platform = null) {
   if (!dailyTrends || dailyTrends.length === 0 || !releases || releases.length === 0) {
     return [];
   }
 
+  const filteredReleases = releases.filter(rel => {
+    if (packageName && packageName !== 'all' && rel.packageName && rel.packageName !== 'all' && rel.packageName !== packageName) {
+      return false;
+    }
+    if (platform && platform !== 'all' && rel.platform && rel.platform !== 'both' && rel.platform !== 'all' && rel.platform !== platform) {
+      return false;
+    }
+    return true;
+  });
+
   const trendsByDate = new Map(dailyTrends.map(t => [t.date, t]));
 
-  return releases.map(rel => {
+  return filteredReleases.map(rel => {
     const relDateStr = rel.releaseDate ? rel.releaseDate.substring(0, 10) : null;
     if (!relDateStr || !trendsByDate.has(relDateStr)) {
       return { ...rel, impact: null };
