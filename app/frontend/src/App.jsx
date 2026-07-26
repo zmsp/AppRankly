@@ -69,6 +69,7 @@ function App() {
           selectedProjectIndex={state.selectedProjectIndex}
           setSelectedProjectIndex={state.setSelectedProjectIndex}
           platform={state.platform}
+          setPlatform={state.setPlatform}
           dateRange={state.dateRange}
           comparisonMode={state.comparisonMode}
           lastDataDate={lastDataDate}

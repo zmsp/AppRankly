@@ -236,7 +236,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
                       )}
                     </h3>
                     <p className="text-xs text-white/60">
-                      Developer: <span className="text-accent-blue font-semibold">{storeDetails.developer || 'N/A'}</span>
+                      Developer: <span className="text-accent-blue font-semibold">{storeDetails.developer || '—'}</span>
                       {storeDetails.version && ` • v${storeDetails.version}`}
                     </p>
                   </div>
@@ -257,11 +257,11 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
                   <span className="text-white/50 flex items-center gap-1"><Download size={12} className="text-accent-blue" /> Store Installs</span>
-                  <span className="font-bold text-white">{storeDetails.installs || 'N/A'}</span>
+                  <span className="font-bold text-white">{storeDetails.installs || '—'}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-white/5">
                   <span className="text-white/50 flex items-center gap-1"><Tag size={12} className="text-accent-emerald" /> Category & Price</span>
-                  <span className="font-bold text-white">{storeDetails.genre || 'N/A'} ({storeDetails.priceText || (storeDetails.free ? 'Free' : 'Paid')})</span>
+                  <span className="font-bold text-white">{storeDetails.genre || '—'} ({storeDetails.priceText || (storeDetails.free ? 'Free' : 'Paid')})</span>
                 </div>
                 {storeDetails.developerWebsite && (
                   <div className="flex justify-between items-center pb-2 border-b border-white/5 truncate">

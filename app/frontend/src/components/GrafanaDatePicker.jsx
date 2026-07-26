@@ -9,7 +9,9 @@ import {
   Clock,
   Check,
   AlertCircle,
-  X
+  X,
+  GitCompare,
+  BarChart2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
@@ -30,7 +32,14 @@ const QUICK_PRESETS = [
   { id: 'ALL', label: 'All (10 Years)', shortLabel: 'ALL' },
 ];
 
-export default function GrafanaDatePicker({ dateRange, setDateRange }) {
+export default function GrafanaDatePicker({
+  dateRange,
+  setDateRange,
+  comparisonMode,
+  setComparisonMode,
+  granularity,
+  setGranularity
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const modalContentRef = useRef(null);
 
@@ -189,9 +198,9 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
 
   const activePreset = dateRange?.preset?.toUpperCase();
 
-  const displayLabel = dateRange?.label && dateRange.label !== 'Custom'
-    ? dateRange.label
-    : `${dateRange?.start || ''} → ${dateRange?.end || ''}`;
+  const triggerLabel = dateRange?.start && dateRange?.end
+    ? `${dateRange.start} → ${dateRange.end}`
+    : (dateRange?.preset ? `${dateRange.preset} Range` : 'Date Range');
 
   return (
     <div className="relative inline-flex items-center space-x-1 shrink-0">
@@ -215,7 +224,7 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
         )}
       >
         <Calendar size={14} className="text-accent-blue shrink-0" />
-        <span className="truncate max-w-[140px] sm:max-w-[210px] font-mono">{displayLabel}</span>
+        <span className="truncate max-w-[140px] sm:max-w-[210px] font-mono">{triggerLabel}</span>
         <ChevronDown size={13} className={clsx("transition-transform duration-200 text-white/50", isOpen && "rotate-180")} />
       </button>
 
@@ -263,29 +272,94 @@ export default function GrafanaDatePicker({ dateRange, setDateRange }) {
             </div>
 
             {/* Preset Buttons Bar */}
-            <div className="mb-4">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">
-                Quick Ranges
+            <div className="mb-4 space-y-4">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">
+                  Quick Ranges
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                  {QUICK_PRESETS.map((p) => {
+                    const isActive = activePreset === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSelectPreset(p.id)}
+                        className={clsx(
+                          "px-2 py-1.5 rounded-lg text-center text-xs font-bold transition-all border",
+                          isActive
+                            ? "bg-accent-blue text-slate-950 border-accent-blue shadow-md scale-[1.02]"
+                            : "bg-white/5 border-white/10 text-white/80 hover:bg-white/15 hover:text-white hover:border-white/20"
+                        )}
+                        title={p.label}
+                      >
+                        {p.shortLabel}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                {QUICK_PRESETS.map((p) => {
-                  const isActive = activePreset === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => handleSelectPreset(p.id)}
-                      className={clsx(
-                        "px-2 py-1.5 rounded-lg text-center text-xs font-bold transition-all border",
-                        isActive
-                          ? "bg-accent-blue text-slate-950 border-accent-blue shadow-md scale-[1.02]"
-                          : "bg-white/5 border-white/10 text-white/80 hover:bg-white/15 hover:text-white hover:border-white/20"
-                      )}
-                      title={p.label}
-                    >
-                      {p.shortLabel}
-                    </button>
-                  );
-                })}
+
+              {/* Comparison & Granularity Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                {/* Comparison Benchmark */}
+                {setComparisonMode && (
+                  <div>
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">
+                      <GitCompare size={12} className="text-accent-emerald" />
+                      <span>Comparison Benchmark</span>
+                    </div>
+                    <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/10 gap-1">
+                      {[
+                        { id: 'prev_period', label: 'Prev Period' },
+                        { id: 'prev_year', label: 'Last Year' },
+                        { id: 'none', label: 'None' },
+                      ].map(mode => (
+                        <button
+                          key={mode.id}
+                          onClick={() => setComparisonMode(mode.id)}
+                          className={clsx(
+                            "flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-colors text-center",
+                            comparisonMode === mode.id
+                              ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/30 shadow-sm"
+                              : "text-white/60 hover:text-white hover:bg-white/10"
+                          )}
+                        >
+                          {mode.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Granularity Switch */}
+                {setGranularity && (
+                  <div>
+                    <div className="flex items-center space-x-1.5 text-[11px] font-bold uppercase tracking-wider text-white/50 mb-2">
+                      <BarChart2 size={12} className="text-accent-blue" />
+                      <span>Granularity</span>
+                    </div>
+                    <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/10 gap-1">
+                      {[
+                        { id: 'day', label: 'Daily' },
+                        { id: 'week', label: 'Weekly' },
+                        { id: 'month', label: 'Monthly' },
+                      ].map(g => (
+                        <button
+                          key={g.id}
+                          onClick={() => setGranularity(g.id)}
+                          className={clsx(
+                            "flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-colors text-center",
+                            granularity === g.id
+                              ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/30 shadow-sm"
+                              : "text-white/60 hover:text-white hover:bg-white/10"
+                          )}
+                        >
+                          {g.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

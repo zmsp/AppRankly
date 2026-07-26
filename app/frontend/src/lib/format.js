@@ -6,26 +6,26 @@
  * Formats a number with compact notation (e.g. 1.2K, 3.4M)
  */
 export function formatCompactNumber(value) {
-  if (value === null || value === undefined || isNaN(value)) return '—';
+  if (value === null || value === undefined || value === 'N/A' || value === 'NaN' || isNaN(Number(value)) || !isFinite(Number(value))) return '—';
   return new Intl.NumberFormat('en-US', {
     notation: 'compact',
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(Number(value));
 }
 
 /**
  * Standard integer / number formatting with commas
  */
 export function formatNumber(value) {
-  if (value === null || value === undefined || isNaN(value)) return '—';
-  return new Intl.NumberFormat('en-US').format(value);
+  if (value === null || value === undefined || value === 'N/A' || value === 'NaN' || isNaN(Number(value)) || !isFinite(Number(value))) return '—';
+  return new Intl.NumberFormat('en-US').format(Number(value));
 }
 
 /**
  * Formats a delta value (percentage or absolute difference) with explicit + / − signs
  */
 export function formatDelta(value, isPercentage = true) {
-  if (value === null || value === undefined || isNaN(value)) return '—';
+  if (value === null || value === undefined || value === 'N/A' || value === 'NaN' || isNaN(Number(value)) || !isFinite(Number(value))) return '—';
   const num = Number(value);
   if (num === 0) return '0%';
 
@@ -42,7 +42,7 @@ export function formatDelta(value, isPercentage = true) {
  * Formats a rate as a percentage (e.g. 85.4%)
  */
 export function formatRate(value, decimals = 1) {
-  if (value === null || value === undefined || isNaN(value)) return '—';
+  if (value === null || value === undefined || value === 'N/A' || value === 'NaN' || isNaN(Number(value)) || !isFinite(Number(value))) return '—';
   const num = Number(value);
   const pct = Math.abs(num) <= 1 ? num * 100 : num;
   return `${pct.toFixed(decimals)}%`;
@@ -52,7 +52,7 @@ export function formatRate(value, decimals = 1) {
  * Returns formatted value or em-dash '—' if value is missing/zero-rating
  */
 export function formatValueOrDash(value, formatter = formatNumber) {
-  if (value === null || value === undefined || value === 'N/A' || value === '' || (typeof value === 'number' && isNaN(value))) {
+  if (value === null || value === undefined || value === 'N/A' || value === 'NaN' || value === '' || isNaN(Number(value)) || !isFinite(Number(value))) {
     return '—';
   }
   return formatter(value);

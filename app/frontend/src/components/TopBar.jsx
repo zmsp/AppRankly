@@ -19,6 +19,7 @@ import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
 import AppIcon from './AppIcon';
 import { getPresetDateRange } from '../lib/dateUtils';
+import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
 
 export default function TopBar({
   onMenuClick,
@@ -122,97 +123,30 @@ export default function TopBar({
         )}
 
 
-        {/* Grafana Time Range Controls & Presets */}
+        {/* Consolidated Grafana Time Range Controls & Popover */}
         {setDateRange && (
           <div className="flex items-center space-x-2 shrink-0">
-            <GrafanaDatePicker dateRange={dateRange} setDateRange={setDateRange} />
-
-            <div className="hidden xl:flex items-center bg-white/5 rounded-xl p-1 shrink-0 border border-white/5">
-              {['1D', '7D', '30D', '60D', '6M', '1Y', 'ALL'].map((preset) => {
-                const isActive = currentRangeParam === preset;
-                return (
-                  <button
-                    key={preset}
-                    onClick={() => handleDatePreset(preset)}
-                    className={clsx(
-                      "px-2 sm:px-2.5 py-1.5 text-[10px] font-bold transition-all rounded-lg",
-                      isActive
-                        ? "bg-accent-blue/20 text-accent-blue shadow-sm border border-accent-blue/30"
-                        : "text-white/60 hover:text-white hover:bg-white/10"
-                    )}
-                  >
-                    {preset}
-                  </button>
-                );
-              })}
-            </div>
+            <GrafanaDatePicker
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              comparisonMode={comparisonMode}
+              setComparisonMode={setComparisonMode}
+              granularity={granularity}
+              setGranularity={setGranularity}
+            />
           </div>
         )}
 
-        {/* Comparison Mode */}
-        {setComparisonMode && (
-          <div className="hidden lg:flex items-center bg-white/5 rounded-xl p-1 shrink-0 border border-white/5">
-            <div className="px-2 flex items-center text-white/40">
-              <GitCompare size={14} />
-            </div>
-            {[
-              { id: 'prev_period', label: 'Prev Period' },
-              { id: 'prev_year', label: 'Last Year' },
-              { id: 'none', label: 'None' },
-            ].map(mode => (
-              <button
-                key={mode.id}
-                onClick={() => setComparisonMode(mode.id)}
-                className={clsx(
-                  "px-2 py-1.5 text-[10px] font-bold rounded-lg transition-colors",
-                  comparisonMode === mode.id
-                    ? "bg-accent-blue/20 text-accent-blue"
-                    : "text-white/60 hover:text-white hover:bg-white/10"
-                )}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Granularity */}
-        {setGranularity && (
-          <div className="hidden lg:flex items-center bg-white/5 rounded-xl p-1 shrink-0 border border-white/5">
-            <div className="px-2 flex items-center text-white/40">
-              <BarChart2 size={14} />
-            </div>
-            {[
-              { id: 'day', label: 'Daily' },
-              { id: 'week', label: 'Weekly' },
-              { id: 'month', label: 'Monthly' },
-            ].map(g => (
-              <button
-                key={g.id}
-                onClick={() => setGranularity(g.id)}
-                className={clsx(
-                  "px-2 py-1.5 text-[10px] font-bold rounded-lg transition-colors",
-                  granularity === g.id
-                    ? "bg-accent-blue/20 text-accent-blue"
-                    : "text-white/60 hover:text-white hover:bg-white/10"
-                )}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Sync Button */}
+        {/* Sync Action Button */}
         {refreshData && (
           <button
             onClick={refreshData}
             disabled={loading}
             className={clsx(
-              "flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3 sm:py-1.5 rounded-[10px] sm:rounded-xl text-[10px] font-bold transition-all border shrink-0 bg-white/5 border-white/10 text-white/80 hover:text-white hover:bg-white/10",
+              "flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3.5 sm:py-1.5 rounded-[10px] sm:rounded-xl text-[11px] font-extrabold transition-all shrink-0 bg-accent-blue hover:bg-accent-blue/90 text-slate-950 shadow-md shadow-accent-blue/20 border border-accent-blue/30 active:scale-95",
               loading && "opacity-50 cursor-not-allowed"
             )}
-            title="Sync Data"
+            title="Sync Analytics Data"
           >
             <RefreshCw size={14} className={clsx(loading && "animate-spin")} />
             <span className="hidden sm:inline ml-1.5 uppercase tracking-wider">Sync</span>
@@ -224,24 +158,65 @@ export default function TopBar({
         {/* App / Project Selector */}
         {!isDemoMode && projects.length > 0 && (
           <div className="flex items-center space-x-2 shrink-0">
-            {filteredProjects.length > 1 && (
-              <button
-                onClick={() => setSelectedProjectIndex('all')}
-                className={clsx(
-                  "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
-                  selectedProjectIndex === 'all'
-                    ? "border-accent-blue ring-2 ring-accent-blue/30 scale-105 shadow-lg bg-accent-blue/20"
-                    : "border-transparent bg-white/5 hover:scale-105 hover:bg-white/10"
-                )}
-                title="All Apps"
-              >
-                <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === 'all' ? "text-accent-blue" : "text-white/60")}>
-                  <LayoutGrid size={18} />
-                </div>
-              </button>
-            )}
+            {/* 1. All App */}
+            <button
+              onClick={() => {
+                setSelectedProjectIndex('all');
+                if (setPlatform) setPlatform('all');
+              }}
+              className={clsx(
+                "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
+                selectedProjectIndex === 'all' && (platform === 'all' || !platform)
+                  ? "border-accent-blue ring-2 ring-accent-blue/30 scale-105 shadow-lg bg-accent-blue/20"
+                  : "border-transparent bg-white/5 hover:scale-105 hover:bg-white/10"
+              )}
+              title="All App"
+            >
+              <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === 'all' && (platform === 'all' || !platform) ? "text-accent-blue" : "text-white/60")}>
+                <LayoutGrid size={18} />
+              </div>
+            </button>
+
+            {/* 2. Apple Store */}
+            <button
+              onClick={() => {
+                setSelectedProjectIndex('all');
+                if (setPlatform) setPlatform('apple');
+              }}
+              className={clsx(
+                "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
+                selectedProjectIndex === 'all' && platform === 'apple'
+                  ? "border-sky-500 ring-2 ring-sky-500/30 scale-105 shadow-lg bg-sky-500/20"
+                  : "border-transparent bg-white/5 hover:scale-105 hover:bg-white/10"
+              )}
+              title="Apple Store"
+            >
+              <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === 'all' && platform === 'apple' ? "text-sky-300" : "text-white/60")}>
+                <AppleStoreIcon size={18} />
+              </div>
+            </button>
+
+            {/* 3. Play Store */}
+            <button
+              onClick={() => {
+                setSelectedProjectIndex('all');
+                if (setPlatform) setPlatform('google');
+              }}
+              className={clsx(
+                "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
+                selectedProjectIndex === 'all' && platform === 'google'
+                  ? "border-emerald-500 ring-2 ring-emerald-500/30 scale-105 shadow-lg bg-emerald-500/20"
+                  : "border-transparent bg-white/5 hover:scale-105 hover:bg-white/10"
+              )}
+              title="Play Store"
+            >
+              <div className={clsx("w-full h-full flex items-center justify-center", selectedProjectIndex === 'all' && platform === 'google' ? "text-emerald-400" : "text-white/60")}>
+                <PlayStoreIcon size={18} />
+              </div>
+            </button>
             
-            {filteredProjects.map(proj => (
+            {/* The rest of the apps: sorted alphabetically, Apple first, Google second */}
+            {sortProjectsByPlatformAndName(filteredProjects).map(proj => (
               <button
                 key={proj.index}
                 onClick={() => setSelectedProjectIndex(proj.index.toString())}
@@ -251,7 +226,7 @@ export default function TopBar({
                     ? "border-accent-blue ring-2 ring-accent-blue/30 scale-105 shadow-lg"
                     : "border-transparent hover:scale-105 hover:bg-white/10"
                 )}
-                title={proj.name}
+                title={`${proj.name} (${proj.platform === 'apple' ? 'Apple Store' : 'Play Store'})`}
               >
                 <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-full h-full rounded-[10px] sm:rounded-xl" />
               </button>

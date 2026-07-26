@@ -122,16 +122,23 @@ export default function Dashboard({
 
     if (firstSum === 0) return secondSum > 0 ? '+100%' : '0%';
     const diff = ((secondSum - firstSum) / firstSum) * 100;
+    if (!isFinite(diff) || isNaN(diff)) return '0%';
     return (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
   };
 
-  const installSurvivalIndex = stats.totalInstallCountByUser > 0
-    ? ((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100).toFixed(1)
-    : '0';
+  const rawSurvival = (stats.totalInstallCountByUser > 0 && stats.currentlyActiveDevices >= 0)
+    ? ((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100)
+    : null;
+  const installSurvivalIndex = (rawSurvival !== null && !isNaN(rawSurvival) && isFinite(rawSurvival))
+    ? rawSurvival.toFixed(1)
+    : '—';
 
-  const churnRate = stats.currentlyActiveDevices > 0
-    ? ((stats.totalDailyUserUninstalls / stats.currentlyActiveDevices) * 100).toFixed(1)
-    : '0';
+  const rawChurn = (stats.currentlyActiveDevices > 0 && stats.totalDailyUserUninstalls >= 0)
+    ? ((stats.totalDailyUserUninstalls / stats.currentlyActiveDevices) * 100)
+    : null;
+  const churnRate = (rawChurn !== null && !isNaN(rawChurn) && isFinite(rawChurn))
+    ? rawChurn.toFixed(1)
+    : '—';
 
   const healthScore = calculateHealthScore(stats);
 
@@ -163,14 +170,14 @@ export default function Dashboard({
   const activeDevicesSum = stats.dailyTrends?.reduce((sum, day) => sum + (day.activeDevices || 0), 0) || 0;
   const activeDevicesAvg = stats.dailyTrends?.length ? Math.round(activeDevicesSum / stats.dailyTrends.length) : 0;
 
-  const renderSummary = (total, avg, label1 = "Total", label2 = "Avg") => (
+  const renderSummary = (total, avg, label1 = "Total", label2 = "Average") => (
     <div className="flex items-center space-x-6 mb-3 bg-white/5 w-fit px-3 py-2 rounded-lg border border-white/10">
       <div className="flex flex-col">
-        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">{label1}</span>
+        <span className="text-xs font-medium text-slate-400 mb-0.5">{label1}</span>
         <span className="text-sm font-semibold text-white leading-none">{formatNumber(total)}</span>
       </div>
       <div className="flex flex-col">
-        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">{label2}</span>
+        <span className="text-xs font-medium text-slate-400 mb-0.5">{label2}</span>
         <span className="text-sm font-semibold text-white leading-none">{formatNumber(avg)}</span>
       </div>
     </div>
@@ -181,40 +188,18 @@ export default function Dashboard({
       {/* Standard Tab Switcher UI and Portfolio Grid (rendered ONLY on Portfolio / All Apps view) */}
       {(selectedProjectIndex === 'all' || !selectedProjectIndex) && (
         <>
-          {/* Standard Tab Switcher UI with Large Icons */}
-          <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-xl">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1">
+          {/* Compact Segmented Control Pill Switcher */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-md">
+            <div className="flex items-center space-x-2 px-1">
+              <LayoutGrid size={16} className="text-accent-blue" />
+              <span className="text-sm font-bold text-white">Platform Scope</span>
+            </div>
+
+            <div className="inline-flex items-center p-1 rounded-lg bg-slate-950/80 border border-white/10 text-xs gap-1 w-full sm:w-auto">
               {[
-                {
-                  id: 'all',
-                  title: 'All Platforms',
-                  countBadge: `${projects.length || 0}`,
-                  icon: LayoutGrid,
-                  activeIndicator: 'bg-accent-blue',
-                  activeText: 'text-accent-blue',
-                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-                  badgeStyle: 'bg-accent-blue/20 text-accent-blue border-accent-blue/30',
-                },
-                {
-                  id: 'google',
-                  title: 'Google Play',
-                  countBadge: `${projects.filter(p => p.platform === 'google').length || 0}`,
-                  icon: PlayStoreIcon,
-                  activeIndicator: 'bg-emerald-400',
-                  activeText: 'text-emerald-400',
-                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-                  badgeStyle: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-                },
-                {
-                  id: 'apple',
-                  title: 'App Store',
-                  countBadge: `${projects.filter(p => p.platform === 'apple').length || 0}`,
-                  icon: AppleStoreIcon,
-                  activeIndicator: 'bg-sky-400',
-                  activeText: 'text-sky-300',
-                  activeBg: 'bg-white/10 border-white/15 text-white shadow-sm',
-                  badgeStyle: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
-                },
+                { id: 'all', title: 'All App', count: projects.length || 0, icon: LayoutGrid, activeColor: 'text-accent-blue border-accent-blue/40 bg-accent-blue/15' },
+                { id: 'apple', title: 'Apple Store', count: projects.filter(p => p.platform === 'apple').length || 0, icon: AppleStoreIcon, activeColor: 'text-sky-300 border-sky-500/40 bg-sky-500/15' },
+                { id: 'google', title: 'Play Store', count: projects.filter(p => p.platform === 'google').length || 0, icon: PlayStoreIcon, activeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' },
               ].map((tab) => {
                 const isSelected = platform === tab.id;
                 const Icon = tab.icon;
@@ -223,45 +208,17 @@ export default function Dashboard({
                     key={tab.id}
                     onClick={() => setPlatform && setPlatform(tab.id)}
                     className={clsx(
-                      "relative flex-1 flex items-center justify-center space-x-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer border select-none",
+                      "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
                       isSelected
-                        ? `${tab.activeBg} border`
-                        : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                        ? `${tab.activeColor} shadow-sm font-bold`
+                        : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
                     )}
                   >
-                    {/* Large Store Icon */}
-                    <div className={clsx(
-                      "w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200",
-                      isSelected ? "bg-white/10 text-white scale-105" : "bg-white/5 text-slate-400"
-                    )}>
-                      <Icon size={20} />
-                    </div>
-
-                    {/* Tab Title */}
-                    <span className={clsx(
-                      "font-bold tracking-tight text-sm truncate",
-                      isSelected ? "text-white" : "text-slate-300"
-                    )}>
-                      {tab.title}
+                    <Icon size={13} className={isSelected ? "currentColor" : "text-slate-400"} />
+                    <span>{tab.title}</span>
+                    <span className={clsx("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ml-1", isSelected ? "bg-white/15" : "bg-white/5 text-slate-400")}>
+                      {tab.count}
                     </span>
-
-                    {/* Count Badge */}
-                    <span className={clsx(
-                      "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider shrink-0 border transition-colors",
-                      isSelected
-                        ? tab.badgeStyle
-                        : "bg-white/5 text-slate-500 border-white/5"
-                    )}>
-                      {tab.countBadge} {parseInt(tab.countBadge) === 1 ? 'App' : 'Apps'}
-                    </span>
-
-                    {/* Standard Tab Active Bottom Bar */}
-                    {isSelected && (
-                      <div className={clsx(
-                        "absolute bottom-0 left-4 right-4 h-0.5 rounded-t-full shadow-md transition-all",
-                        tab.activeIndicator
-                      )} />
-                    )}
                   </button>
                 );
               })}
@@ -304,7 +261,7 @@ export default function Dashboard({
             <span className="font-bold text-white">Aggregated Portfolio View</span>
             <span className="text-slate-400">— Showing combined metrics across {filteredProjects.length} active apps ({platform === 'all' ? 'All Platforms' : platform})</span>
           </div>
-          <span className="text-[10px] font-mono bg-accent-blue/20 text-accent-blue px-2 py-0.5 rounded-full font-bold">ALL PROJECTS</span>
+          <span className="text-[10px] font-mono bg-accent-blue/20 text-accent-blue px-2 py-0.5 rounded-full font-bold">All Projects</span>
         </div>
       ) : activeProject && (
         <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -313,7 +270,7 @@ export default function Dashboard({
             <span className="font-bold text-white">{activeProject.name}</span>
             <span className="text-slate-400">— Single App Analytics Dashboard</span>
           </div>
-          <span className="text-[10px] font-mono bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase">{activeProject.platform}</span>
+          <span className="text-[10px] font-mono bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold capitalize">{activeProject.platform}</span>
         </div>
       )}
 
@@ -344,7 +301,7 @@ export default function Dashboard({
         <MetricCard
           label="Daily Installs"
           value={formatNumber(stats.totalDailyUserInstalls || 0)}
-          sublabel="Total Acquisitions in Window"
+          sublabel="Total User Acquisitions"
           trend={computeTrend('dailyUserInstalls')}
           icon={TrendingUp}
           color="emerald"
@@ -353,23 +310,23 @@ export default function Dashboard({
         />
         <MetricCard
           label="Uninstall Ratio"
-          value={hasUninstallData ? `${churnRate}%` : 'N/A'}
+          value={hasUninstallData ? (churnRate === '—' ? '—' : `${churnRate}%`) : '—'}
           sublabel={hasUninstallData ? "Uninstalls / Active Devices" : "Not tracked by Apple App Store"}
           trend={hasUninstallData ? computeTrend('dailyUserUninstalls') : null}
           icon={LogOut}
           color="rose"
-          progress={hasUninstallData ? parseFloat(churnRate) : 0}
+          progress={hasUninstallData && churnRate !== '—' ? parseFloat(churnRate) : 0}
           tooltipSubheader="Uninstall Ratio"
           tooltipText={hasUninstallData ? "The percentage of currently active devices that uninstalled during the selected window." : "Apple App Store Connect does not report uninstall metrics."}
         />
         <MetricCard
           label="Install Survival Rate"
-          value={`${installSurvivalIndex}%`}
+          value={installSurvivalIndex === '—' ? '—' : `${installSurvivalIndex}%`}
           sublabel="Active / Lifetime Installs"
           trend={computeTrend('activeDevices')}
           icon={Activity}
           color="blue"
-          progress={parseFloat(installSurvivalIndex)}
+          progress={installSurvivalIndex !== '—' ? parseFloat(installSurvivalIndex) : 0}
           tooltipSubheader="Lifetime Retention Proxy"
           tooltipText="Percentage of all-time downloads still active on user devices."
         />

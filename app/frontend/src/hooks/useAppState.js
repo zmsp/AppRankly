@@ -4,6 +4,7 @@ import { apiFetch } from '../lib/api';
 import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
 import { buildCacheKey, getCached, setCached, cachedFetch, clearCache } from '../lib/statsCache';
+import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
 
 export function useAppState() {
   const location = useLocation();
@@ -164,12 +165,13 @@ export function useAppState() {
       const res = await apiFetch('/api/projects', {}, token, isStaticMode);
       if (res.ok) {
         const data = await res.json();
-        setProjects(data);
-        if (data.length > 0) {
+        const sortedData = sortProjectsByPlatformAndName(data);
+        setProjects(sortedData);
+        if (sortedData.length > 0) {
           setIsDemoMode(false);
           if (selectedProjectIndex === 'manual') {
-            const platformFiltered = data.filter(p => p.platform === platform);
-            const defaultProj = platformFiltered.length > 1 ? 'all' : (data[0]?.index ?? 'all');
+            const platformFiltered = sortedData.filter(p => p.platform === platform);
+            const defaultProj = platformFiltered.length > 1 ? 'all' : (sortedData[0]?.index ?? 'all');
             setSelectedProjectIndex(defaultProj);
           }
         }
@@ -229,8 +231,9 @@ export function useAppState() {
 
   useEffect(() => {
     if (isDemoMode) {
-      setProjects(MOCK_PROJECTS);
-      if (selectedProjectIndex === 'manual' || !MOCK_PROJECTS.some(p => p.index.toString() === selectedProjectIndex.toString())) {
+      const sortedMock = sortProjectsByPlatformAndName(MOCK_PROJECTS);
+      setProjects(sortedMock);
+      if (selectedProjectIndex === 'manual' || !sortedMock.some(p => p.index.toString() === selectedProjectIndex.toString())) {
         setSelectedProjectIndex('all');
       }
       return;

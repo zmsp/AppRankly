@@ -18,17 +18,17 @@ export default function HealthBreakdown({ stats }) {
   const signals = [
     {
       label: 'Avg Rating',
-      value: stats.averageRating ? `★ ${stats.averageRating.toFixed(1)}` : 'N/A',
+      value: (stats.averageRating && !isNaN(stats.averageRating)) ? `★ ${stats.averageRating.toFixed(1)}` : '—',
       change: stats.dailyTrends && stats.dailyTrends.length > 7 ?
         (stats.dailyTrends[stats.dailyTrends.length - 1].totalAvgRating - stats.dailyTrends[stats.dailyTrends.length - 8].totalAvgRating).toFixed(2) : null,
       icon: Star,
-      status: stats.averageRating >= 4.0 ? 'Improving' : 'Needs Attention',
+      status: (stats.averageRating || 0) >= 4.0 ? 'Improving' : 'Needs Attention',
       sparkline: ratingTrendData,
       sparklineColor: '#fbbf24'
     },
     {
       label: 'Install/Uninstall',
-      value: hasUninstallData ? `${(stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)).toFixed(1)}:1` : 'N/A',
+      value: (hasUninstallData && stats.totalDailyUserInstalls != null) ? `${(stats.totalDailyUserInstalls / (stats.totalDailyUserUninstalls || 1)).toFixed(1)}:1` : '—',
       change: null,
       icon: TrendingUp,
       status: hasUninstallData
@@ -39,14 +39,14 @@ export default function HealthBreakdown({ stats }) {
     },
     {
       label: 'Crash-free Rate',
-      value: latestTrend?.crashRate ? `${(100 - latestTrend.crashRate).toFixed(2)}%` : 'N/A',
+      value: (latestTrend?.crashRate != null && !isNaN(latestTrend.crashRate)) ? `${(100 - latestTrend.crashRate).toFixed(2)}%` : '—',
       change: latestTrend?.crashRate && previousTrend?.crashRate ? (previousTrend.crashRate - latestTrend.crashRate).toFixed(2) : null,
       icon: ShieldAlert,
       status: (latestTrend?.crashRate || 0) < 1.09 ? 'On target' : 'Above threshold'
     },
     {
       label: 'Active Retention',
-      value: (stats.totalInstallCountByUser > 0 && stats.currentlyActiveDevices > 0) ? `${((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100).toFixed(1)}%` : 'N/A',
+      value: (stats.totalInstallCountByUser > 0 && stats.currentlyActiveDevices > 0) ? `${((stats.currentlyActiveDevices / stats.totalInstallCountByUser) * 100).toFixed(1)}%` : '—',
       change: null,
       icon: Activity,
       status: stats.currentlyActiveDevices > 0 ? 'On target' : 'Not tracked by Apple'
@@ -55,7 +55,7 @@ export default function HealthBreakdown({ stats }) {
 
   return (
     <div className="glass-card p-6 mt-6">
-      <h3 className="text-sm font-bold text-white/40 uppercase tracking-wider mb-4">Signal-Level Health Breakdown</h3>
+      <h3 className="text-xs font-bold text-slate-300 mb-4">Signal-Level Health Breakdown</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {signals.map((signal, idx) => (
           <div key={idx} className="p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
