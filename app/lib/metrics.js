@@ -300,6 +300,163 @@ function aggregateOverviews(overviewsWithNames) {
   return aggregated;
 }
 
+/**
+ * Smart App Pairing Engine:
+ * Infers pairings between Google Play apps and Apple App Store apps automatically using normalized name & bundle ID matching,
+ * while respecting manual pairing overrides from config.json.
+ */
+function normalizeAppName(name = '') {
+  return String(name)
+    .toLowerCase()
+    .replace(/\s*\((app store|play store|android|ios)\)\s*/gi, '')
+    .replace(/[^a-z0-9]/gi, '');
+}
+
+function normalizePackageOrBundle(id = '') {
+  return String(id).toLowerCase().trim();
+}
+
+function matchAndPairApps(googleApps = [], appleApps = [], manualPairings = []) {
+  const paired = [];
+  const usedGooglePackages = new Set();
+  const usedAppleBundles = new Set();
+
+  // 1. Process explicit manual pairings first
+  if (Array.isArray(manualPairings) && manualPairings.length > 0) {
+    manualPairings.forEach(pair => {
+      const gApp = googleApps.find(g => normalizePackageOrBundle(g.packageName) === normalizePackageOrBundle(pair.googlePackageName));
+      const aApp = appleApps.find(a => normalizePackageOrBundle(a.bundleId || a.packageName) === normalizePackageOrBundle(pair.appleBundleId));
+
+      if (gApp || aApp) {
+        if (gApp) usedGooglePackages.add(gApp.packageName);
+        if (aApp) usedAppleBundles.add(aApp.bundleId || aApp.packageName);
+        paired.push({
+          id: pair.id || `pair-${pair.googlePackageName || pair.appleBundleId}`,
+          name: pair.name || (gApp ? gApp.name : aApp.name),
+          googleApp: gApp || null,
+          appleApp: aApp || null,
+          isManual: true
+        });
+      }
+    });
+  }
+
+  // 2. Automated Best-Guess Matching for remaining unpaired apps
+  googleApps.forEach(gApp => {
+    if (usedGooglePackages.has(gApp.packageName)) return;
+
+    const gNormName = normalizeAppName(gApp.name);
+    const gNormPkg = normalizePackageOrBundle(gApp.packageName);
+
+    // Look for exact bundle match or normalized name match
+    const match = appleApps.find(aApp => {
+      if (usedAppleBundles.has(aApp.bundleId || aApp.packageName)) return false;
+      const aNormBundle = normalizePackageOrBundle(aApp.bundleId || aApp.packageName);
+      const aNormName = normalizeAppName(aApp.name);
+
+      return gNormPkg === aNormBundle || (gNormName.length > 2 && gNormName === aNormName);
+    });
+
+    if (match) {
+      usedGooglePackages.add(gApp.packageName);
+      usedAppleBundles.add(match.bundleId || match.packageName);
+      paired.push({
+        id: `pair-${gApp.packageName.split('.').pop()}`,
+        name: gApp.name.replace(/\s*\([^)]*\)/g, ''),
+        googleApp: gApp,
+        appleApp: match,
+        isManual: false
+      });
+    }
+  });
+
+  // 3. Collect remaining unpaired items
+  const unpairedGoogle = googleApps.filter(g => !usedGooglePackages.has(g.packageName));
+  const unpairedApple = appleApps.filter(a => !usedAppleBundles.has(a.bundleId || a.packageName));
+
+  return { paired, unpairedGoogle, unpairedApple };
+}
+
+/**
+ * Release & Version Correlation Engine:
+ * Maps app version releases onto daily trend metrics (installs, uninstalls, crash rates).
+ */
+function correlateReleases(dailyTrends = [], releases = []) {
+  if (!dailyTrends || dailyTrends.length === 0 || !releases || releases.length === 0) {
+    return [];
+  }
+
+  const trendsByDate = new Map(dailyTrends.map(t => [t.date, t]));
+
+  return releases.map(rel => {
+    const relDateStr = rel.releaseDate ? rel.releaseDate.substring(0, 10) : null;
+    if (!relDateStr || !trendsByDate.has(relDateStr)) {
+      return { ...rel, impact: null };
+    }
+
+    const dates = Array.from(trendsByDate.keys()).sort();
+    const idx = dates.indexOf(relDateStr);
+
+    const preSlice = dates.slice(Math.max(0, idx - 7), idx).map(d => trendsByDate.get(d));
+    const postSlice = dates.slice(idx, Math.min(dates.length, idx + 8)).map(d => trendsByDate.get(d));
+
+    const avgPreInstalls = preSlice.length > 0 ? preSlice.reduce((s, t) => s + (t.dailyInstalls || 0), 0) / preSlice.length : 0;
+    const avgPostInstalls = postSlice.length > 0 ? postSlice.reduce((s, t) => s + (t.dailyInstalls || 0), 0) / postSlice.length : 0;
+
+    const avgPreCrashes = preSlice.length > 0 ? preSlice.reduce((s, t) => s + (t.crashRate || 0), 0) / preSlice.length : 0;
+    const avgPostCrashes = postSlice.length > 0 ? postSlice.reduce((s, t) => s + (t.crashRate || 0), 0) / postSlice.length : 0;
+
+    const avgPreUninstalls = preSlice.length > 0 ? preSlice.reduce((s, t) => s + (t.dailyUninstalls || 0), 0) / preSlice.length : 0;
+    const avgPostUninstalls = postSlice.length > 0 ? postSlice.reduce((s, t) => s + (t.dailyUninstalls || 0), 0) / postSlice.length : 0;
+
+    return {
+      ...rel,
+      impact: {
+        installDeltaPct: avgPreInstalls > 0 ? parseFloat((((avgPostInstalls - avgPreInstalls) / avgPreInstalls) * 100).toFixed(2)) : 0,
+        uninstallDeltaPct: avgPreUninstalls > 0 ? parseFloat((((avgPostUninstalls - avgPreUninstalls) / avgPreUninstalls) * 100).toFixed(2)) : 0,
+        crashRateDeltaPct: avgPreCrashes > 0 ? parseFloat((((avgPostCrashes - avgPreCrashes) / avgPreCrashes) * 100).toFixed(2)) : 0,
+        avgPreInstalls: Math.round(avgPreInstalls),
+        avgPostInstalls: Math.round(avgPostInstalls),
+        avgPreCrashes: parseFloat(avgPreCrashes.toFixed(4)),
+        avgPostCrashes: parseFloat(avgPostCrashes.toFixed(4))
+      }
+    };
+  });
+}
+
+/**
+ * Retention & Churn Benchmarks Engine:
+ * Computes survival rate trends and detects severe churn anomalies (> 2 sigma).
+ */
+function calculateRetentionBenchmarks(dailyTrends = []) {
+  if (!dailyTrends || dailyTrends.length === 0) return { survivalTrend: [], churnAnomalies: [] };
+
+  const uninstallsSeries = dailyTrends.map(t => t.dailyUninstalls || 0);
+  const anomalies = zScoreAnomalies(uninstallsSeries, 7, 2.0);
+
+  const churnAnomalies = anomalies.map(anom => ({
+    date: dailyTrends[anom.index].date,
+    uninstalls: dailyTrends[anom.index].dailyUninstalls || 0,
+    zScore: parseFloat(anom.z.toFixed(2)),
+    severity: Math.abs(anom.z) > 3.0 ? 'high' : 'medium'
+  }));
+
+  const survivalTrend = dailyTrends.map(t => {
+    const survivalRate = t.totalInstalls > 0 && t.activeDevices !== undefined
+      ? parseFloat(((t.activeDevices / t.totalInstalls) * 100).toFixed(2))
+      : null;
+    return {
+      date: t.date,
+      survivalRate,
+      activeDevices: t.activeDevices,
+      dailyInstalls: t.dailyInstalls,
+      dailyUninstalls: t.dailyUninstalls
+    };
+  });
+
+  return { survivalTrend, churnAnomalies };
+}
+
 module.exports = {
   movingAverage,
   rollingStdDev,
@@ -310,5 +467,9 @@ module.exports = {
   zScoreAnomalies,
   concentrationIndex,
   linearForecast,
-  aggregateOverviews
+  aggregateOverviews,
+  matchAndPairApps,
+  correlateReleases,
+  calculateRetentionBenchmarks
 };
+

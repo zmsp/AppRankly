@@ -188,40 +188,54 @@ export default function Dashboard({
       {/* Standard Tab Switcher UI and Portfolio Grid (rendered ONLY on Portfolio / All Apps view) */}
       {(selectedProjectIndex === 'all' || !selectedProjectIndex) && (
         <>
-          {/* Compact Segmented Control Pill Switcher */}
+          {/* Compact Segmented Control Pill Switcher & Main Page Refresh Button */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-md">
             <div className="flex items-center space-x-2 px-1">
               <LayoutGrid size={16} className="text-accent-blue" />
               <span className="text-sm font-bold text-white">Platform Scope</span>
             </div>
 
-            <div className="inline-flex items-center p-1 rounded-lg bg-slate-950/80 border border-white/10 text-xs gap-1 w-full sm:w-auto">
-              {[
-                { id: 'all', title: 'All App', count: projects.length || 0, icon: LayoutGrid, activeColor: 'text-accent-blue border-accent-blue/40 bg-accent-blue/15' },
-                { id: 'apple', title: 'Apple Store', count: projects.filter(p => p.platform === 'apple').length || 0, icon: AppleStoreIcon, activeColor: 'text-sky-300 border-sky-500/40 bg-sky-500/15' },
-                { id: 'google', title: 'Play Store', count: projects.filter(p => p.platform === 'google').length || 0, icon: PlayStoreIcon, activeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' },
-              ].map((tab) => {
-                const isSelected = platform === tab.id;
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setPlatform && setPlatform(tab.id)}
-                    className={clsx(
-                      "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
-                      isSelected
-                        ? `${tab.activeColor} shadow-sm font-bold`
-                        : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                    )}
-                  >
-                    <Icon size={13} className={isSelected ? "currentColor" : "text-slate-400"} />
-                    <span>{tab.title}</span>
-                    <span className={clsx("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ml-1", isSelected ? "bg-white/15" : "bg-white/5 text-slate-400")}>
-                      {tab.count}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="inline-flex items-center p-1 rounded-lg bg-slate-950/80 border border-white/10 text-xs gap-1 flex-1 sm:flex-none">
+                {[
+                  { id: 'all', title: 'All App', count: projects.length || 0, icon: LayoutGrid, activeColor: 'text-accent-blue border-accent-blue/40 bg-accent-blue/15' },
+                  { id: 'apple', title: 'Apple Store', count: projects.filter(p => p.platform === 'apple').length || 0, icon: AppleStoreIcon, activeColor: 'text-sky-300 border-sky-500/40 bg-sky-500/15' },
+                  { id: 'google', title: 'Play Store', count: projects.filter(p => p.platform === 'google').length || 0, icon: PlayStoreIcon, activeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' },
+                ].map((tab) => {
+                  const isSelected = platform === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setPlatform && setPlatform(tab.id)}
+                      className={clsx(
+                        "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
+                        isSelected
+                          ? `${tab.activeColor} shadow-sm font-bold`
+                          : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                      )}
+                    >
+                      <Icon size={13} className={isSelected ? "currentColor" : "text-slate-400"} />
+                      <span>{tab.title}</span>
+                      <span className={clsx("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ml-1", isSelected ? "bg-white/15" : "bg-white/5 text-slate-400")}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {refreshData && (
+                <button
+                  onClick={refreshData}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-blue hover:bg-accent-blue/90 text-slate-950 rounded-lg text-xs font-extrabold transition-all shadow-md shadow-accent-blue/20 active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                  title="Refresh all stats on the main page"
+                >
+                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                  <span>Refresh Stats</span>
+                </button>
+              )}
             </div>
           </div>
 

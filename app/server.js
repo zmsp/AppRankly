@@ -12,7 +12,7 @@ const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
-const { aggregateOverviews } = require("./lib/metrics");
+const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification } = require("./lib/notifier");
@@ -753,8 +753,39 @@ app.get("/api/projects", authenticate, async (req, res) => {
     return list;
   });
 
+  if (req.query.format === 'object') {
+    const googleList = (projects || []).filter(p => p.platform === 'google');
+    const appleList = (projects || []).filter(p => p.platform === 'apple');
+    const pairings = matchAndPairApps(googleList, appleList, baseConfig.appPairings || []);
+    return res.json({ projects: projects || [], pairings });
+  }
+
   res.json(projects || []);
 });
+
+// Endpoint to fetch auto-paired & configured app pairings
+app.get("/api/pairings", authenticate, async (req, res) => {
+  const baseConfig = getBaseConfig();
+  if (!baseConfig) return res.json({ paired: [], unpairedGoogle: [], unpairedApple: [] });
+
+  const rawProjects = await fetchPackagesByPlatform('all', baseConfig);
+  const googleList = rawProjects.filter(p => p.platform === 'google');
+  const appleList = rawProjects.filter(p => p.platform === 'apple');
+  const pairings = matchAndPairApps(googleList, appleList, baseConfig.appPairings || []);
+
+  res.json(pairings);
+});
+
+function getReleasesFromFile() {
+  if (fs.existsSync(RELEASES_FILE)) {
+    try {
+      return JSON.parse(fs.readFileSync(RELEASES_FILE, 'utf8'));
+    } catch (e) {
+      console.error("Error reading releases file:", e);
+    }
+  }
+  return [];
+}
 
 // Endpoint to fetch basic overview app stats and daily trends
 app.post("/api/stats", authenticate, async (req, res) => {
@@ -763,6 +794,7 @@ app.post("/api/stats", authenticate, async (req, res) => {
   }
   const baseConfig = getBaseConfig();
   const platform = req.body.platform || "google";
+  const releases = getReleasesFromFile();
 
   if (req.body.projectIndex === "all") {
     try {
@@ -790,7 +822,13 @@ app.post("/api/stats", authenticate, async (req, res) => {
       const validResults = results.filter(Boolean);
       if (validResults.length === 0) throw new Error('No data found for any package');
 
-      return res.json(aggregateOverviews(validResults));
+      const aggregated = aggregateOverviews(validResults);
+      if (aggregated && aggregated.dailyTrends) {
+        aggregated.retentionBenchmarks = calculateRetentionBenchmarks(aggregated.dailyTrends);
+        aggregated.releaseCorrelations = correlateReleases(aggregated.dailyTrends, releases);
+      }
+
+      return res.json(aggregated);
     } catch (error) {
       console.error(`Error in /api/stats (all):`, error);
       return res.status(500).json({
@@ -812,6 +850,11 @@ app.post("/api/stats", authenticate, async (req, res) => {
 
     stats.platform = platform === "apple" ? "apple" : "google";
     stats.hasUninstallData = platform !== "apple";
+
+    if (stats.dailyTrends) {
+      stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
+      stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases);
+    }
 
     console.log(`Stats fetched for ${req.body.packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
     res.json(stats);

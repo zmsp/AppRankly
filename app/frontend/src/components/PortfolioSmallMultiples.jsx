@@ -66,8 +66,8 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
             deltaType = 'neutral';
           }
 
-          // Only show ASO score badge if explicitly present on proj
-          const asoScore = proj.asoScore || proj.aso || proj.score;
+          // Only show ASO score badge if explicitly present on proj as asoScore/aso
+          const asoScore = proj.asoScore || proj.aso;
           const hasTrends = points.length > 1 && points.some(v => v > 0);
 
           return (
