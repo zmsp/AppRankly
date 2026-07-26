@@ -101,10 +101,10 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
   const label = platform === 'apple'
     ? 'App Store Connect'
     : platform === 'google'
-    ? 'Google Play'
-    : platform === 'ntfy'
-    ? 'ntfy Notification'
-    : `AI Provider (${payload?.provider || 'active'})`;
+      ? 'Google Play'
+      : platform === 'ntfy'
+        ? 'ntfy Notification'
+        : `AI Provider (${payload?.provider || 'active'})`;
 
   return (
     <div className="space-y-3">
@@ -748,7 +748,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
 
   const handleRawChange = (val) => {
     setRawJson(val);
-    try { const parsed = JSON.parse(val); setConfig(parsed); } catch (_) {}
+    try { const parsed = JSON.parse(val); setConfig(parsed); } catch (_) { }
   };
 
   const handleSave = async () => {
@@ -1090,7 +1090,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                 isDemoMode={isDemoMode}
               />
             </SectionHeader>
-            
+
             <div className="max-w-xs">
               <Field label="Default Active Provider" hint="Provider to use for AI generations">
                 <select
@@ -1110,7 +1110,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
 
             <div className="border-t border-white/10 pt-4 space-y-4">
               <div className="text-xs font-bold uppercase tracking-wider text-white/50">Provider API Credentials & Models</div>
-              
+
               {/* OpenAI Block */}
               <div className="p-4 rounded-xl bg-white/3 border border-white/5 space-y-3">
                 <div className="flex items-center justify-between">

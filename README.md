@@ -12,7 +12,7 @@
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A self-hosted, open-source analytics pipeline, AI-powered App Store Optimization (ASO) studio, and glassmorphic web dashboard for aggregating, visualizing, and tracking mobile app performance across the **Google Play Store** (via Google Cloud Storage reports) and the **Apple App Store** (via App Store Connect API).
+Stop constantly switching between App Store Connect and Google Play Console. AppRankly brings your iOS and Android performance metrics together into a single, self-hosted dashboard. Track installs, audit listing health, and uncover high-ranking keywords—all while keeping your API keys and analytics 100% private on your own server.
 
 Includes a single-page analytics web application, an ASO suite for keyword discovery & AI metadata audits, a headless CLI for automated cron jobs/scripting, and full Docker & Unraid container support.
 
