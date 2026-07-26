@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Eye, MousePointer, Download, Percent, Search, Sparkles, CheckCircle, 
+import {
+  Eye, MousePointer, Download, Percent, Search, Sparkles, CheckCircle,
   TrendingUp, Key, Globe, Shield, RefreshCw, Copy, Plus, AlertCircle, Bot,
   Users, MessageSquare, Sliders, CheckSquare, BookOpen, Info, HelpCircle, Zap,
   BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText,
@@ -20,8 +20,9 @@ function clsx(...classes) {
 
 export function getDemoAsoData(pkgName = '', project = {}) {
   const name = project?.name || 'Selected App';
-  const isBeta = pkgName.includes('beta') || name.includes('Beta');
-  const isGamma = pkgName.includes('gamma') || name.includes('Gamma');
+  const isAlpha = pkgName.includes('alpha') || name.includes('Alpha') || pkgName === 'com.demo.alpha' || project?.index === 'demo1';
+  const isBeta = pkgName.includes('beta') || name.includes('Beta') || pkgName === 'com.demo.beta' || project?.index === 'demo2';
+  const isGamma = pkgName.includes('gamma') || name.includes('Gamma') || pkgName === 'com.demo.gamma' || project?.index === 'demo3';
 
   const baseSnapshot = {
     title: isBeta ? `${name} - Fitness & Calorie Macro Counter` : isGamma ? `${name} - Budget & Expense Tracker` : `${name} - AI Task Manager & Todo List`,
@@ -49,7 +50,7 @@ export function getDemoAsoData(pkgName = '', project = {}) {
       { type: "Description", impact: "high", issue: "Formatting Retention", recommendation: "Format top 5 feature benefits as bullet points to increase reader retention by 22%." },
       { type: "Rating Prompt", impact: "medium", issue: "In-App Prompting", recommendation: "Trigger rating dialog after 3rd completed budget entry to boost 5-star review volume." }
     ]
-  } : {
+  } : isAlpha ? {
     score: 88,
     headline: "Strong title keyword density; short description requires a clearer value proposition & call-to-action.",
     improvements: [
@@ -58,7 +59,7 @@ export function getDemoAsoData(pkgName = '', project = {}) {
       { type: "Screenshots", impact: "high", issue: "Feature Callouts", recommendation: "Add high-contrast feature caption badges to first 3 preview screenshots." },
       { type: "Description", impact: "medium", issue: "Keyword Density", recommendation: "Increase density for 'task tracker' and 'todo list' to optimal 2.5% target." }
     ]
-  };
+  } : null;
 
   const keywords = isBeta ? [
     { id: 1, term: 'calorie counter', search_volume: 88, difficulty: 64, current_rank: 3, tracked: 1, source: 'suggest', autocomplete_verified: 1 },
@@ -188,7 +189,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
   const [clusterTarget, setClusterTarget] = useState('general');
   const [candidates, setCandidates] = useState([]);
   const [coverageData, setCoverageData] = useState(null);
-  
+
   // Metadata Sandbox Input States
   const [metadataInputs, setMetadataInputs] = useState({
     title: '',
@@ -713,10 +714,10 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
               <BookOpen size={16} /> How to utilize Store Funnel & Conversion Rates
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Store optimization operates on a 2-stage conversion funnel: 
-              <strong className="text-white"> Store Impressions</strong> (search/browse views) → 
-              <strong className="text-white"> Product Page Views</strong> (taps on your icon/title) → 
-              <strong className="text-white"> Installs</strong>. 
+              Store optimization operates on a 2-stage conversion funnel:
+              <strong className="text-white"> Store Impressions</strong> (search/browse views) →
+              <strong className="text-white"> Product Page Views</strong> (taps on your icon/title) →
+              <strong className="text-white"> Installs</strong>.
               If page view tap-through is below 20%, optimize your <strong className="text-amber-300">App Icon & Title</strong>. If install conversion is below 25%, improve your <strong className="text-amber-300">Screenshots & Short Description hook</strong>.
             </p>
           </div>
@@ -839,19 +840,12 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {(projects.length > 0 ? projects : MOCK_PROJECTS).map((proj) => {
                   const isCurrent = proj.packageName === packageName || proj.index === selectedProjectIndex;
-                  let auditInfo = null;
-
-                  if (isCurrent && asoData?.lastAudit?.score) {
-                    auditInfo = asoData.lastAudit;
-                  } else if (proj.asoScore && proj.asoScore > 0) {
-                    auditInfo = { score: proj.asoScore, headline: "Pre-calculated listing score." };
-                  } else if (isDemoMode) {
-                    const demoData = getDemoAsoData(proj.packageName || proj.index, proj);
-                    auditInfo = demoData.lastAudit;
-                  }
+                  const auditInfo = (isCurrent && asoData?.lastAudit?.score)
+                    ? asoData.lastAudit
+                    : getAppAsoAudit(proj, isDemoMode, getDemoAsoData);
 
                   const isKnown = auditInfo?.score != null && auditInfo.score > 0;
-                  const topFix = auditInfo?.improvements?.[0];
+                  const topFix = auditInfo?.topFix || auditInfo?.improvements?.[0];
 
                   return (
                     <div
@@ -883,8 +877,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                                 auditInfo.score >= 90
                                   ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                                   : auditInfo.score >= 80
-                                  ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
-                                  : "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                                    ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
+                                    : "bg-amber-500/15 border-amber-500/30 text-amber-400"
                               )}>
                                 {auditInfo.score}/100
                               </span>
@@ -1037,9 +1031,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ranked Fix Recommendations</h4>
                   {asoData.lastAudit.improvements?.map((item, idx) => (
                     <div key={idx} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                        item.impact === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${item.impact === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        }`}>
                         {item.impact}
                       </span>
                       <div>
@@ -1156,9 +1149,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                               keywords: prev.keywords.map(k => k.id === kw.id ? { ...k, tracked: !k.tracked } : k)
                             }));
                           }}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                            kw.tracked ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                          }`}
+                          className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${kw.tracked ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                            }`}
                         >
                           {kw.tracked ? 'Tracking' : 'Track'}
                         </button>
@@ -1307,8 +1299,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                     <span className={clsx(
                       "px-2 py-0.5 rounded text-[10px] font-extrabold uppercase",
                       theme.sentiment === 'positive' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                      theme.sentiment === 'negative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
-                      'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        theme.sentiment === 'negative' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                          'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                     )}>
                       {theme.sentiment.replace('_', ' ')}
                     </span>
@@ -1316,7 +1308,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                   </div>
 
                   <h4 className="text-xs font-bold text-white leading-snug">{theme.themeName}</h4>
-                  
+
                   <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 italic text-[11px] text-slate-300">
                     "{theme.sampleQuote}"
                   </div>
@@ -1402,8 +1394,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                 <AlertTriangle size={16} /> Apple Duplicate Keyword Warning
               </div>
               <p className="text-[11px] text-rose-200/90 leading-relaxed">
-                The following words appear in your <strong>Title</strong> and are duplicated in your <strong>Apple Keyword Field</strong>: 
-                <span className="font-bold text-white ml-1 font-mono">[{duplicateKeywords.join(', ')}]</span>. 
+                The following words appear in your <strong>Title</strong> and are duplicated in your <strong>Apple Keyword Field</strong>:
+                <span className="font-bold text-white ml-1 font-mono">[{duplicateKeywords.join(', ')}]</span>.
                 Apple automatically indexes words in the App Title, so repeating them in the Keyword field wastes your 100-character limit! Remove them from the keyword field to add new terms.
               </p>
             </div>
@@ -1549,9 +1541,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
                       <div key={idx} className="p-3 bg-white/5 rounded-xl border border-white/10 space-y-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-bold text-amber-400 capitalize">{cand.field}</span>
-                          <span className={`font-mono text-[10px] px-2 py-0.5 rounded ${
-                            cand.isValid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
-                          }`}>
+                          <span className={`font-mono text-[10px] px-2 py-0.5 rounded ${cand.isValid ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                            }`}>
                             {cand.actualCharCount} / {cand.maxLimit} chars
                           </span>
                         </div>

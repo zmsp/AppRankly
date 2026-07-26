@@ -48,7 +48,8 @@ export function getAppAsoAudit(proj, isDemoMode = true, getDemoAsoData = null) {
       improvements: cached.improvements || [],
       topFix: cached.improvements?.[0] || null,
       timestamp: cached.timestamp,
-      isCached: true
+      isCached: true,
+      isAnalyzed: true
     };
   }
 
@@ -56,30 +57,34 @@ export function getAppAsoAudit(proj, isDemoMode = true, getDemoAsoData = null) {
   if (proj.asoScore && proj.asoScore > 0) {
     return {
       score: proj.asoScore,
-      headline: "Pre-calculated ASO health score.",
-      improvements: [],
-      topFix: null,
-      isCached: false
+      headline: proj.asoHeadline || "Pre-calculated ASO health score.",
+      improvements: proj.asoImprovements || [],
+      topFix: proj.asoImprovements?.[0] || null,
+      isCached: false,
+      isAnalyzed: true
     };
   }
 
-  // 3. Fallback to demo audit data if helper provided
-  if (getDemoAsoData) {
+  // 3. Fallback to demo audit data if helper provided & in demo mode
+  if (isDemoMode && getDemoAsoData) {
     const demo = getDemoAsoData(pkgName, proj);
-    if (demo?.lastAudit) {
+    if (demo?.lastAudit?.score != null) {
       return {
         ...demo.lastAudit,
         topFix: demo.lastAudit.improvements?.[0] || null,
-        isCached: false
+        isCached: false,
+        isAnalyzed: true
       };
     }
   }
 
+  // 4. Return un-analyzed state if no audit is available
   return {
-    score: 88,
-    headline: "Base listing metadata analysis.",
+    score: null,
+    headline: "Not analyzed yet. Run AI listing audit to calculate ASO health score and generate recommendations.",
     improvements: [],
     topFix: null,
-    isCached: false
+    isCached: false,
+    isAnalyzed: false
   };
 }

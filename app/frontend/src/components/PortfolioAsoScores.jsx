@@ -105,12 +105,13 @@ export default function PortfolioAsoScores({
           ) : (
             filteredProjects.map((proj) => {
               const auditInfo = getAppAsoAudit(proj, isDemoMode, getDemoAsoData);
-              const score = auditInfo?.score ?? 88;
+              const score = auditInfo?.score;
+              const isAnalyzed = score != null && score > 0;
               const topFix = auditInfo?.topFix || auditInfo?.improvements?.[0];
 
               return (
                 <div
-                  key={proj.index}
+                  key={proj.index || proj.packageName}
                   onClick={() => handleCardClick(proj)}
                   className="group relative p-4 rounded-2xl bg-white/5 hover:bg-slate-800/80 border border-white/10 hover:border-accent-blue/50 transition-all duration-200 cursor-pointer space-y-3 shadow-md hover:shadow-xl hover:shadow-accent-blue/5 flex flex-col justify-between"
                   title={`Click to open ASO page for ${proj.name}`}
@@ -137,32 +138,48 @@ export default function PortfolioAsoScores({
 
                       {/* ASO Score Badge */}
                       <div className="flex flex-col items-end shrink-0">
-                        <span className={clsx(
-                          "text-xs font-black px-2.5 py-0.5 rounded-full border font-mono shadow-sm",
-                          score >= 90
-                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
-                            : score >= 80
-                            ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
-                            : "bg-amber-500/15 border-amber-500/40 text-amber-400"
-                        )}>
-                          {score}/100
-                        </span>
-                        <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider flex items-center gap-1">
-                          {auditInfo?.isCached && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Updated by recent AI Audit" />}
-                          {auditInfo?.isCached ? 'AI Audited' : 'ASO Score'}
-                        </span>
+                        {isAnalyzed ? (
+                          <>
+                            <span className={clsx(
+                              "text-xs font-black px-2.5 py-0.5 rounded-full border font-mono shadow-sm",
+                              score >= 90
+                                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                                : score >= 80
+                                ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
+                                : "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                            )}>
+                              {score}/100
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider flex items-center gap-1">
+                              {auditInfo?.isCached && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Updated by recent AI Audit" />}
+                              {auditInfo?.isCached ? 'AI Audited' : 'ASO Score'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-slate-400 font-mono">
+                              N/A
+                            </span>
+                            <span className="text-[9px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">
+                              Not Analyzed Yet
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
                     {/* Audit Headline / Summary */}
-                    {auditInfo?.headline && (
-                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed bg-slate-900/40 p-2.5 rounded-xl border border-white/5">
-                        {auditInfo.headline}
-                      </p>
-                    )}
+                    <p className={clsx(
+                      "text-xs p-2.5 rounded-xl border line-clamp-2 leading-relaxed",
+                      isAnalyzed
+                        ? "text-slate-300 bg-slate-900/40 border-white/5"
+                        : "text-slate-400 italic bg-slate-900/20 border-white/5"
+                    )}>
+                      {auditInfo?.headline || "Not analyzed yet. Select app to run AI listing audit."}
+                    </p>
 
                     {/* Top Priority Fix Recommendation Box */}
-                    {topFix && (
+                    {topFix ? (
                       <div className="space-y-1.5 pt-1">
                         <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
                           <span className="flex items-center space-x-1">
@@ -182,6 +199,16 @@ export default function PortfolioAsoScores({
                         </div>
                         <p className="text-xs text-slate-200 leading-normal">
                           <strong className="text-white font-semibold">{topFix.type}:</strong> {topFix.recommendation}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 pt-1">
+                        <div className="flex items-center text-[10px] font-extrabold uppercase tracking-wider text-slate-500 space-x-1">
+                          <Info size={11} className="text-slate-500" />
+                          <span>Recommendation Status</span>
+                        </div>
+                        <p className="text-xs text-slate-400 italic">
+                          Not analyzed yet. Select app to run AI listing audit.
                         </p>
                       </div>
                     )}
