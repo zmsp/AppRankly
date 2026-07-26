@@ -27,7 +27,7 @@ ChartJS.register(
 );
 
 export default function TrendChart({ data, releases = [], platform = 'google', hasUninstallData, isLogarithmic = false, onSelectPoint }) {
-  if (!data) return null;
+  if (!data || data.length === 0) return null;
 
   const labels = data.map(item => {
     const date = new Date(item.date);
@@ -40,10 +40,44 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     ? hasUninstallData
     : (platform !== 'apple' && platform !== 'appstore');
 
+  const totalInstallsInWindow = data.reduce((sum, item) => sum + (item.dailyUserInstalls || item.dailyInstalls || 0), 0);
+  const showForecast = data.length >= 7 && totalInstallsInWindow >= 20;
+
+  let extendedLabels = [...labels];
+  let forecastPoints = Array(data.length).fill(null);
+
+  if (showForecast) {
+    const series = data.map(item => item.dailyUserInstalls || item.dailyInstalls || 0);
+    const n = series.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += series[i];
+      sumXY += i * series[i];
+      sumX2 += i * i;
+    }
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    const lastDateObj = new Date(data[data.length - 1].date);
+    forecastPoints[data.length - 1] = series[n - 1]; // connect seamlessly
+
+    for (let i = 1; i <= 14; i++) {
+      const nextDate = new Date(lastDateObj);
+      nextDate.setUTCDate(nextDate.getUTCDate() + i);
+      extendedLabels.push(nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }));
+      const val = Math.max(0, slope * (n + i - 1) + intercept);
+      forecastPoints.push(Math.round(val));
+    }
+  }
+
   const datasets = [
     {
       label: 'Daily Installs',
-      data: data.map(item => {
+      data: showForecast ? [...data.map(item => {
+        const val = item.dailyUserInstalls || item.dailyInstalls || 0;
+        return isLogarithmic ? Math.max(val, 1) : val;
+      }), ...Array(14).fill(null)] : data.map(item => {
         const val = item.dailyUserInstalls || item.dailyInstalls || 0;
         return isLogarithmic ? Math.max(val, 1) : val;
       }),
@@ -66,12 +100,13 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
   ];
 
   if (showUninstalls) {
+    const uninstData = data.map(item => {
+      const val = item.dailyUserUninstalls || item.dailyUninstalls || 0;
+      return isLogarithmic ? Math.max(val, 1) : val;
+    });
     datasets.push({
       label: 'Daily Uninstalls',
-      data: data.map(item => {
-        const val = item.dailyUserUninstalls || item.dailyUninstalls || 0;
-        return isLogarithmic ? Math.max(val, 1) : val;
-      }),
+      data: showForecast ? [...uninstData, ...Array(14).fill(null)] : uninstData,
       borderColor: CHART_COLORS.accent.rose,
       borderDash: [5, 5],
       borderWidth: 2,
@@ -82,8 +117,22 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     });
   }
 
+  if (showForecast) {
+    datasets.push({
+      label: '14-Day Forecast',
+      data: forecastPoints,
+      borderColor: '#a855f7',
+      borderDash: [6, 4],
+      borderWidth: 2,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      fill: false,
+      tension: 0.2
+    });
+  }
+
   const chartData = {
-    labels,
+    labels: extendedLabels,
     datasets
   };
 

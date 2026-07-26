@@ -422,6 +422,24 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     }
   };
 
+  const [rankChecking, setRankChecking] = useState(false);
+  const handleCheckKeywordRanks = async () => {
+    setRankChecking(true);
+    try {
+      if (!isDemoMode) {
+        await apiFetch('/api/aso/ranks/check', {
+          method: 'POST',
+          body: JSON.stringify({ packageName, platform })
+        }, authToken);
+        await fetchAsoOverview();
+      }
+    } catch (e) {
+      alert('Rank check error: ' + e.message);
+    } finally {
+      setRankChecking(false);
+    }
+  };
+
   const handleRunCompetitorAnalysis = async () => {
     setCompLoading(true);
     if (isDemoMode) {
@@ -784,8 +802,15 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         <div className="space-y-8 animate-in fade-in duration-150">
           {/* Funnel Explainer Guide Banner */}
           <div className="bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-slate-900/60 p-5 rounded-2xl border border-indigo-500/20 space-y-2">
-            <div className="flex items-center gap-2 text-indigo-300 font-extrabold text-xs uppercase tracking-wider">
-              <BookOpen size={16} /> How to utilize Store Funnel & Conversion Rates
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-indigo-300 font-extrabold text-xs uppercase tracking-wider">
+                <BookOpen size={16} /> How to utilize Store Funnel & Conversion Rates
+              </div>
+              {!stats?.storeImpressions && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono">
+                  Sample Data (Requires Apple Analytics API)
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               Store optimization operates on a 2-stage conversion funnel:
@@ -1138,6 +1163,14 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCheckKeywordRanks}
+                  disabled={rankChecking}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-lg flex items-center gap-1.5"
+                >
+                  {rankChecking ? <RefreshCw size={14} className="animate-spin" /> : <TrendingUp size={14} />}
+                  <span>{rankChecking ? 'Checking Ranks...' : 'Check Ranks'}</span>
+                </button>
                 <input
                   type="text"
                   placeholder="Seed term (e.g. tracker)..."
@@ -1157,89 +1190,138 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
 
             {/* Help Banner */}
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 text-xs text-blue-200 space-y-1">
-              <div className="flex items-center gap-2 font-bold text-white">
-                <AlertCircle size={14} className="text-blue-400" />
-                What is Autocomplete Fan-Out?
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <AlertCircle size={14} className="text-blue-400" />
+                  Popularity Proxy & Store Rank Checking
+                </div>
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono">Free Engine</span>
               </div>
               <p className="text-[11px] text-blue-200/80 leading-relaxed">
-                Store autocomplete suggestions (e.g., typing <strong>"tracker a"</strong>, <strong>"tracker b"</strong> in Play Store search) reflect actual high-volume search queries entered by real users. Terms marked <strong className="text-emerald-400">Autocomplete-Verified</strong> represent confirmed search intent without needing expensive 3rd-party rank tracker APIs.
+                Est. Popularity Proxy (0-100) is calculated from autocomplete verification (+40), seed intent (+15), and term conciseness (+15). Click <strong>Check Ranks</strong> to scrape live store search top 50 rankings for all tracked terms.
               </p>
             </div>
 
-            {/* Keyword Table */}
+            {/* Keyword Opportunity Table */}
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/10 text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Keyword Term</th>
-                    <th className="py-3 px-4">Search Volume</th>
-                    <th className="py-3 px-4">Difficulty</th>
-                    <th className="py-3 px-4">Verification</th>
-                    <th className="py-3 px-4">Source</th>
+                    <th className="py-3 px-4">Est. Popularity (Proxy)</th>
+                    <th className="py-3 px-4">Current Rank</th>
+                    <th className="py-3 px-4">Status / Opportunity</th>
                     <th className="py-3 px-4 text-right">Tracked</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {(asoData?.keywords || []).map((kw) => (
-                    <tr key={kw.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-3 px-4 font-bold text-white">{kw.term}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
-                            <div className="bg-blue-500 h-full rounded-full" style={{ width: `${kw.search_volume || 70}%` }} />
+                  {(asoData?.keywords || []).map((kw) => {
+                    const proxyScore = (kw.autocomplete_verified ? 40 : 15) + (kw.source === 'seed' ? 15 : 0) + (kw.term.split(' ').length <= 2 ? 15 : 0) + 15;
+                    const matchedRankRow = (asoData?.ranks || []).find(r => r.keyword_id === kw.id || r.term === kw.term);
+                    const currentRank = matchedRankRow?.rank;
+
+                    let tierBadge = '🟢 Win';
+                    let tierColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+                    if (!currentRank || currentRank > 30 || proxyScore < 30) {
+                      tierBadge = '🔴 Low Priority';
+                      tierColor = 'bg-slate-800 text-slate-400 border-slate-700';
+                    } else if (currentRank > 5) {
+                      tierBadge = '🟡 Opportunity';
+                      tierColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                    }
+
+                    return (
+                      <tr key={kw.id} className="hover:bg-white/5 transition-colors">
+                        <td className="py-3 px-4 font-bold text-white">
+                          <div className="flex items-center space-x-2">
+                            <span>{kw.term}</span>
+                            {kw.autocomplete_verified === 1 && (
+                              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-mono">
+                                Verified
+                              </span>
+                            )}
                           </div>
-                          <span className="font-mono text-[10px] text-slate-300">{kw.search_volume || 70}/100</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={clsx(
-                          "px-2 py-0.5 rounded text-[10px] font-mono font-bold",
-                          (kw.difficulty || 50) > 60 ? "bg-amber-500/20 text-amber-300" : "bg-emerald-500/20 text-emerald-400"
-                        )}>
-                          {kw.difficulty || 50}/100
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {kw.autocomplete_verified ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
-                            <CheckCircle size={10} /> Autocomplete-Verified
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div className="bg-accent-blue h-full rounded-full" style={{ width: `${proxyScore}%` }} />
+                            </div>
+                            <span className="font-mono text-[10px] text-slate-300">{proxyScore}/100</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {currentRank ? (
+                            <span className="font-mono font-extrabold text-accent-blue">#{currentRank}</span>
+                          ) : (
+                            <span className="text-slate-500 text-[10px] font-mono">&gt; 50 (Unranked)</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${tierColor}`}>
+                            {tierBadge}
                           </span>
-                        ) : (
-                          <span className="text-slate-500 text-[10px]">Unverified</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-slate-400 uppercase text-[10px]">{kw.source || 'suggest'}</td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={async () => {
-                            if (!isDemoMode) {
-                              await apiFetch('/api/aso/keywords/track', {
-                                method: 'POST',
-                                body: JSON.stringify({ packageName, platform, keywordId: kw.id, tracked: !kw.tracked })
-                              }, authToken);
-                            }
-                            setAsoData(prev => ({
-                              ...prev,
-                              keywords: prev.keywords.map(k => k.id === kw.id ? { ...k, tracked: !k.tracked } : k)
-                            }));
-                          }}
-                          className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${kw.tracked ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                            }`}
-                        >
-                          {kw.tracked ? 'Tracking' : 'Track'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            onClick={async () => {
+                              if (!isDemoMode) {
+                                await apiFetch('/api/aso/keywords/track', {
+                                  method: 'POST',
+                                  body: JSON.stringify({ packageName, platform, keywordId: kw.id, tracked: !kw.tracked })
+                                }, authToken);
+                              }
+                              setAsoData(prev => ({
+                                ...prev,
+                                keywords: prev.keywords.map(k => k.id === kw.id ? { ...k, tracked: !k.tracked } : k)
+                              }));
+                            }}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${kw.tracked ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                          >
+                            {kw.tracked ? 'Tracking' : 'Track'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {(!asoData?.keywords || asoData.keywords.length === 0) && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-slate-500 italic">No keywords added yet. Use "Expand (a-z)" above to discover terms.</td>
+                      <td colSpan={5} className="py-6 text-center text-slate-500 italic">No keywords added yet. Use "Expand (a-z)" above to discover terms.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* Share of Voice Competitor Matrix */}
+          {asoData?.competitors && asoData.competitors.length > 0 && (
+            <div className="glass-card p-6 border border-white/10 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Globe size={18} className="text-indigo-400" />
+                  <h3 className="text-base font-bold text-white">Competitor Share of Voice</h3>
+                </div>
+                <span className="text-xs text-slate-400">Scraped from Top-3 Store Search Results</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {asoData.competitors.slice(0, 6).map((comp, idx) => (
+                  <div key={idx} className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center space-x-3 text-xs">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center text-indigo-400 font-bold shrink-0">
+                      #{idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-white truncate">{comp.title || comp.name}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{comp.short_desc || comp.subtitle || comp.competitor_key}</p>
+                    </div>
+                    {comp.rating > 0 && (
+                      <span className="text-amber-400 font-bold text-[10px] shrink-0">{comp.rating.toFixed(1)}★</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

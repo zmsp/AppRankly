@@ -655,6 +655,16 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [initialConfigJson, setInitialConfigJson] = useState('');
   const [rawJson, setRawJson] = useState('');
   const [configPath, setConfigPath] = useState('');
+  const [aiUsage, setAiUsage] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/aso/ai/usage', {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+    })
+      .then(res => res.json())
+      .then(data => setAiUsage(data))
+      .catch(() => {});
+  }, [authToken]);
 
   const currentJson = JSON.stringify(config, null, 2);
   const isDirty = initialConfigJson && currentJson !== initialConfigJson;
@@ -1347,6 +1357,19 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
               isStaticMode={isStaticMode}
               isDemoMode={isDemoMode}
             />
+
+            {/* AI Usage Meter Card */}
+            {aiUsage && (
+              <div className="mt-4 p-3.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center space-x-2 text-slate-300">
+                  <Bot size={15} className="text-accent-blue" />
+                  <span>AI Usage: <strong className="text-white">{aiUsage.runs} runs</strong> ({Math.round((aiUsage.totalInputTokens + aiUsage.totalOutputTokens) / 1000)}k tokens processed)</span>
+                </div>
+                <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  ~${aiUsage.totalCostUsd.toFixed(3)} total est
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="glass-card p-6">

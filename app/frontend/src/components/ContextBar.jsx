@@ -1,7 +1,8 @@
 import React from 'react';
-import { Clock, Calendar } from 'lucide-react';
+import { Clock, Calendar, AlertCircle } from 'lucide-react';
 import { formatDataFreshness } from '../lib/format';
 import AppDropdownSelector from './AppDropdownSelector';
+import clsx from 'clsx';
 
 export default function ContextBar({
   activeProject,
@@ -15,6 +16,16 @@ export default function ContextBar({
   lastDataDate
 }) {
   const freshness = formatDataFreshness(lastDataDate);
+
+  // Check if data is more than 3 days lag
+  let isStale = false;
+  if (lastDataDate) {
+    const lastDate = new Date(lastDataDate);
+    if (!isNaN(lastDate.getTime())) {
+      const diffDays = Math.floor(Math.abs(new Date() - lastDate) / (1000 * 60 * 60 * 24));
+      if (diffDays > 3) isStale = true;
+    }
+  }
 
   const comparisonLabels = {
     prev_period: 'vs. prev period',
@@ -49,7 +60,7 @@ export default function ContextBar({
           setPlatform={setPlatform}
         />
 
-        {/* Single Source of Truth Status Chip (no repeated raw date string) */}
+        {/* Single Source of Truth Status Chip */}
         <div className="flex items-center space-x-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-slate-300 shadow-sm">
           <Calendar size={13} className="text-accent-blue shrink-0" />
           <span className="font-semibold text-[11px] text-white tracking-wide">
@@ -59,11 +70,18 @@ export default function ContextBar({
       </div>
 
       {/* Freshness Badge */}
-      <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 font-medium ml-auto">
-        <Clock size={13} className="text-accent-blue" />
-        <span>{freshness}</span>
+      <div className="flex items-center space-x-2 text-[11px] text-slate-400 font-medium ml-auto">
+        <Clock size={13} className={isStale ? "text-amber-400" : "text-accent-blue"} />
+        <span className={clsx(
+          "px-2.5 py-1 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 transition-colors",
+          isStale
+            ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+            : "bg-white/5 text-slate-300 border-white/10"
+        )}>
+          {isStale && <AlertCircle size={12} className="text-amber-400" />}
+          {freshness}
+        </span>
       </div>
     </div>
   );
 }
-

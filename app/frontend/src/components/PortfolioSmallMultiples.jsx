@@ -1,73 +1,127 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Sparkline from './Sparkline';
-import { Layers } from 'lucide-react';
+import { Layers, ArrowUpDown, Flame } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { formatNumber } from '../lib/format';
 import AppIcon from './AppIcon';
 import { clsx } from 'clsx';
 
 export default function PortfolioSmallMultiples({ projects = [], appTrends = {}, onSelectProject }) {
+  const [sortMode, setSortMode] = useState('decliners'); // 'decliners', 'installs', 'default'
+
   if (!projects || projects.length === 0) return null;
+
+  // Enhance each project with momentum & quiet stats
+  const enhancedProjects = projects.map((proj) => {
+    const appTrendEntry = appTrends[proj.packageName];
+    const trendData = appTrendEntry?.trends || appTrendEntry || [];
+    const totalInstalls = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
+    const points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
+
+    // 1. Fixed Last 7 Days vs Prior 7 Days Momentum (independent of selected date range filter)
+    let momentumPct = 0;
+    let momentumStr = '0%';
+    let momentumType = 'neutral'; // 'positive', 'negative', 'neutral', 'quiet'
+
+    const len = points.length;
+    const last7Points = points.slice(Math.max(0, len - 7));
+    const prior7Points = points.slice(Math.max(0, len - 14), Math.max(0, len - 7));
+
+    const last7Sum = last7Points.reduce((a, b) => a + b, 0);
+    const prior7Sum = prior7Points.reduce((a, b) => a + b, 0);
+
+    // Check for "quiet app" state (no installs in 5+ consecutive days)
+    let zeroCountAtEnd = 0;
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (points[i] === 0) zeroCountAtEnd++;
+      else break;
+    }
+    const isQuiet = zeroCountAtEnd >= 5;
+
+    if (isQuiet && totalInstalls < 3) {
+      momentumStr = '😶 No activity';
+      momentumType = 'quiet';
+      momentumPct = -999;
+    } else if (prior7Sum === 0 && last7Sum === 0) {
+      momentumStr = '0%';
+      momentumType = 'neutral';
+      momentumPct = 0;
+    } else if (prior7Sum === 0 && last7Sum > 0) {
+      momentumStr = '+100%';
+      momentumType = 'positive';
+      momentumPct = 100;
+    } else if (prior7Sum > 0 && last7Sum === 0) {
+      momentumStr = '-100%';
+      momentumType = 'negative';
+      momentumPct = -100;
+    } else {
+      const change = ((last7Sum - prior7Sum) / prior7Sum) * 100;
+      momentumPct = change;
+      if (change > 0) {
+        momentumStr = `+${change.toFixed(0)}%`;
+        momentumType = 'positive';
+      } else if (change < 0) {
+        momentumStr = `${change.toFixed(0)}%`;
+        momentumType = 'negative';
+      } else {
+        momentumStr = '0%';
+        momentumType = 'neutral';
+      }
+    }
+
+    return {
+      proj,
+      totalInstalls,
+      points,
+      momentumPct,
+      momentumStr,
+      momentumType,
+      isQuiet,
+      asoScore: proj.asoScore || proj.aso
+    };
+  });
+
+  // Sort grid according to user preference
+  const sorted = [...enhancedProjects].sort((a, b) => {
+    if (sortMode === 'decliners') {
+      return a.momentumPct - b.momentumPct; // Decliners first (most negative first)
+    }
+    if (sortMode === 'installs') {
+      return b.totalInstalls - a.totalInstalls;
+    }
+    return 0; // Default order
+  });
 
   return (
     <div className="glass-card p-4 sm:p-6 border border-white/10 space-y-4">
-      <div className="flex items-center justify-between pb-2 border-b border-white/5">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/5">
         <div className="flex items-center space-x-2">
           <Layers size={16} className="text-accent-blue" />
           <h3 className="text-xs font-bold text-slate-200">Portfolio Performance Grid</h3>
         </div>
-        <span className="text-xs text-slate-400 font-medium">{projects.length} Apps Tracked</span>
+        <div className="flex items-center space-x-3">
+          {/* Sorting Toggle */}
+          <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-lg border border-white/10 text-[10px]">
+            <ArrowUpDown size={12} className="text-slate-400 ml-1" />
+            <button
+              onClick={() => setSortMode('decliners')}
+              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'decliners' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
+            >
+              Decliners First
+            </button>
+            <button
+              onClick={() => setSortMode('installs')}
+              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'installs' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
+            >
+              Top Installs
+            </button>
+          </div>
+          <span className="text-xs text-slate-400 font-medium">{projects.length} Apps</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {projects.map((proj) => {
-          // Exact lookup by packageName (unique ID) — no fuzzy matching needed
-          const appTrendEntry = appTrends[proj.packageName];
-          const trendData = appTrendEntry?.trends || appTrendEntry || [];
-          const totalInstalls = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
-          const points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
-
-          // Compute Period-over-Period contextual delta percentage
-          let deltaStr = '0%';
-          let deltaType = 'neutral'; // 'positive', 'negative', 'neutral'
-
-          if (points.length >= 2) {
-            const half = Math.floor(points.length / 2);
-            const firstHalf = points.slice(0, half);
-            const secondHalf = points.slice(half);
-
-            const firstSum = firstHalf.reduce((a, b) => a + b, 0);
-            const secondSum = secondHalf.reduce((a, b) => a + b, 0);
-
-            if (firstSum === 0 && secondSum === 0) {
-              deltaStr = '0%';
-              deltaType = 'neutral';
-            } else if (firstSum === 0 && secondSum > 0) {
-              deltaStr = '+100%';
-              deltaType = 'positive';
-            } else if (firstSum > 0 && secondSum === 0) {
-              deltaStr = '-100%';
-              deltaType = 'negative';
-            } else {
-              const change = ((secondSum - firstSum) / firstSum) * 100;
-              if (change > 0) {
-                deltaStr = `+${change.toFixed(0)}%`;
-                deltaType = 'positive';
-              } else if (change < 0) {
-                deltaStr = `${change.toFixed(0)}%`;
-                deltaType = 'negative';
-              } else {
-                deltaStr = '0%';
-                deltaType = 'neutral';
-              }
-            }
-          } else {
-            deltaStr = '0%';
-            deltaType = 'neutral';
-          }
-
-          // Only show ASO score badge if explicitly present on proj as asoScore/aso
-          const asoScore = proj.asoScore || proj.aso;
+        {sorted.map(({ proj, totalInstalls, points, momentumStr, momentumType, asoScore }) => {
           const hasTrends = points.length > 1 && points.some(v => v > 0);
 
           return (
@@ -93,7 +147,6 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                     </span>
                   </div>
 
-                  {/* De-emphasized ASO Score tag: Only rendered if score actually exists */}
                   {asoScore != null && asoScore > 0 && (
                     <span
                       className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 font-mono shrink-0"
@@ -106,28 +159,30 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
 
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <span className="text-xs font-medium text-slate-400">Period Installs</span>
+                    <span className="text-[10px] font-medium text-slate-400 uppercase">Period Installs</span>
                     <div className="flex items-center space-x-1.5 mt-0.5">
                       <p className="text-base sm:text-lg font-extrabold text-white">{formatNumber(totalInstalls)}</p>
                       <span
                         className={clsx(
-                          "text-[9px] font-bold px-1 py-0.2 rounded font-mono border",
-                          deltaType === 'positive'
+                          "text-[9px] font-bold px-1.5 py-0.5 rounded font-mono border whitespace-nowrap",
+                          momentumType === 'positive'
                             ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            : deltaType === 'negative'
+                            : momentumType === 'negative'
                             ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
+                            : momentumType === 'quiet'
+                            ? "bg-slate-800 text-slate-400 border-slate-700"
                             : "bg-white/5 text-slate-400 border-white/10"
                         )}
-                        title={totalInstalls === 0 ? (deltaType === 'negative' ? 'Dropped to 0 installs' : 'Always 0 installs') : `Period trend: ${deltaStr}`}
+                        title="7d vs prior 7d momentum"
                       >
-                        {deltaStr}
+                        {momentumStr}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Sparkline Container: Always rendered to guarantee height uniformity across the grid */}
+              {/* Sparkline Container */}
               <div className="h-9 w-full pt-1 flex items-center">
                 {hasTrends ? (
                   <Sparkline data={points} color="#00d2ff" height={28} />

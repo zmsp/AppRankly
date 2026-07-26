@@ -8,6 +8,18 @@ const prompts = require('../lib/ai/prompts');
 const scraper = require('../lib/aso/scraper');
 const { validateMetadata, simulateCoverage } = require('../lib/aso/coverage');
 
+const AI_PRICING = {
+  openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
+  anthropic: { inputPerToken: 0.0000030, outputPerToken: 0.0000150 },
+  gemini: { inputPerToken: 0.00000035, outputPerToken: 0.00000105 }
+};
+
+function calculateAiCost(provider, inputTokens = 0, outputTokens = 0) {
+  const p = (provider || 'anthropic').toLowerCase();
+  const pricing = AI_PRICING[p] || AI_PRICING.anthropic;
+  return (inputTokens * pricing.inputPerToken) + (outputTokens * pricing.outputPerToken);
+}
+
 /**
  * AI Provider Endpoints
  */
@@ -17,6 +29,35 @@ router.get('/ai/status', (req, res) => {
     res.json(status);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/aso/ai/usage', async (req, res) => {
+  try {
+    const liveDb = dbModule.db;
+    if (!liveDb) {
+      return res.json({ runs: 0, totalInputTokens: 0, totalOutputTokens: 0, totalCostUsd: 0, byProvider: [] });
+    }
+    const overall = liveDb.prepare(`
+      SELECT COUNT(*) as runs, COALESCE(SUM(input_tokens), 0) as totalInputTokens, COALESCE(SUM(output_tokens), 0) as totalOutputTokens, COALESCE(SUM(est_cost_usd), 0) as totalCostUsd
+      FROM aso_ai_run
+    `).get();
+
+    const byProvider = liveDb.prepare(`
+      SELECT provider, COUNT(*) as runs, COALESCE(SUM(input_tokens), 0) as inputTokens, COALESCE(SUM(output_tokens), 0) as outputTokens, COALESCE(SUM(est_cost_usd), 0) as costUsd
+      FROM aso_ai_run
+      GROUP BY provider
+    `).all();
+
+    res.json({
+      runs: overall?.runs || 0,
+      totalInputTokens: overall?.totalInputTokens || 0,
+      totalOutputTokens: overall?.totalOutputTokens || 0,
+      totalCostUsd: overall?.totalCostUsd ? parseFloat(overall.totalCostUsd.toFixed(4)) : 0,
+      byProvider
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -197,6 +238,83 @@ router.post('/aso/keywords/track', (req, res) => {
 });
 
 /**
+ * Keyword Rank Check Engine (scrapes top 50 in store search for tracked keywords)
+ */
+router.post('/aso/ranks/check', async (req, res) => {
+  const { packageName, platform = 'play', country = 'us' } = req.body;
+  if (!packageName) return res.status(400).json({ error: 'packageName is required' });
+
+  const liveDb = dbModule.db;
+  if (!liveDb) return res.status(500).json({ error: 'Database unavailable' });
+
+  try {
+    const keywords = liveDb.prepare(`
+      SELECT * FROM aso_keyword
+      WHERE package_name = ? AND platform = ? AND tracked = 1
+    `).all(packageName, platform);
+
+    if (keywords.length === 0) {
+      return res.json({ success: true, checkedCount: 0, message: 'No tracked keywords found for this app' });
+    }
+
+    const storeName = platform === 'apple' || platform === 'ios' ? 'apple' : 'play';
+    const checkTime = new Date().toISOString();
+    const results = [];
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    for (const kw of keywords) {
+      await sleep(1500); // rate limiting guard
+
+      let foundRank = null;
+      let topResults = [];
+
+      if (storeName === 'play') {
+        const searchRes = await scraper.getPlaySearch(kw.term, 50, country);
+        topResults = searchRes.slice(0, 3);
+        const idx = searchRes.findIndex(item => item.appId === packageName);
+        if (idx !== -1) foundRank = idx + 1;
+      } else {
+        const searchRes = await scraper.getAppleSearch(kw.term, country, 50);
+        topResults = searchRes.slice(0, 3);
+        const idx = searchRes.findIndex(item => item.bundleId === packageName || String(item.trackId) === String(packageName));
+        if (idx !== -1) foundRank = idx + 1;
+      }
+
+      liveDb.prepare(`
+        INSERT OR REPLACE INTO aso_rank_history (package_name, platform, keyword_id, store, country, rank, top_n, checked_at)
+        VALUES (?, ?, ?, ?, ?, ?, 50, ?)
+      `).run(packageName, platform, kw.id, storeName, country, foundRank, checkTime);
+
+      topResults.forEach(comp => {
+        const compKey = comp.appId || comp.bundleId || String(comp.trackId);
+        if (compKey && compKey !== packageName) {
+          liveDb.prepare(`
+            INSERT OR REPLACE INTO aso_competitor (package_name, platform, store, competitor_key, name, title, short_desc, rating, fetched_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(packageName, platform, storeName, compKey, comp.title || comp.trackName, comp.title || comp.trackName, comp.summary || comp.subtitle || '', comp.score || 0, checkTime);
+        }
+      });
+
+      results.push({
+        keywordId: kw.id,
+        term: kw.term,
+        rank: foundRank,
+        checkedAt: checkTime
+      });
+    }
+
+    res.json({
+      success: true,
+      checkedCount: results.length,
+      ranks: results
+    });
+  } catch (err) {
+    console.error('Error running keyword rank check:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Generate pre-filled AI Prompt Preview based on pulled store data
  */
 router.post('/aso/prompt-preview', async (req, res) => {
@@ -346,7 +464,7 @@ router.post('/aso/audit', async (req, res) => {
       `).run(
         packageName, platform, result.provider, result.model, inputHash,
         result.usage.inputTokens, result.usage.outputTokens,
-        (result.usage.inputTokens * 0.000003) + (result.usage.outputTokens * 0.000015),
+        calculateAiCost(result.provider, result.usage.inputTokens, result.usage.outputTokens),
         JSON.stringify(result.data)
       );
     }
@@ -554,7 +672,7 @@ router.post('/aso/reviews/digest', async (req, res) => {
       const inputHash = crypto.createHash('md5').update(promptText).digest('hex');
       const inputTokens = result.usage?.inputTokens || 0;
       const outputTokens = result.usage?.outputTokens || 0;
-      const estCost = (inputTokens * 0.000003) + (outputTokens * 0.000015);
+      const estCost = calculateAiCost(result.provider, inputTokens, outputTokens);
 
       db.prepare(`
         INSERT INTO aso_ai_run (package_name, platform, kind, provider, model, input_hash, prompt_version, input_tokens, output_tokens, est_cost_usd, payload)

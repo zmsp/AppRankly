@@ -12,7 +12,7 @@ const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
-const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks } = require("./lib/metrics");
+const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification } = require("./lib/notifier");
@@ -530,6 +530,16 @@ app.get("/api/status", (req, res) => {
   res.json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
+app.get("/healthz", (req, res) => {
+  const pkg = require("./package.json");
+  res.json({
+    status: "ok",
+    version: pkg.version || "1.0.0",
+    uptime: Math.round(process.uptime()),
+    dbOpen: true
+  });
+});
+
 // Endpoint to fetch integrations status (Sanitized)
 app.get("/api/integrations/status", authenticate, (req, res) => {
   const baseConfig = getBaseConfig();
@@ -826,6 +836,8 @@ app.post("/api/stats", authenticate, async (req, res) => {
       if (aggregated && aggregated.dailyTrends) {
         aggregated.retentionBenchmarks = calculateRetentionBenchmarks(aggregated.dailyTrends);
         aggregated.releaseCorrelations = correlateReleases(aggregated.dailyTrends, releases);
+        aggregated.weekdayAverages = weekdayAverages(aggregated.dailyTrends, 'dailyInstalls');
+        aggregated.linearForecast = linearForecast(aggregated.dailyTrends.map(t => t.dailyInstalls || 0), 14);
       }
 
       return res.json(aggregated);
@@ -854,6 +866,8 @@ app.post("/api/stats", authenticate, async (req, res) => {
     if (stats.dailyTrends) {
       stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
       stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases);
+      stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
+      stats.linearForecast = linearForecast(stats.dailyTrends.map(t => t.dailyInstalls || 0), 14);
     }
 
     console.log(`Stats fetched for ${req.body.packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);

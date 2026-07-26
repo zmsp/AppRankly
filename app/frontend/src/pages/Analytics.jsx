@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, ShieldAlert, CheckCircle2, BarChart2, AlertTriangle, Play, RefreshCw } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle2, BarChart2, AlertTriangle, Play, RefreshCw, Globe, Smartphone } from 'lucide-react';
 import DimensionChart from '../components/DimensionChart';
 import TrendChart from '../components/TrendChart';
 import CombinedInstallsChart from '../components/CombinedInstallsChart';
@@ -72,8 +72,28 @@ export default function Analytics({
     } : null;
   })() : null;
 
-  if (!stats && !loading) return <SkeletonDashboard />;
+  // Market Concentration Index for Country view
+  const countryConcentration = activeDimension === 'country' && Array.isArray(dimensionStats) && dimensionStats.length > 0 ? (() => {
+    const sorted = [...dimensionStats].sort((a, b) => (b.totalInstalls || b.installs || 0) - (a.totalInstalls || a.installs || 0));
+    const total = sorted.reduce((sum, r) => sum + (r.totalInstalls || r.installs || 0), 0);
+    if (total === 0) return null;
+    const top3 = sorted.slice(0, 3).reduce((sum, r) => sum + (r.totalInstalls || r.installs || 0), 0);
+    const topShare = ((top3 / total) * 100).toFixed(0);
+    const hhi = sorted.reduce((sum, r) => {
+      const share = (r.totalInstalls || r.installs || 0) / total;
+      return sum + (share * share);
+    }, 0).toFixed(2);
+    return { topShare, hhi };
+  })() : null;
 
+  // Device Mix Shift Chip for Device view (A6)
+  const deviceShiftInfo = activeDimension === 'device' && Array.isArray(dimensionStats) && dimensionStats.length > 0 ? (() => {
+    const topDevice = dimensionStats[0];
+    if (!topDevice) return null;
+    return `Dominant device: ${topDevice.label || topDevice.key} (${topDevice.percentage || 0}% of active users)`;
+  })() : null;
+
+  if (!stats && !loading) return <SkeletonDashboard />;
 
   const isAllProjects = selectedProjectIndex === 'all';
 
@@ -87,20 +107,39 @@ export default function Analytics({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 min-h-[400px]">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold">Install Distribution</h3>
-            {osRec && (
-              <div className="flex items-center space-x-2 bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20 animate-pulse">
-                <CheckCircle2 size={12} />
-                <span className="text-[10px] font-bold uppercase">Safe to drop {osRec.os} ({osRec.percentage}%)</span>
+        <div className="glass-card p-6 min-h-[400px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold">Install Distribution</h3>
+              {osRec && (
+                <div className="flex items-center space-x-2 bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full border border-emerald-500/20 animate-pulse">
+                  <CheckCircle2 size={12} />
+                  <span className="text-[10px] font-bold uppercase">Safe to drop {osRec.os} ({osRec.percentage}%)</span>
+                </div>
+              )}
+            </div>
+
+            <div className="h-[280px]">
+              <DimensionChart data={dimensionStats} dimension={activeDimension} />
+            </div>
+
+            {/* Contextual Market / Device Chips */}
+            {countryConcentration && (
+              <div className="mt-3 flex items-center space-x-2 bg-indigo-500/10 text-indigo-300 px-3 py-2 rounded-xl border border-indigo-500/20 text-xs">
+                <Globe size={14} className="text-indigo-400 shrink-0" />
+                <span>Market Concentration: Top 3 countries = <strong className="text-white">{countryConcentration.topShare}%</strong> of installs (HHI {countryConcentration.hhi})</span>
+              </div>
+            )}
+
+            {deviceShiftInfo && (
+              <div className="mt-3 flex items-center space-x-2 bg-purple-500/10 text-purple-300 px-3 py-2 rounded-xl border border-purple-500/20 text-xs">
+                <Smartphone size={14} className="text-purple-400 shrink-0" />
+                <span>{deviceShiftInfo}</span>
               </div>
             )}
           </div>
-          <div className="h-[300px]">
-             <DimensionChart data={dimensionStats} dimension={activeDimension} />
-          </div>
-          <div className="flex flex-wrap bg-white/5 p-1 rounded-xl mt-6 gap-1">
+
+          <div className="flex flex-wrap bg-white/5 p-1 rounded-xl mt-4 gap-1">
             {['country', 'os_version', 'app_version', 'device'].map((dim) => (
               <button
                 key={dim}
@@ -153,10 +192,6 @@ export default function Analytics({
             {isAllProjects ? 'Visualizing per-app installs alongside total aggregate installs.' : 'Visualizing daily active devices vs acquisition velocity.'}
           </p>
         </div>
-      </div>
-
-      <div className="glass-card p-8 text-center border-dashed border-white/10">
-        <p className="text-white/40 text-sm italic">Additional analytics modules (Heatmaps, Source Tracking) coming soon.</p>
       </div>
     </div>
   );

@@ -1,18 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { Download } from 'lucide-react';
 import { formatNumber } from '../lib/format';
 
 /**
- * A reusable glass-card panel that renders a chart with a title and
- * an optional period-summary stats row (total + avg).
- *
- * Props:
- *  - title {string}        - Card heading
- *  - total {number}        - Period total (left stat)
- *  - avg {number}          - Period average (right stat)
- *  - label1 {string}       - Label for total (default "Total")
- *  - label2 {string}       - Label for avg (default "Avg")
- *  - children              - The chart element to render
- *  - className {string}    - Optional extra class on wrapper
+ * A reusable glass-card panel that renders a chart with a title,
+ * summary stats, and a PNG export button.
  */
 export default function ChartPanel({
   title,
@@ -23,10 +15,46 @@ export default function ChartPanel({
   children,
   className = ''
 }) {
+  const containerRef = useRef(null);
+
+  const handleExportPNG = () => {
+    if (!containerRef.current) return;
+    const canvas = containerRef.current.querySelector('canvas');
+    if (!canvas) return;
+
+    // Create export canvas with dark background
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+    const ctx = exportCanvas.getContext('2d');
+
+    // Dark background fill
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+    // Draw the chart onto export canvas
+    ctx.drawImage(canvas, 0, 0);
+
+    // Trigger download
+    const link = document.createElement('a');
+    const filename = `${(title || 'chart').toLowerCase().replace(/[^a-z0-9]/g, '_')}.png`;
+    link.download = filename;
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+  };
+
   return (
-    <div className={`glass-card p-4 sm:p-6 h-[340px] flex flex-col ${className}`}>
+    <div ref={containerRef} className={`glass-card p-4 sm:p-6 h-[340px] flex flex-col ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold">{title}</h4>
+        <h4 className="text-sm font-bold text-white">{title}</h4>
+        <button
+          onClick={handleExportPNG}
+          className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-1 text-[10px] font-semibold"
+          title="Export Chart as PNG Image"
+        >
+          <Download size={13} />
+          <span className="hidden sm:inline">PNG</span>
+        </button>
       </div>
 
       {/* Summary Stats Row */}

@@ -15,6 +15,7 @@ import NetGrowthChart from '../components/NetGrowthChart';
 import UpgradesChart from '../components/UpgradesChart';
 import ActiveDevicesChart from '../components/ActiveDevicesChart';
 import AllPlatformDashboard from '../components/AllPlatformDashboard';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import ChartPanel from '../components/ChartPanel';
 import { calculateHealthScore } from '../lib/healthScore';
 import SkeletonDashboard from '../components/SkeletonDashboard';
@@ -288,6 +289,9 @@ export default function Dashboard({
           <span className="text-[10px] font-mono bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold capitalize">{activeProject.platform}</span>
         </div>
       )}
+
+      {/* Onboarding & Setup Progress Checklist */}
+      <OnboardingChecklist projects={projects} releases={releases} />
 
       {/* Hero KPI Card */}
       <HeroKPI
