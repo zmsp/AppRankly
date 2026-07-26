@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const { sendNtfyNotification } = require('./notifier');
+const { sendNtfyNotification, sendWebhookNotification, broadcastAlert } = require('./notifier');
 
 let schedulerIntervalHandle = null;
 let lastSchedulerRun = null;
 let lastSchedulerStatus = { status: 'idle', lastRun: null, appsChecked: 0, notificationsSent: 0 };
+let lastWeeklyDigestDate = null;
 
 /**
  * Gets lookback start and end dates (YYYY-MM-DD) based on range in days.
@@ -49,6 +50,34 @@ function saveLastKnownStats(dataDir, statsMap) {
 }
 
 /**
+ * B5 Auto-Detect New Version Releases
+ */
+function autoDetectRelease(dataDir, pkgId, platform, version, recentChanges, date) {
+  if (!version) return;
+  const releasesFile = path.join(dataDir, 'releases.json');
+  let releases = [];
+  if (fs.existsSync(releasesFile)) {
+    try {
+      releases = JSON.parse(fs.readFileSync(releasesFile, 'utf8'));
+    } catch (e) {}
+  }
+
+  const exists = releases.some(r => r.version === version && (r.packageName === pkgId || r.platform === platform));
+  if (!exists) {
+    releases.push({
+      version,
+      platform,
+      packageName: pkgId,
+      releaseDate: date || new Date().toISOString().split('T')[0],
+      notes: recentChanges || `Auto-detected release v${version}`,
+      source: 'auto'
+    });
+    fs.writeFileSync(releasesFile, JSON.stringify(releases, null, 2), 'utf8');
+    console.log(`[Scheduler] Auto-detected release v${version} for ${pkgId}`);
+  }
+}
+
+/**
  * Main function to check for stats updates and send notifications.
  */
 async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer, buildAppleViewer, fetchPackagesByPlatform }, options = {}) {
@@ -61,6 +90,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
   const hoursInterval = baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1;
   const rangeDays = baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30;
   const ntfyTopic = (baseConfig.ntfyTopic !== undefined ? baseConfig.ntfyTopic : process.env.NTFY_TOPIC) || '';
+  const webhookUrl = baseConfig.webhookUrl || process.env.WEBHOOK_URL || '';
   const startHour = baseConfig.activeStartHour !== undefined ? Number(baseConfig.activeStartHour) : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9);
   const endHour = baseConfig.activeEndHour !== undefined ? Number(baseConfig.activeEndHour) : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20);
 
@@ -144,39 +174,47 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
       let notifMsg = '';
 
       if (!prevRecord) {
-        // Initial baseline creation
         console.log(`[Scheduler] Baseline initialized for ${displayName} (${platform}). Latest date: ${latestTrend.date}`);
       } else if (latestTrend.date > prevRecord.lastDate) {
-        // New date row discovered!
         isNewData = true;
         notifTitle = `🚀 New Stats: ${displayName}`;
         notifMsg = `New daily stats available for ${displayName} (${platform.toUpperCase()})!\n📅 Date: ${latestTrend.date}\n📥 Installs: +${currentDailyInstalls}\n📤 Uninstalls: -${currentDailyUninstalls}\n📊 Total Installs: ${totalInstalls}`;
       } else if (latestTrend.date === prevRecord.lastDate && currentDailyInstalls > (prevRecord.dailyInstalls || 0)) {
-        // Updated numbers for latest date!
         const diff = currentDailyInstalls - (prevRecord.dailyInstalls || 0);
         isNewData = true;
         notifTitle = `📈 Updated Stats: ${displayName}`;
         notifMsg = `Stats updated for ${displayName} (${platform.toUpperCase()}) on ${latestTrend.date}!\n📥 New Installs: ${currentDailyInstalls} (+${diff})\n📊 Total Installs: ${totalInstalls}`;
       }
 
-      if (isNewData) {
-        if (ntfyTopic && ntfyTopic.trim()) {
-          console.log(`[Scheduler] Discovered new stats for ${displayName}! Sending notification...`);
-          const res = await sendNtfyNotification({
-            title: notifTitle,
-            message: notifMsg,
-            priority: 'high',
-            tags: 'chart_with_upwards_trend,package',
-            topic: ntfyTopic
+      // Check Churn Anomaly Alert
+      if (stats.retentionBenchmarks?.churnAnomalies?.length > 0) {
+        const highAnom = stats.retentionBenchmarks.churnAnomalies.find(a => a.severity === 'high' && a.date === latestTrend.date);
+        if (highAnom && (!prevRecord || prevRecord.lastAnomalyDate !== latestTrend.date)) {
+          broadcastAlert({
+            title: `⚠️ Churn Anomaly: ${displayName}`,
+            message: `High uninstall spike detected on ${latestTrend.date}: ${highAnom.uninstalls} uninstalls (z=${highAnom.zScore}).`,
+            priority: 'urgent',
+            tags: 'warning,warning',
+            topic: ntfyTopic,
+            webhookUrl
           });
+        }
+      }
 
-          if (res.success) {
-            notificationsSent++;
-            details.push({ app: displayName, platform, date: latestTrend.date, status: 'Notified' });
-          }
-        } else {
-          console.log(`[Scheduler] Discovered new stats for ${displayName}, but ntfy alert is off (no ntfyTopic configured).`);
-          details.push({ app: displayName, platform, date: latestTrend.date, status: 'Ntfy Alert Off' });
+      if (isNewData) {
+        console.log(`[Scheduler] Discovered new stats for ${displayName}! Broadcasting notification...`);
+        const res = await broadcastAlert({
+          title: notifTitle,
+          message: notifMsg,
+          priority: 'high',
+          tags: 'chart_with_upwards_trend,package',
+          topic: ntfyTopic,
+          webhookUrl
+        });
+
+        if (res.ntfyResult?.success || res.webhookResult?.success) {
+          notificationsSent++;
+          details.push({ app: displayName, platform, date: latestTrend.date, status: 'Notified' });
         }
       }
 
@@ -186,6 +224,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
         dailyInstalls: currentDailyInstalls,
         dailyUninstalls: currentDailyUninstalls,
         totalInstalls,
+        lastAnomalyDate: stats.retentionBenchmarks?.churnAnomalies?.find(a => a.severity === 'high')?.date || null,
         updatedAt: new Date().toISOString()
       };
 
@@ -229,7 +268,6 @@ function startPeriodicScheduler(helpers) {
 
   console.log(`[Scheduler] Starting periodic store stats refresh every ${hoursInterval} hour(s)...`);
 
-  // Run initial check after 20 seconds delay to let server start up smoothly
   setTimeout(() => {
     checkAndNotifyStats(helpers).catch(err => {
       console.error('[Scheduler] Initial run error:', err.message);

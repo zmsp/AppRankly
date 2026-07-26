@@ -12,6 +12,7 @@ import Config from './pages/Config';
 import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
 import DemoPopup from './components/DemoPopup';
+import AppSwitcherModal from './components/AppSwitcherModal';
 import { useAppState } from './hooks/useAppState';
 
 function App() {
@@ -94,6 +95,13 @@ function App() {
         {!state.authToken && !state.isDemoMode && !state.noPass && (
           <AuthOverlay {...state} />
         )}
+
+        <AppSwitcherModal
+          projects={state.projects}
+          selectedProjectIndex={state.selectedProjectIndex}
+          onSelectProject={state.setSelectedProjectIndex}
+          setPlatform={state.setPlatform}
+        />
 
         <DemoPopup isDemoMode={state.isDemoMode} />
 

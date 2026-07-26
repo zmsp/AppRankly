@@ -30,7 +30,8 @@ async function getPlayListing(appId) {
       contentRating: raw.contentRating || '',
       updated: raw.updated ? new Date(raw.updated).toISOString() : new Date().toISOString(),
       version: raw.version || '',
-      recentChanges: raw.recentChanges || ''
+      recentChanges: raw.recentChanges || '',
+      privacyPolicy: raw.privacyPolicy || ''
     };
   } catch (err) {
     console.warn(`[ASO Scraper] Play listing fetch failed for ${appId}:`, err.message);

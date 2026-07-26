@@ -37,13 +37,21 @@ export function useAppState() {
   const startParam = searchParams.get('start');
   const endParam = searchParams.get('end');
 
-  const [platform, setPlatform] = useState(initialPlatform);
+  const [platform, setPlatform] = useState(() => localStorage.getItem('apprankly_platform') || initialPlatform);
   const [activeDimension, setActiveDimension] = useState('country');
   const [comparisonMode, setComparisonMode] = useState('prev_period'); // 'prev_period' | 'prev_year' | 'none'
   const [granularity, setGranularity] = useState('day'); // 'day' | 'week' | 'month'
   const [projects, setProjects] = useState([]);
-  const [selectedProjectIndex, setSelectedProjectIndex] = useState(initialProject);
+  const [selectedProjectIndex, setSelectedProjectIndex] = useState(() => localStorage.getItem('apprankly_project') || initialProject);
   const [authToken, setAuthToken] = useState(localStorage.getItem('apprankly_token'));
+
+  useEffect(() => {
+    if (platform) localStorage.setItem('apprankly_platform', platform);
+  }, [platform]);
+
+  useEffect(() => {
+    if (selectedProjectIndex) localStorage.setItem('apprankly_project', selectedProjectIndex);
+  }, [selectedProjectIndex]);
   
   const calculateInitialRange = () => {
     if (startParam && endParam) {

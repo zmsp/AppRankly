@@ -1,8 +1,8 @@
 import React from 'react';
-import { FileText, Download, Activity } from 'lucide-react';
+import { FileText, Download, Activity, PackageCheck } from 'lucide-react';
 import { toCSV, downloadCSV } from '../lib/csv';
 
-export default function Reports({ stats, dimensionStats, activeDimension, loading, projects, selectedProjectIndex }) {
+export default function Reports({ stats, dimensionStats, activeDimension = 'country', loading, projects = [], selectedProjectIndex }) {
   const currentProject = projects.find(p => p.index === selectedProjectIndex) || { name: 'App' };
 
   const handleExportOverview = () => {
@@ -26,28 +26,41 @@ export default function Reports({ stats, dimensionStats, activeDimension, loadin
     downloadCSV(`${currentProject.name}_${activeDimension}.csv`, csv);
   };
 
+  const handleExportArchive = () => {
+    if (!stats) return;
+    let archiveText = `# AppRankly Data Archive — ${currentProject.name}\n# Exported on ${new Date().toISOString()}\n\n`;
+    archiveText += `=== OVERVIEW METRICS ===\n` + toCSV([stats], ['totalInstallCountByUser', 'totalUninstallCountByUser', 'currentlyActiveDevices', 'totalDailyUserInstalls', 'totalDailyUserUninstalls']) + `\n\n`;
+    if (stats.dailyTrends && stats.dailyTrends.length > 0) {
+      archiveText += `=== DAILY TRENDS ===\n` + toCSV(stats.dailyTrends, Object.keys(stats.dailyTrends[0])) + `\n\n`;
+    }
+    if (dimensionStats && dimensionStats.length > 0) {
+      archiveText += `=== DIMENSION ANALYSIS (${activeDimension}) ===\n` + toCSV(dimensionStats, Object.keys(dimensionStats[0])) + `\n\n`;
+    }
+    downloadCSV(`${currentProject.name}_full_archive.txt`, archiveText);
+  };
+
   if (loading && !stats) return (
-    <div className="flex items-center justify-center h-full">
-      <Activity className="animate-spin text-accent-blue mr-2" />
+    <div className="flex items-center justify-center h-full text-slate-400 text-xs py-12">
+      <Activity className="animate-spin text-accent-blue mr-2" size={18} />
       <span>Preparing report data...</span>
     </div>
   );
 
   if (!stats) return (
-    <div className="flex flex-col items-center justify-center h-full text-center p-6">
+    <div className="flex flex-col items-center justify-center h-full text-center p-6 py-12">
       <div className="bg-white/5 p-4 rounded-full mb-4">
         <FileText className="text-white/20 w-8 h-8" />
       </div>
-      <h3 className="text-xl font-bold mb-2">Reports Not Available</h3>
-      <p className="text-white/40 mb-6 max-w-md">Sync your data to generate exportable reports.</p>
+      <h3 className="text-xl font-bold mb-2 text-white">Reports Not Available</h3>
+      <p className="text-white/40 mb-6 max-w-md text-xs">Sync your data to generate exportable reports.</p>
     </div>
   );
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Reports & Exports</h2>
-        <p className="text-white/40">Download raw data for offline analysis</p>
+        <h2 className="text-2xl font-bold text-white">Reports & Data Exports</h2>
+        <p className="text-xs text-white/40">Download raw metrics and structured analytics for offline analysis</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -65,46 +78,45 @@ export default function Reports({ stats, dimensionStats, activeDimension, loadin
         />
         <ReportCard
           title={`Dimension: ${activeDimension.replace('_', ' ')}`}
-          description="Granular data for the currently selected dimension analysis."
+          description="Granular breakdown for the currently selected dimension."
           onDownload={handleExportDimensions}
           disabled={!dimensionStats}
         />
-        <div className="glass-card p-6 flex flex-col justify-between border-dashed border-white/10 opacity-60">
-          <div>
-            <h3 className="font-bold mb-2 flex items-center">
-              <FileText className="mr-2 text-white/40" size={18} />
-              Full Archive (ZIP)
-            </h3>
-            <p className="text-xs text-white/40">Download all dimensions and historical trends in a single archive.</p>
-          </div>
-          <button disabled className="mt-4 w-full py-2 bg-white/5 text-white/20 rounded-xl font-bold text-xs uppercase cursor-not-allowed">
-            Coming Soon
-          </button>
-        </div>
+        <ReportCard
+          title="Full Data Archive Bundle"
+          description="Download all overview, trend, and dimension datasets in a single bundle."
+          onDownload={handleExportArchive}
+          disabled={!stats}
+          highlight={true}
+        />
       </div>
     </div>
   );
 }
 
-function ReportCard({ title, description, onDownload, disabled }) {
+function ReportCard({ title, description, onDownload, disabled, highlight = false }) {
   return (
-    <div className="glass-card p-6 flex flex-col justify-between">
+    <div className={`glass-card p-6 flex flex-col justify-between ${highlight ? 'border border-indigo-500/30 bg-gradient-to-r from-indigo-950/20 to-slate-900/40' : ''}`}>
       <div>
-        <h3 className="font-bold mb-2 flex items-center">
-          <FileText className="mr-2 text-accent-blue" size={18} />
+        <h3 className="font-bold mb-2 flex items-center text-white text-sm">
+          <FileText className={`mr-2 ${highlight ? 'text-indigo-400' : 'text-accent-blue'}`} size={18} />
           {title}
         </h3>
-        <p className="text-xs text-white/40">{description}</p>
+        <p className="text-xs text-white/40 leading-relaxed">{description}</p>
       </div>
       <button
         onClick={onDownload}
         disabled={disabled}
         className={`mt-4 w-full py-2 flex items-center justify-center space-x-2 rounded-xl font-bold text-xs uppercase transition-all ${
-          disabled ? 'bg-white/5 text-white/20 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20 text-white'
+          disabled
+            ? 'bg-white/5 text-white/20 cursor-not-allowed'
+            : highlight
+            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
+            : 'bg-white/10 hover:bg-white/20 text-white border border-white/10'
         }`}
       >
         <Download size={14} />
-        <span>Download CSV</span>
+        <span>Download Report</span>
       </button>
     </div>
   );
