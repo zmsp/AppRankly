@@ -3,10 +3,12 @@ import {
   Eye, MousePointer, Download, Percent, Search, Sparkles, CheckCircle, 
   TrendingUp, Key, Globe, Shield, RefreshCw, Copy, Plus, AlertCircle, Bot,
   Users, MessageSquare, Sliders, CheckSquare, BookOpen, Info, HelpCircle, Zap,
-  BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText
+  BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText,
+  LayoutGrid
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import PortfolioAsoScores from '../components/PortfolioAsoScores';
+import { saveCachedAudit, getCachedAudit } from '../lib/asoCache';
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
@@ -252,8 +254,13 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
   };
 
   const fetchAsoOverview = async () => {
+    const cachedAudit = getCachedAudit(packageName);
+
     if (isDemoMode) {
       const demo = getDemoAsoData(packageName, activeProject);
+      if (cachedAudit) {
+        demo.lastAudit = { ...demo.lastAudit, ...cachedAudit };
+      }
       setAsoData(demo);
       setActionItems(demo.actionPlan);
       return;
@@ -266,16 +273,19 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
       }, authToken);
       if (res.ok) {
         const data = await res.json();
-        // Merge demo structure for missing parts if backend doesn't supply yet
         const demoFallback = getDemoAsoData(packageName, activeProject);
+        const finalAudit = cachedAudit || data.lastAudit || demoFallback.lastAudit;
         setAsoData({
           ...demoFallback,
-          ...data
+          ...data,
+          lastAudit: finalAudit
         });
       }
     } catch (e) {
       console.error('Failed to load ASO overview:', e);
-      setAsoData(getDemoAsoData(packageName, activeProject));
+      const demoFallback = getDemoAsoData(packageName, activeProject);
+      if (cachedAudit) demoFallback.lastAudit = { ...demoFallback.lastAudit, ...cachedAudit };
+      setAsoData(demoFallback);
     } finally {
       setLoading(false);
     }
@@ -331,18 +341,20 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     setAuditLoading(true);
     if (isDemoMode) {
       setTimeout(() => {
+        const auditObj = {
+          score: 95,
+          headline: "AI Listing Audit complete! High conversion metadata structure with primary keyword placement.",
+          improvements: [
+            { type: "Subtitle", impact: "high", issue: "Keyword Placement", recommendation: "Include primary seed term in subtitle to capture +15% search impression traffic." },
+            { type: "Short Description", impact: "high", issue: "Call to Action", recommendation: "Lead with explicit user benefit in first line of short description." },
+            { type: "Screenshots", impact: "medium", issue: "Social Proof", recommendation: "Feature top rating badge '4.9★ Rated by Users' on screenshot 1 preview." }
+          ]
+        };
         setAsoData(prev => ({
           ...prev,
-          lastAudit: {
-            score: 95,
-            headline: "AI Listing Audit complete! High conversion metadata structure with primary keyword placement.",
-            improvements: [
-              { type: "Subtitle", impact: "high", issue: "Keyword Placement", recommendation: "Include primary seed term in subtitle to capture +15% search impression traffic." },
-              { type: "Short Description", impact: "high", issue: "Call to Action", recommendation: "Lead with explicit user benefit in first line of short description." },
-              { type: "Screenshots", impact: "medium", issue: "Social Proof", recommendation: "Feature top rating badge '4.9★ Rated by Users' on screenshot 1 preview." }
-            ]
-          }
+          lastAudit: auditObj
         }));
+        saveCachedAudit(packageName, auditObj);
         setAuditLoading(false);
       }, 600);
       return;
@@ -364,6 +376,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         const data = await res.json();
         if (data?.audit) {
           setAsoData(prev => ({ ...prev, lastAudit: data.audit }));
+          saveCachedAudit(packageName, data.audit);
         }
       }
     } catch (e) {

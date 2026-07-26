@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, CheckCircle2, AlertTriangle, Layers, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import AppIcon from './AppIcon';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { getDemoAsoData } from '../pages/StoreASO';
+import { getAppAsoAudit } from '../lib/asoCache';
 import { clsx } from 'clsx';
 
 export default function PortfolioAsoScores({
@@ -17,6 +18,15 @@ export default function PortfolioAsoScores({
 }) {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [cacheNonce, setCacheNonce] = useState(0);
+
+  useEffect(() => {
+    const handleAuditUpdate = () => {
+      setCacheNonce(prev => prev + 1);
+    };
+    window.addEventListener('aso_audit_updated', handleAuditUpdate);
+    return () => window.removeEventListener('aso_audit_updated', handleAuditUpdate);
+  }, []);
 
   const rawList = projects.length > 0 ? projects : MOCK_PROJECTS;
 
@@ -94,17 +104,9 @@ export default function PortfolioAsoScores({
             </div>
           ) : (
             filteredProjects.map((proj) => {
-              let auditInfo = null;
-
-              if (proj.asoScore && proj.asoScore > 0) {
-                auditInfo = { score: proj.asoScore, headline: "Pre-calculated ASO health score." };
-              } else {
-                const demoData = getDemoAsoData(proj.packageName || proj.index, proj);
-                auditInfo = demoData.lastAudit;
-              }
-
+              const auditInfo = getAppAsoAudit(proj, isDemoMode, getDemoAsoData);
               const score = auditInfo?.score ?? 88;
-              const topFix = auditInfo?.improvements?.[0];
+              const topFix = auditInfo?.topFix || auditInfo?.improvements?.[0];
 
               return (
                 <div
@@ -145,8 +147,9 @@ export default function PortfolioAsoScores({
                         )}>
                           {score}/100
                         </span>
-                        <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">
-                          ASO Score
+                        <span className="text-[9px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider flex items-center gap-1">
+                          {auditInfo?.isCached && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Updated by recent AI Audit" />}
+                          {auditInfo?.isCached ? 'AI Audited' : 'ASO Score'}
                         </span>
                       </div>
                     </div>

@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import PortfolioSmallMultiples from './PortfolioSmallMultiples';
-import PortfolioAsoScores from './PortfolioAsoScores';
 import MetricCard from './MetricCard';
 import { Download } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
@@ -94,16 +93,6 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
         </div>
       </div>
       
-      {/* Portfolio ASO Scores & Recommendations Section */}
-      <div className="mt-8">
-        <PortfolioAsoScores
-          projects={displayProjects}
-          platform={platform}
-          onSelectProject={setSelectedProjectIndex}
-          setPlatform={setPlatform}
-        />
-      </div>
-
       {/* App Portfolio Grid with Mini Sparkline Graphs */}
       <div className="mt-8">
         <PortfolioSmallMultiples
