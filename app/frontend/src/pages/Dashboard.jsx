@@ -246,6 +246,7 @@ export default function Dashboard({
             stats={stats}
             platform={platform}
             setSelectedProjectIndex={setSelectedProjectIndex}
+            setPlatform={setPlatform}
           />
         </>
       )}

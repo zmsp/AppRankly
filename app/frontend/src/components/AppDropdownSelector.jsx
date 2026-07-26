@@ -6,6 +6,8 @@ import { clsx } from 'clsx';
 import AppIcon from './AppIcon';
 import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
 
+import { useLocation } from 'react-router-dom';
+
 export default function AppDropdownSelector({
   projects = [],
   selectedProjectIndex,
@@ -13,6 +15,8 @@ export default function AppDropdownSelector({
   platform = 'all',
   setPlatform
 }) {
+  const location = useLocation();
+  const isAsoPage = location.pathname.startsWith('/store');
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);

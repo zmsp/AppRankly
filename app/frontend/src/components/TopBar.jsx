@@ -42,6 +42,7 @@ export default function TopBar({
   refreshData
 }) {
   const location = useLocation();
+  const isAsoPage = location.pathname.startsWith('/store');
   const handleLogout = () => {
     setAuthToken(null);
     localStorage.removeItem('apprankly_token');

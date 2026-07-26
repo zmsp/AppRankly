@@ -6,6 +6,7 @@ import {
   BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
+import PortfolioAsoScores from '../components/PortfolioAsoScores';
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
@@ -145,9 +146,10 @@ export function getDemoAsoData(pkgName = '', project = {}) {
   };
 }
 
-export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken, onSelectProject }) {
-  const activeProject = projects.find(p => p.index === selectedProjectIndex) || projects[0];
+export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken, onSelectProject, setPlatform }) {
+  const activeProject = projects.find(p => p.index === selectedProjectIndex) || projects[0] || MOCK_PROJECTS[0];
   const packageName = activeProject?.packageName || 'com.example.app';
+  const isAllScope = selectedProjectIndex === 'all' || !selectedProjectIndex;
 
   // Sub-Navigation Tab State
   const [activeTab, setActiveTab] = useState('audit'); // 'audit' | 'keywords' | 'competitors' | 'reviews' | 'builder' | 'action_plan'
@@ -572,6 +574,35 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
   };
 
   const densityStats = getKeywordDensity(metadataInputs.description, densityKeyword);
+
+  if (isAllScope) {
+    const scopeLabel = platform === 'apple' ? 'Apple Store' : platform === 'google' ? 'Play Store' : 'All App';
+    return (
+      <div className="space-y-6 pb-12">
+        {/* Custom Portfolio Scope Header Banner */}
+        <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900/90 via-indigo-950/40 to-slate-900/90 border border-white/10 space-y-3 shadow-xl">
+          <div className="flex items-center space-x-3 text-accent-blue">
+            <LayoutGrid size={24} />
+            <h1 className="text-xl sm:text-2xl font-extrabold text-white">
+              Portfolio ASO Studio ({scopeLabel})
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+            Viewing aggregated portfolio ASO health scores and top priority fixes. Select an individual app below or from the top navigation to unlock per-app AI listing audit, keyword workspace, competitor gap intelligence, review digest, and metadata sandbox.
+          </p>
+        </div>
+
+        {/* Portfolio ASO Scores & Recommendations Grid (Default Expanded) */}
+        <PortfolioAsoScores
+          projects={projects}
+          platform={platform}
+          onSelectProject={onSelectProject}
+          setPlatform={setPlatform}
+          isDemoMode={isDemoMode}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-12">
