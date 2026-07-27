@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Smartphone,
   Users,
   Eye,
   Tag,
@@ -13,9 +14,11 @@ import {
   Coffee
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { getProjectUrlSegment } from '../lib/projectUtils';
 
 const navItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, path: '/all/all' },
+  { id: 'details', label: 'App Details', icon: Smartphone, path: '/details' },
   { id: 'retention', label: 'Retention', icon: Users, path: '/retention' },
   { id: 'store', label: 'Store (ASO)', icon: Eye, path: '/store' },
   { id: 'releases', label: 'Releases', icon: Tag, path: '/releases' },
@@ -63,12 +66,17 @@ export default function Sidebar({
                 if (window.innerWidth < 768) setCollapsed(true);
                 if (item.id === 'overview') {
                   if (setSelectedProjectIndex) setSelectedProjectIndex('all');
+                } else if (item.id === 'details') {
+                  if ((selectedProjectIndex === 'all' || !selectedProjectIndex) && projects.length > 0) {
+                    const firstSeg = getProjectUrlSegment(projects[0]);
+                    if (setSelectedProjectIndex) setSelectedProjectIndex(firstSeg);
+                  }
                 }
               }}
               className={({ isActive }) => {
                 const currentPath = location.pathname;
                 const firstSegment = currentPath.split('/')[1] || '';
-                const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary', 'demo'];
+                const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary', 'demo'];
                 let isReallyActive = isActive;
                 if (item.id === 'overview') {
                   isReallyActive = !knownSubRoutes.includes(firstSegment);

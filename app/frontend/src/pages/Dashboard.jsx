@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { PlayStoreIcon, AppleStoreIcon } from '../components/icons/StoreIcons';
 import HeroKPI from '../components/HeroKPI';
@@ -18,8 +19,10 @@ import AllPlatformDashboard from '../components/AllPlatformDashboard';
 import ChartPanel from '../components/ChartPanel';
 import { calculateHealthScore } from '../lib/healthScore';
 import SkeletonDashboard from '../components/SkeletonDashboard';
-import { findProject } from '../lib/projectUtils';
+import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 import { formatNumber } from '../lib/format';
+import AppIcon from '../components/AppIcon';
+import AppDropdownSelector from '../components/AppDropdownSelector';
 import {
   Users,
   Download,
@@ -33,7 +36,9 @@ import {
   LayoutGrid,
   AlertTriangle,
   RefreshCw,
-  Play
+  Play,
+  Smartphone,
+  ChevronRight
 } from 'lucide-react';
 
 export default function Dashboard({
@@ -53,11 +58,23 @@ export default function Dashboard({
   authToken,
   isStaticMode,
   refreshData,
-  switchToDemoMode
+  switchToDemoMode,
+  viewMode
 }) {
+  const location = useLocation();
+  const isDetailsView = viewMode === 'details' || location.pathname.startsWith('/details');
+
   const [isLogarithmic, setIsLogarithmic] = useState(false);
   const [selectedDrilldownPoint, setSelectedDrilldownPoint] = useState(null);
-  const [showPortfolio, setShowPortfolio] = useState(true);
+
+  // Auto-select first project if visiting Details page while 'all' is selected
+  useEffect(() => {
+    if (isDetailsView && (selectedProjectIndex === 'all' || !selectedProjectIndex) && projects.length > 0) {
+      if (setSelectedProjectIndex) {
+        setSelectedProjectIndex(getProjectUrlSegment(projects[0]));
+      }
+    }
+  }, [isDetailsView, selectedProjectIndex, projects, setSelectedProjectIndex]);
 
   if (loading && !stats) return <SkeletonDashboard />;
 
@@ -108,7 +125,6 @@ export default function Dashboard({
   if (!stats && !loading) return <SkeletonDashboard />;
 
   if (!stats) return null;
-
 
   // True Period-over-Period trend computation
   const computeTrend = (key) => {
@@ -184,76 +200,150 @@ export default function Dashboard({
     </div>
   );
 
-  return (
-    <div className="space-y-6 relative">
-      {/* Standard Tab Switcher UI and Portfolio Grid (rendered on Portfolio / All Apps view, or when toggled) */}
-      {(selectedProjectIndex === 'all' || !selectedProjectIndex || showPortfolio) && (
-        <>
-          {/* Compact Segmented Control Pill Switcher & Main Page Refresh Button */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-md">
-            <div className="flex items-center space-x-2 px-1">
-              <LayoutGrid size={16} className="text-accent-blue" />
-              <span className="text-sm font-bold text-white">Platform Scope</span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="inline-flex items-center p-1 rounded-lg bg-slate-950/80 border border-white/10 text-xs gap-1 flex-1 sm:flex-none">
-                {[
-                  { id: 'all', title: 'All App', count: projects.length || 0, icon: LayoutGrid, activeColor: 'text-accent-blue border-accent-blue/40 bg-accent-blue/15' },
-                  { id: 'apple', title: 'Apple Store', count: projects.filter(p => p.platform === 'apple').length || 0, icon: AppleStoreIcon, activeColor: 'text-sky-300 border-sky-500/40 bg-sky-500/15' },
-                  { id: 'google', title: 'Play Store', count: projects.filter(p => p.platform === 'google').length || 0, icon: PlayStoreIcon, activeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' },
-                ].map((tab) => {
-                  const isSelected = platform === tab.id;
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        if (setPlatform) setPlatform(tab.id);
-                        if (tab.id === 'all' && setSelectedProjectIndex) setSelectedProjectIndex('all');
-                      }}
-                      className={clsx(
-                        "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
-                        isSelected
-                          ? `${tab.activeColor} shadow-sm font-bold`
-                          : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
-                      )}
-                    >
-                      <Icon size={13} className={isSelected ? "currentColor" : "text-slate-400"} />
-                      <span>{tab.title}</span>
-                      <span className={clsx("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ml-1", isSelected ? "bg-white/15" : "bg-white/5 text-slate-400")}>
-                        {tab.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {refreshData && (
-                <button
-                  onClick={refreshData}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-blue hover:bg-accent-blue/90 text-slate-950 rounded-lg text-xs font-extrabold transition-all shadow-md shadow-accent-blue/20 active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
-                  title="Refresh all stats on the main page"
-                >
-                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                  <span>Refresh Stats</span>
-                </button>
-              )}
-            </div>
+  /* -------------------------------------------------------------------------- */
+  /* OVERVIEW VIEW ONLY: Platform Scope Pill Switcher & Portfolio Grid           */
+  /* -------------------------------------------------------------------------- */
+  if (!isDetailsView) {
+    return (
+      <div className="space-y-6 relative">
+        {/* Compact Segmented Control Pill Switcher & Main Page Refresh Button */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-md">
+          <div className="flex items-center space-x-2 px-1">
+            <LayoutGrid size={16} className="text-accent-blue" />
+            <span className="text-sm font-bold text-white">Platform Scope Overview</span>
           </div>
 
-          {/* Platform Breakdown Cards & Portfolio Grid */}
-          <AllPlatformDashboard
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="inline-flex items-center p-1 rounded-lg bg-slate-950/80 border border-white/10 text-xs gap-1 flex-1 sm:flex-none">
+              {[
+                { id: 'all', title: 'All App', count: projects.length || 0, icon: LayoutGrid, activeColor: 'text-accent-blue border-accent-blue/40 bg-accent-blue/15' },
+                { id: 'apple', title: 'Apple Store', count: projects.filter(p => p.platform === 'apple').length || 0, icon: AppleStoreIcon, activeColor: 'text-sky-300 border-sky-500/40 bg-sky-500/15' },
+                { id: 'google', title: 'Play Store', count: projects.filter(p => p.platform === 'google').length || 0, icon: PlayStoreIcon, activeColor: 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' },
+              ].map((tab) => {
+                const isSelected = platform === tab.id;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      if (setPlatform) setPlatform(tab.id);
+                      if (tab.id === 'all' && setSelectedProjectIndex) setSelectedProjectIndex('all');
+                    }}
+                    className={clsx(
+                      "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
+                      isSelected
+                        ? `${tab.activeColor} shadow-sm font-bold`
+                        : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                    )}
+                  >
+                    <Icon size={13} className={isSelected ? "currentColor" : "text-slate-400"} />
+                    <span>{tab.title}</span>
+                    <span className={clsx("text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ml-1", isSelected ? "bg-white/15" : "bg-white/5 text-slate-400")}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {refreshData && (
+              <button
+                onClick={refreshData}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent-blue hover:bg-accent-blue/90 text-slate-950 rounded-lg text-xs font-extrabold transition-all shadow-md shadow-accent-blue/20 active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                title="Refresh all stats on the main page"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>Refresh Stats</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Platform Overview Stat Cards & Portfolio Performance Grid */}
+        <AllPlatformDashboard
+          projects={projects}
+          filteredProjects={filteredProjects}
+          stats={stats}
+          platform={platform}
+          setSelectedProjectIndex={setSelectedProjectIndex}
+          setPlatform={setPlatform}
+        />
+
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
+            <div className="flex items-center space-x-3">
+              <AlertTriangle size={18} className="text-rose-400 shrink-0" />
+              <span><strong>Warning:</strong> {error}. Showing last available data.</span>
+            </div>
+            {refreshData && (
+              <button
+                onClick={refreshData}
+                className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 rounded-lg font-semibold transition-all border border-rose-500/30"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* APP DETAILS VIEW ONLY: Full App Analytics Dashboard                         */
+  /* -------------------------------------------------------------------------- */
+  return (
+    <div className="space-y-6 relative">
+      {/* App Details Header Banner */}
+      <div className="bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/10 shadow-lg flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-3 min-w-0">
+          {activeProject ? (
+            <AppIcon iconUrl={activeProject.iconUrl} name={activeProject.name} platform={activeProject.platform} className="w-10 h-10 rounded-xl shrink-0 shadow" />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-accent-blue/20 text-accent-blue border border-accent-blue/30 flex items-center justify-center font-bold shrink-0">
+              <Smartphone size={20} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-base sm:text-lg font-extrabold text-white truncate">
+                {activeProject ? activeProject.name : 'App Specific Details'}
+              </h2>
+              {activeProject?.platform === 'apple' ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 border border-sky-500/30 text-sky-300 flex items-center gap-1">
+                  <AppleStoreIcon size={11} /> iOS App
+                </span>
+              ) : activeProject?.platform === 'google' ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center gap-1">
+                  <PlayStoreIcon size={11} /> Play Store
+                </span>
+              ) : null}
+            </div>
+            <p className="text-xs text-slate-400 truncate">
+              {activeProject ? activeProject.packageName : 'Select an app to inspect detailed performance metrics'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <AppDropdownSelector
             projects={projects}
-            filteredProjects={filteredProjects}
-            stats={stats}
+            selectedProjectIndex={selectedProjectIndex}
+            onSelectProject={setSelectedProjectIndex}
             platform={platform}
-            setSelectedProjectIndex={setSelectedProjectIndex}
             setPlatform={setPlatform}
           />
-        </>
-      )}
+
+          <button
+            onClick={() => setSelectedProjectIndex('all')}
+            className="text-xs font-semibold px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <LayoutGrid size={14} />
+            <span>Switch to Overview</span>
+          </button>
+        </div>
+      </div>
 
       {error && (
         <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
@@ -269,41 +359,6 @@ export default function Dashboard({
               Retry
             </button>
           )}
-        </div>
-      )}
-
-      {/* Scope Indicator Banner */}
-      {isAllProjects ? (
-        <div className="p-3.5 rounded-xl bg-accent-blue/10 border border-accent-blue/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2">
-            <LayoutGrid size={16} className="text-accent-blue" />
-            <span className="font-bold text-white">Aggregated Portfolio View</span>
-            <span className="text-slate-400">— Showing combined metrics across {filteredProjects.length} active apps ({platform === 'all' ? 'All Platforms' : platform})</span>
-          </div>
-          <span className="text-[10px] font-mono bg-accent-blue/20 text-accent-blue px-2 py-0.5 rounded-full font-bold">All Projects</span>
-        </div>
-      ) : activeProject && (
-        <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2">
-            {activeProject.platform === 'google' ? <PlayStoreIcon size={16} /> : <AppleStoreIcon size={16} />}
-            <span className="font-bold text-white">{activeProject.name}</span>
-            <span className="text-slate-400">— Single App Analytics Dashboard</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowPortfolio(!showPortfolio)}
-              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-accent-blue/10 hover:bg-accent-blue/20 text-accent-blue border border-accent-blue/20 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <LayoutGrid size={12} />
-              <span>{showPortfolio ? "Hide Portfolio Mini Graphs" : "Show Portfolio Mini Graphs"}</span>
-            </button>
-            <button
-              onClick={() => setSelectedProjectIndex('all')}
-              className="text-[10px] font-mono bg-white/10 hover:bg-white/20 text-slate-300 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer"
-            >
-              Switch to Portfolio View
-            </button>
-          </div>
         </div>
       )}
 
@@ -504,3 +559,4 @@ export default function Dashboard({
     </div>
   );
 }
+

@@ -16,9 +16,9 @@ export function useAppState() {
   const [isStaticMode, setIsStaticMode] = useState(false);
   const [noPass, setNoPass] = useState(false);
 
-  // Parse initial state from URL if present (handling sub-routes like /store/android/g-0)
+  // Parse initial state from URL if present (handling sub-routes like /details/android/g-0)
   const pathParts = location.pathname.split('/').filter(Boolean);
-  const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+  const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary'];
   const hasSubRoute = knownSubRoutes.includes(pathParts[0]);
 
   const platIdx = hasSubRoute ? 1 : 0;
@@ -146,10 +146,16 @@ export function useAppState() {
 
     const searchStr = currentSearch.toString() ? `?${currentSearch.toString()}` : '';
 
-    // Preserve sub-routes like /store, /retention, /releases while appending platform/project
+    // Preserve sub-routes like /details, /store, /retention, /releases while appending platform/project
     const currentParts = location.pathname.split('/').filter(Boolean);
-    const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
-    const currentSubRoute = currentParts.find(part => knownSubRoutes.includes(part));
+    const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+    let currentSubRoute = currentParts.find(part => knownSubRoutes.includes(part));
+
+    if (newProject !== 'all' && newProject !== 'manual' && !currentSubRoute) {
+      currentSubRoute = 'details';
+    } else if (newProject === 'all' && currentSubRoute === 'details') {
+      currentSubRoute = null;
+    }
 
     let newPath = `/${platSegment}/${projSegment}${searchStr}`;
     if (currentSubRoute) {
@@ -165,7 +171,7 @@ export function useAppState() {
   useEffect(() => {
     if (isDemoMode) return;
     const currentParts = location.pathname.split('/').filter(Boolean);
-    const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+    const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary'];
     const hasSubRoute = knownSubRoutes.includes(currentParts[0]);
 
     const platIdx = hasSubRoute ? 1 : 0;

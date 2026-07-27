@@ -50,7 +50,14 @@ export default function TopBar({
 
   const getPageName = () => {
     const path = location.pathname;
-    if (path === '/') return 'Dashboard';
+    if (path === '/' || path.startsWith('/all/all')) return 'Overview';
+    if (path.startsWith('/details')) return 'App Details';
+    if (path.startsWith('/store')) return 'Store (ASO)';
+    if (path.startsWith('/retention')) return 'Retention';
+    if (path.startsWith('/releases')) return 'Releases';
+    if (path.startsWith('/reports')) return 'Reports';
+    if (path.startsWith('/config')) return 'Config';
+    if (path.startsWith('/glossary')) return 'Glossary';
     return path.substring(1).charAt(0).toUpperCase() + path.slice(2);
   };
 

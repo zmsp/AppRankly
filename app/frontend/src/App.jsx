@@ -79,7 +79,9 @@ function App() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
           <Routes>
-            <Route path="/" element={<Dashboard {...state} />} />
+            <Route path="/" element={<Dashboard {...state} viewMode="overview" />} />
+            <Route path="/details" element={<Dashboard {...state} viewMode="details" />} />
+            <Route path="/details/*" element={<Dashboard {...state} viewMode="details" />} />
             <Route path="/store/*" element={<StoreASO {...state} onSelectProject={state.setSelectedProjectIndex} />} />
             <Route path="/retention/*" element={<Analytics {...state} />} />
             <Route path="/releases/*" element={<Releases {...state} />} />
@@ -87,8 +89,8 @@ function App() {
             <Route path="/config/*" element={<Config {...state} />} />
             <Route path="/glossary/*" element={<Glossary {...state} />} />
             
-            {/* Direct deep-link support for main dashboard */}
-            <Route path="/:platform" element={<Dashboard {...state} />} />
+            {/* Direct deep-link support for overview dashboard */}
+            <Route path="/:platform" element={<Dashboard {...state} viewMode="overview" />} />
             <Route path="/:platform/:projectIndex" element={<Dashboard {...state} />} />
           </Routes>
         </main>
