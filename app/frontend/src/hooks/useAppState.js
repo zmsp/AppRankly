@@ -222,7 +222,7 @@ export function useAppState() {
       }
       console.error('Failed to fetch projects', err);
     }
-  }, [isStaticMode, platform, selectedProjectIndex, authToken]);
+  }, [isStaticMode, authToken]);
 
   const fetchReleases = useCallback(async () => {
     try {
@@ -499,10 +499,15 @@ export function useAppState() {
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {
       fetchProjects(authToken);
-      loadOverviewStats();
       fetchReleases();
     }
-  }, [loadOverviewStats, fetchReleases, fetchProjects, authToken, isDemoMode, noPass]);
+  }, [fetchProjects, fetchReleases, authToken, isDemoMode, noPass]);
+
+  useEffect(() => {
+    if (authToken || isDemoMode || noPass) {
+      loadOverviewStats();
+    }
+  }, [loadOverviewStats, authToken, isDemoMode, noPass]);
 
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {

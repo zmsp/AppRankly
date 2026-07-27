@@ -313,35 +313,37 @@ const buildGoogleViewer = (baseConfig, packageName) => {
  * @returns {Promise<Array>}
  */
 const fetchPackagesByPlatform = async (platform, baseConfig) => {
-  const fetchApple = async () => {
-    try {
-      const viewer = buildAppleViewer(baseConfig);
-      const pkgs = await viewer.listPackages();
-      return pkgs.map(p => ({ ...p, platform: 'apple' }));
-    } catch (e) {
-      console.error('Error fetching Apple packages:', e.message);
-      return [];
-    }
-  };
+  return resolver.resolve('packages:all', { platform }, async () => {
+    const fetchApple = async () => {
+      try {
+        const viewer = buildAppleViewer(baseConfig);
+        const pkgs = await viewer.listPackages();
+        return pkgs.map(p => ({ ...p, platform: 'apple' }));
+      } catch (e) {
+        console.error('Error fetching Apple packages:', e.message);
+        return [];
+      }
+    };
 
-  const fetchGoogle = async () => {
-    try {
-      const viewer = buildGoogleViewer(baseConfig, 'dummy');
-      let pkgs = await viewer.listPackages();
-      const ignoredSet = getIgnoredSet(baseConfig);
-      pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
-      return pkgs.map(p => ({ ...p, platform: 'google' }));
-    } catch (e) {
-      console.error('Error fetching Google packages:', e.message);
-      return [];
-    }
-  };
+    const fetchGoogle = async () => {
+      try {
+        const viewer = buildGoogleViewer(baseConfig, 'dummy');
+        let pkgs = await viewer.listPackages();
+        const ignoredSet = getIgnoredSet(baseConfig);
+        pkgs = pkgs.filter(p => !ignoredSet.has(String(p.packageName).trim().toLowerCase()));
+        return pkgs.map(p => ({ ...p, platform: 'google' }));
+      } catch (e) {
+        console.error('Error fetching Google packages:', e.message);
+        return [];
+      }
+    };
 
-  if (platform === 'apple') return fetchApple();
-  if (platform === 'google') return fetchGoogle();
-  // 'all'
-  const [applePkgs, googlePkgs] = await Promise.all([fetchApple(), fetchGoogle()]);
-  return [...applePkgs, ...googlePkgs];
+    if (platform === 'apple') return fetchApple();
+    if (platform === 'google') return fetchGoogle();
+    // 'all'
+    const [applePkgs, googlePkgs] = await Promise.all([fetchApple(), fetchGoogle()]);
+    return [...applePkgs, ...googlePkgs];
+  });
 };
 
 const schedulerHelpers = {
@@ -813,74 +815,85 @@ app.post("/api/stats", authenticate, async (req, res) => {
   }
   const baseConfig = getBaseConfig();
   const platform = req.body.platform || "google";
+  const projectIndex = req.body.projectIndex || "all";
+  const packageName = req.body.packageName || "";
+  const startDate = req.body.startDate || "";
+  const endDate = req.body.endDate || "";
   const releases = getReleasesFromFile();
+  const relHash = `${releases.length}_${releases[0]?.id || ''}_${releases[releases.length - 1]?.id || ''}`;
 
-  if (req.body.projectIndex === "all") {
-    try {
-      const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
-
-      const results = await Promise.all(packages.map(async (pkg) => {
-        try {
-          const viewer = pkg.platform === 'apple'
-            ? buildAppleViewer(baseConfig, pkg.packageName)
-            : buildGoogleViewer(baseConfig, pkg.packageName);
-          return await viewer.getAppStats(req.body.startDate, req.body.endDate);
-        } catch (e) {
-          console.error(`Failed to fetch stats for ${pkg.packageName}:`, e.message);
-          return null;
-        }
-      }));
-
-      results.forEach((result, i) => {
-        if (result) {
-          result.packageName = packages[i].packageName;
-          result.displayName = packages[i].name || packages[i].packageName;
-        }
-      });
-
-      const validResults = results.filter(Boolean);
-      if (validResults.length === 0) throw new Error('No data found for any package');
-
-      const aggregated = aggregateOverviews(validResults);
-      if (aggregated && aggregated.dailyTrends) {
-        aggregated.retentionBenchmarks = calculateRetentionBenchmarks(aggregated.dailyTrends);
-        aggregated.releaseCorrelations = correlateReleases(aggregated.dailyTrends, releases);
-        aggregated.weekdayAverages = weekdayAverages(aggregated.dailyTrends, 'dailyInstalls');
-        aggregated.linearForecast = linearForecast(aggregated.dailyTrends.map(t => t.dailyInstalls || 0), 14);
-      }
-
-      return res.json(aggregated);
-    } catch (error) {
-      console.error(`Error in /api/stats (all):`, error);
-      return res.status(500).json({
-        error: 'Failed to aggregate stats',
-        details: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : (error.message || error)
-      });
-    }
-  }
+  const cacheParams = {
+    platform,
+    projectIndex,
+    packageName,
+    startDate,
+    endDate,
+    rel: relHash
+  };
 
   try {
-    let stats;
-    if (platform === "apple") {
-      const statsViewer = buildAppleViewer(baseConfig, req.body.packageName);
-      stats = await statsViewer.getAppStats(req.body.startDate, req.body.endDate);
-    } else {
-      const statsViewer = buildGoogleViewer(baseConfig, req.body.packageName);
-      stats = await statsViewer.getAppStats(req.body.startDate, req.body.endDate);
-    }
+    const statsData = await resolver.resolve('stats', cacheParams, async () => {
+      if (projectIndex === "all") {
+        const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
 
-    stats.platform = platform === "apple" ? "apple" : "google";
-    stats.hasUninstallData = platform !== "apple";
+        const results = await Promise.all(packages.map(async (pkg) => {
+          try {
+            const viewer = pkg.platform === 'apple'
+              ? buildAppleViewer(baseConfig, pkg.packageName)
+              : buildGoogleViewer(baseConfig, pkg.packageName);
+            return await viewer.getAppStats(startDate, endDate);
+          } catch (e) {
+            console.error(`Failed to fetch stats for ${pkg.packageName}:`, e.message);
+            return null;
+          }
+        }));
 
-    if (stats.dailyTrends) {
-      stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
-      stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases, req.body.packageName, platform);
-      stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
-      stats.linearForecast = linearForecast(stats.dailyTrends.map(t => t.dailyInstalls || 0), 14);
-    }
+        results.forEach((result, i) => {
+          if (result) {
+            result.packageName = packages[i].packageName;
+            result.displayName = packages[i].name || packages[i].packageName;
+          }
+        });
 
-    console.log(`Stats fetched for ${req.body.packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
-    res.json(stats);
+        const validResults = results.filter(Boolean);
+        if (validResults.length === 0) throw new Error('No data found for any package');
+
+        const aggregated = aggregateOverviews(validResults);
+        if (aggregated && aggregated.dailyTrends) {
+          // For groups / all apps view: skip auto-calculating release correlations & benchmarks
+          aggregated.retentionBenchmarks = { survivalTrend: [], churnAnomalies: [] };
+          aggregated.releaseCorrelations = [];
+          aggregated.weekdayAverages = weekdayAverages(aggregated.dailyTrends, 'dailyInstalls');
+          aggregated.linearForecast = linearForecast(aggregated.dailyTrends.map(t => t.dailyInstalls || 0), 14);
+        }
+
+        return aggregated;
+      } else {
+        let stats;
+        if (platform === "apple") {
+          const statsViewer = buildAppleViewer(baseConfig, packageName);
+          stats = await statsViewer.getAppStats(startDate, endDate);
+        } else {
+          const statsViewer = buildGoogleViewer(baseConfig, packageName);
+          stats = await statsViewer.getAppStats(startDate, endDate);
+        }
+
+        stats.platform = platform === "apple" ? "apple" : "google";
+        stats.hasUninstallData = platform !== "apple";
+
+        if (stats.dailyTrends) {
+          stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
+          stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases, packageName, platform);
+          stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
+          stats.linearForecast = linearForecast(stats.dailyTrends.map(t => t.dailyInstalls || 0), 14);
+        }
+
+        console.log(`Stats fetched for ${packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
+        return stats;
+      }
+    });
+
+    res.json(statsData);
   } catch (error) {
     console.error(`Error in /api/stats (${platform}):`, error);
     res.status(500).json({
@@ -892,63 +905,70 @@ app.post("/api/stats", authenticate, async (req, res) => {
 
 // Endpoint to fetch dimension-specific stats
 app.post("/api/dimension", authenticate, async (req, res) => {
-  const { dimension } = req.body;
+  const { dimension, projectIndex, packageName, startDate, endDate } = req.body;
   const baseConfig = getBaseConfig();
   const platform = req.body.platform || "google";
 
-  if (req.body.projectIndex === "all" || platform === "all") {
-    try {
-      const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
-
-      const results = await Promise.all(packages.map(async (pkg) => {
-        try {
-          const viewer = pkg.platform === 'apple'
-            ? buildAppleViewer(baseConfig, pkg.packageName)
-            : buildGoogleViewer(baseConfig, pkg.packageName);
-          return await viewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-        } catch (e) {
-          console.error(`Failed dimension stats for ${pkg.packageName}:`, e.message);
-          return null;
-        }
-      }));
-
-      const mergedMap = new Map();
-      results.filter(Boolean).forEach(list => {
-        if (!Array.isArray(list)) return;
-        list.forEach(item => {
-          const label = item.label || item.key || 'Unknown';
-          if (!mergedMap.has(label)) {
-            mergedMap.set(label, { label, key: label, totalInstalls: 0, activeDevices: 0, dailyUserInstalls: 0, dailyUserUninstalls: 0, installs: 0 });
-          }
-          const curr = mergedMap.get(label);
-          curr.totalInstalls += (item.totalInstalls || item.installs || 0);
-          curr.installs += (item.totalInstalls || item.installs || 0);
-          curr.activeDevices += (item.activeDevices || 0);
-          curr.dailyUserInstalls += (item.dailyUserInstalls || 0);
-          curr.dailyUserUninstalls += (item.dailyUserUninstalls || 0);
-        });
-      });
-
-      const aggregatedDimensions = Array.from(mergedMap.values());
-      const grandTotal = aggregatedDimensions.reduce((sum, d) => sum + d.totalInstalls, 0);
-      aggregatedDimensions.forEach(d => {
-        d.percentage = grandTotal > 0 ? ((d.totalInstalls / grandTotal) * 100).toFixed(1) : '0';
-      });
-      aggregatedDimensions.sort((a, b) => b.totalInstalls - a.totalInstalls);
-
-      return res.json(aggregatedDimensions);
-    } catch (error) {
-      console.error(`Error in /api/dimension (all):`, error);
-      return res.status(500).json({ error: 'Failed to aggregate dimension stats' });
-    }
-  }
+  const cacheParams = {
+    dimension,
+    platform,
+    projectIndex: projectIndex || "all",
+    packageName: packageName || "",
+    startDate: startDate || "",
+    endDate: endDate || ""
+  };
 
   try {
-    const viewer = platform === 'apple'
-      ? buildAppleViewer(baseConfig, req.body.packageName)
-      : buildGoogleViewer(baseConfig, req.body.packageName);
-    const dimensionStats = await viewer.getDimensionStats(dimension, req.body.startDate, req.body.endDate);
-    res.json(dimensionStats);
+    const dimensionData = await resolver.resolve('dimension', cacheParams, async () => {
+      if (projectIndex === "all" || platform === "all") {
+        const packages = await fetchPackagesByPlatform(platform === 'all' ? 'all' : platform, baseConfig);
+
+        const results = await Promise.all(packages.map(async (pkg) => {
+          try {
+            const viewer = pkg.platform === 'apple'
+              ? buildAppleViewer(baseConfig, pkg.packageName)
+              : buildGoogleViewer(baseConfig, pkg.packageName);
+            return await viewer.getDimensionStats(dimension, startDate, endDate);
+          } catch (e) {
+            console.error(`Failed dimension stats for ${pkg.packageName}:`, e.message);
+            return null;
+          }
+        }));
+
+        const mergedMap = new Map();
+        results.filter(Boolean).forEach(list => {
+          if (!Array.isArray(list)) return;
+          list.forEach(item => {
+            const label = item.label || item.key || 'Unknown';
+            if (!mergedMap.has(label)) {
+              mergedMap.set(label, { label, key: label, totalInstalls: 0, activeDevices: 0, dailyUserInstalls: 0, dailyUserUninstalls: 0, installs: 0 });
+            }
+            const curr = mergedMap.get(label);
+            curr.totalInstalls += (item.totalInstalls || item.installs || 0);
+            curr.installs += (item.totalInstalls || item.installs || 0);
+            curr.activeDevices += (item.activeDevices || 0);
+            curr.dailyUserInstalls += (item.dailyUserInstalls || 0);
+            curr.dailyUserUninstalls += (item.dailyUserUninstalls || 0);
+          });
+        });
+
+        const aggregatedDimensions = Array.from(mergedMap.values());
+        const grandTotal = aggregatedDimensions.reduce((sum, d) => sum + d.totalInstalls, 0);
+        aggregatedDimensions.forEach(d => {
+          d.percentage = grandTotal > 0 ? ((d.totalInstalls / grandTotal) * 100).toFixed(1) : '0';
+        });
+        aggregatedDimensions.sort((a, b) => b.totalInstalls - a.totalInstalls);
+
+        return aggregatedDimensions;
+      } else {
+        const viewer = platform === 'apple'
+          ? buildAppleViewer(baseConfig, packageName)
+          : buildGoogleViewer(baseConfig, packageName);
+        return await viewer.getDimensionStats(dimension, startDate, endDate);
+      }
+    });
+
+    res.json(dimensionData);
   } catch (error) {
     console.error(`Error in /api/dimension for ${dimension} on ${platform}:`, error);
     res.status(500).json({
@@ -993,6 +1013,7 @@ app.post("/api/releases", authenticate, (req, res) => {
   releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
 
   fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+  resolver.clearCache('stats');
   res.json({ success: true, release: newRelease });
 });
 
@@ -1022,6 +1043,7 @@ app.put("/api/releases/:id", authenticate, (req, res) => {
 
   releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
   fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+  resolver.clearCache('stats');
 
   res.json({ success: true, release: releases[index] });
 });
@@ -1039,6 +1061,7 @@ app.delete("/api/releases/:id", authenticate, (req, res) => {
   }
 
   fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+  resolver.clearCache('stats');
   res.json({ success: true, deletedId: id });
 });
 
@@ -1240,6 +1263,7 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
 
     releases.sort((a, b) => new Date(b.date || b.releaseDate) - new Date(a.date || a.releaseDate));
     fs.writeFileSync(RELEASES_FILE, JSON.stringify(releases, null, 2));
+    resolver.clearCache('stats');
 
     const message = addedCount > 0
       ? `Scanned ${scannedCount} app(s). Added ${addedCount} new store version release(s).`

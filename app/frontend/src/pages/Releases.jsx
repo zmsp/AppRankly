@@ -158,33 +158,43 @@ export default function Releases({
     });
   }, [sortedReleases, dateRange]);
 
-  // Calculate average churn delta across releases with valid impact data
-  const impactsWithData = sortedReleases.map(r => r.impact).filter(Boolean);
-  
-  const avgChurnDelta = impactsWithData.length > 0
-    ? impactsWithData.reduce((acc, imp) => acc + (imp.uninstallDeltaPct || 0), 0) / impactsWithData.length
-    : null;
+  // Calculate average churn delta across releases with valid impact data & best shipping day
+  const { avgChurnDelta, avgInstallDelta, totalPostUninstalls, isLowVolume, bestDayName, bestDayAvg } = useMemo(() => {
+    const impactsWithData = sortedReleases.map(r => r.impact).filter(Boolean);
 
-  const avgInstallDelta = impactsWithData.length > 0
-    ? impactsWithData.reduce((acc, imp) => acc + (imp.installDeltaPct || 0), 0) / impactsWithData.length
-    : null;
+    const churnDelta = impactsWithData.length > 0
+      ? impactsWithData.reduce((acc, imp) => acc + (imp.uninstallDeltaPct || 0), 0) / impactsWithData.length
+      : null;
 
-  const totalPostUninstalls = impactsWithData.reduce((acc, imp) => acc + (imp.avgPostUninstalls || 0), 0);
-  const isLowVolume = totalPostUninstalls < 5;
+    const installDelta = impactsWithData.length > 0
+      ? impactsWithData.reduce((acc, imp) => acc + (imp.installDeltaPct || 0), 0) / impactsWithData.length
+      : null;
 
-  // Best day to ship from weekdayAverages
-  let bestDayName = null;
-  let bestDayAvg = 0;
-  if (stats?.weekdayAverages) {
-    let maxVal = -1;
-    Object.entries(stats.weekdayAverages).forEach(([dayIdx, avg]) => {
-      if (avg !== null && avg > maxVal) {
-        maxVal = avg;
-        bestDayName = WEEKDAYS[Number(dayIdx)];
-        bestDayAvg = avg;
-      }
-    });
-  }
+    const uninstallsSum = impactsWithData.reduce((acc, imp) => acc + (imp.avgPostUninstalls || 0), 0);
+    const lowVol = uninstallsSum < 5;
+
+    let bDayName = null;
+    let bDayAvg = 0;
+    if (stats?.weekdayAverages) {
+      let maxVal = -1;
+      Object.entries(stats.weekdayAverages).forEach(([dayIdx, avg]) => {
+        if (avg !== null && avg > maxVal) {
+          maxVal = avg;
+          bDayName = WEEKDAYS[Number(dayIdx)];
+          bDayAvg = avg;
+        }
+      });
+    }
+
+    return {
+      avgChurnDelta: churnDelta,
+      avgInstallDelta: installDelta,
+      totalPostUninstalls: uninstallsSum,
+      isLowVolume: lowVol,
+      bestDayName: bDayName,
+      bestDayAvg: bDayAvg
+    };
+  }, [sortedReleases, stats?.weekdayAverages]);
 
   const churnAnomalies = stats?.retentionBenchmarks?.churnAnomalies || [];
 
@@ -409,6 +419,16 @@ export default function Releases({
           </button>
         </div>
       </div>
+
+      {/* Group / All Apps View Banner */}
+      {selectedProjectIndex === 'all' && (
+        <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs p-3 px-4 rounded-xl flex items-center space-x-2">
+          <Zap size={16} className="text-amber-400 shrink-0" />
+          <span>
+            <strong>Portfolio Overview Mode:</strong> Auto-calculation of post-release churn deltas and version correlations is disabled for groups/all apps. Select a specific app from the dropdown above to auto-calculate detailed version impact.
+          </span>
+        </div>
+      )}
 
       {/* Date Range Context Banner */}
       {dateRange && (

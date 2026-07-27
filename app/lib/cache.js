@@ -4,9 +4,11 @@ const TTL = {
   'gcs:auth':       600,      // 10 min — GCS auth tokens are valid for 1hr
   'gcs:filelist':   300,      // 5 min — bucket file listings
   'packages':       600,      // 10 min — listPackages results
+  'packages:all':   600,      // 10 min — fetchPackagesByPlatform results
   'scrape:google':  86400,    // 24h — Play Store metadata changes rarely
   'scrape:apple':   86400,    // 24h — App Store metadata
   'stats':          300,      // 5 min — overview/dimension stats
+  'dimension':      300,      // 5 min — breakdown dimension stats
   'config':         60,       // 1 min — config.json rarely changes
   'projects':       600,      // 10 min — /api/projects list
 };

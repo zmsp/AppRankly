@@ -128,6 +128,75 @@ class AppleAppStoreStatsViewer {
   }
 
   static disabledVendors = new Set();
+  static earliestReleaseDateMap = new Map();
+
+  async findEarliestDataDate(dateList) {
+    if (!dateList || dateList.length <= 14) return 0;
+
+    const cacheKey = this.appId || this.vendorId;
+    if (cacheKey && AppleAppStoreStatsViewer.earliestReleaseDateMap.has(cacheKey)) {
+      const knownEarliest = AppleAppStoreStatsViewer.earliestReleaseDateMap.get(cacheKey);
+      const knownIdx = dateList.indexOf(knownEarliest);
+      if (knownIdx > 0) {
+        for (let i = 0; i < knownIdx; i++) {
+          const cacheFile = path.join(this.cacheDir, `sales_${dateList[i]}.txt`);
+          if (!fs.existsSync(cacheFile)) {
+            try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
+          }
+        }
+        return knownIdx;
+      }
+    }
+
+    const startDateTxt = await this.fetchDailySalesReport(dateList[0]);
+    if (startDateTxt && startDateTxt !== '__EMPTY__') {
+      return 0;
+    }
+
+    console.log(`[DEBUG] Large date range (${dateList.length} days) starting with missing data for ${this.appId}. Running binary search boundary probe...`);
+
+    let low = 0;
+    let high = dateList.length - 1;
+    let earliestFoundIdx = -1;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const midDate = dateList[mid];
+      const rawTxt = await this.fetchDailySalesReport(midDate);
+
+      if (rawTxt && rawTxt !== '__EMPTY__') {
+        earliestFoundIdx = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    if (earliestFoundIdx > 0) {
+      const earliestDate = dateList[earliestFoundIdx];
+      console.log(`[DEBUG] Binary search boundary found: earliest release data date for ${this.appId} is ${earliestDate} (index ${earliestFoundIdx}/${dateList.length})`);
+      if (cacheKey) {
+        AppleAppStoreStatsViewer.earliestReleaseDateMap.set(cacheKey, earliestDate);
+      }
+      for (let i = 0; i < earliestFoundIdx; i++) {
+        const cacheFile = path.join(this.cacheDir, `sales_${dateList[i]}.txt`);
+        if (!fs.existsSync(cacheFile)) {
+          try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
+        }
+      }
+      return earliestFoundIdx;
+    } else if (earliestFoundIdx === -1) {
+      for (let i = 0; i < dateList.length; i++) {
+        const cacheFile = path.join(this.cacheDir, `sales_${dateList[i]}.txt`);
+        if (!fs.existsSync(cacheFile)) {
+          try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
+        }
+      }
+      return dateList.length;
+    }
+
+    return 0;
+  }
 
   async fetchDailySalesReport(dateStr) {
     if (!fs.existsSync(this.cacheDir)) {
@@ -203,6 +272,9 @@ class AppleAppStoreStatsViewer {
     console.log(`[DEBUG] Starting getAppStats for ${this.appId} (${numericId})`);
 
     const dateList = generateDateArray(startDate, endDate);
+    const earliestIdx = await this.findEarliestDataDate(dateList);
+    const activeDates = dateList.slice(earliestIdx);
+
     const mergedTrends = new Map();
 
     // Initialize trend entries for all dates in range
@@ -225,9 +297,9 @@ class AppleAppStoreStatsViewer {
       });
     });
 
-    // Parallel fetch for all dates in dateList
+    // Parallel fetch for active dates only
     const reports = await Promise.all(
-      dateList.map(async (dateStr) => {
+      activeDates.map(async (dateStr) => {
         const rawTxt = await this.fetchDailySalesReport(dateStr);
         return { dateStr, rawTxt };
       })
@@ -316,6 +388,8 @@ class AppleAppStoreStatsViewer {
   async getDimensionStats(dimension, startDate, endDate) {
     const numericId = await this.getNumericAppId();
     const dateList = generateDateArray(startDate, endDate);
+    const earliestIdx = await this.findEarliestDataDate(dateList);
+    const activeDates = dateList.slice(earliestIdx);
 
     const dimensionMap = {
       'country': 'Country Code',
@@ -328,7 +402,7 @@ class AppleAppStoreStatsViewer {
     const statsMap = new Map();
 
     const reports = await Promise.all(
-      dateList.map(async (dateStr) => {
+      activeDates.map(async (dateStr) => {
         const rawTxt = await this.fetchDailySalesReport(dateStr);
         return { dateStr, rawTxt };
       })
