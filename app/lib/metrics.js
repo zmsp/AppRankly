@@ -387,8 +387,12 @@ function correlateReleases(dailyTrends = [], releases = [], packageName = null, 
   }
 
   const filteredReleases = releases.filter(rel => {
-    if (packageName && packageName !== 'all' && rel.packageName && rel.packageName !== 'all' && rel.packageName !== packageName) {
-      return false;
+    if (packageName && packageName !== 'all' && rel.packageName && rel.packageName !== 'all') {
+      const relPkgNorm = String(rel.packageName).trim().toLowerCase().replace(/[-_]/g, '');
+      const targetPkgNorm = String(packageName).trim().toLowerCase().replace(/[-_]/g, '');
+      if (relPkgNorm !== targetPkgNorm) {
+        return false;
+      }
     }
     if (platform && platform !== 'all' && rel.platform && rel.platform !== 'both' && rel.platform !== 'all' && rel.platform !== platform) {
       return false;

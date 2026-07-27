@@ -125,8 +125,9 @@ export function useAppState() {
   const handleSetPlatform = (p) => {
     setPlatform(p);
     let nextProj = selectedProjectIndex;
-    if (selectedProjectIndex === 'all') {
+    if (p === 'all' || selectedProjectIndex === 'all') {
       nextProj = 'all';
+      setSelectedProjectIndex('all');
     } else if (p !== 'all') {
       const filtered = projects.filter(proj => proj.platform === p);
       const exists = filtered.some(proj => proj.index.toString() === selectedProjectIndex.toString());
@@ -338,7 +339,7 @@ export function useAppState() {
     }
   }, [authToken, isStaticMode, isDemoMode, fetchReleases, loadOverviewStats]);
 
-  const autoDetectReleases = useCallback(async () => {
+  const autoDetectReleases = useCallback(async (targetPackageName, targetPlatform) => {
     if (isDemoMode) {
       const mockAuto = [
         { id: 'demo_auto_1', version: 'v2.4.0', platform: 'google', packageName: 'com.demo.alpha', date: '2026-07-20', notes: 'Auto-detected store release for App Alpha', source: 'auto' },
@@ -353,7 +354,11 @@ export function useAppState() {
     }
     try {
       const res = await apiFetch('/api/releases/auto-detect', {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify({
+          packageName: targetPackageName || 'all',
+          platform: targetPlatform || 'all'
+        })
       }, authToken, isStaticMode);
       if (res.ok) {
         const result = await res.json();

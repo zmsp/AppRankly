@@ -15,7 +15,6 @@ import NetGrowthChart from '../components/NetGrowthChart';
 import UpgradesChart from '../components/UpgradesChart';
 import ActiveDevicesChart from '../components/ActiveDevicesChart';
 import AllPlatformDashboard from '../components/AllPlatformDashboard';
-import OnboardingChecklist from '../components/OnboardingChecklist';
 import ChartPanel from '../components/ChartPanel';
 import { calculateHealthScore } from '../lib/healthScore';
 import SkeletonDashboard from '../components/SkeletonDashboard';
@@ -186,8 +185,8 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6 relative">
-      {/* Standard Tab Switcher UI and Portfolio Grid (rendered ONLY on Portfolio / All Apps view) */}
-      {(selectedProjectIndex === 'all' || !selectedProjectIndex) && (
+      {/* Standard Tab Switcher UI and Portfolio Grid (rendered on Portfolio / All Apps view, or when toggled) */}
+      {(selectedProjectIndex === 'all' || !selectedProjectIndex || showPortfolio) && (
         <>
           {/* Compact Segmented Control Pill Switcher & Main Page Refresh Button */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/60 backdrop-blur-md p-2 rounded-xl border border-white/10 shadow-md">
@@ -208,7 +207,10 @@ export default function Dashboard({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setPlatform && setPlatform(tab.id)}
+                      onClick={() => {
+                        if (setPlatform) setPlatform(tab.id);
+                        if (tab.id === 'all' && setSelectedProjectIndex) setSelectedProjectIndex('all');
+                      }}
                       className={clsx(
                         "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
                         isSelected
@@ -286,12 +288,23 @@ export default function Dashboard({
             <span className="font-bold text-white">{activeProject.name}</span>
             <span className="text-slate-400">— Single App Analytics Dashboard</span>
           </div>
-          <span className="text-[10px] font-mono bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold capitalize">{activeProject.platform}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPortfolio(!showPortfolio)}
+              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-accent-blue/10 hover:bg-accent-blue/20 text-accent-blue border border-accent-blue/20 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <LayoutGrid size={12} />
+              <span>{showPortfolio ? "Hide Portfolio Mini Graphs" : "Show Portfolio Mini Graphs"}</span>
+            </button>
+            <button
+              onClick={() => setSelectedProjectIndex('all')}
+              className="text-[10px] font-mono bg-white/10 hover:bg-white/20 text-slate-300 px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer"
+            >
+              Switch to Portfolio View
+            </button>
+          </div>
         </div>
       )}
-
-      {/* Onboarding & Setup Progress Checklist */}
-      <OnboardingChecklist projects={projects} releases={releases} />
 
       {/* Hero KPI Card */}
       <HeroKPI

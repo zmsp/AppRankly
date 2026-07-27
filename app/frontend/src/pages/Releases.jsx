@@ -42,10 +42,14 @@ export default function Releases({
   }, [selectedAppFilter, activeProject]);
 
   const effectivePlatform = useMemo(() => {
+    if (selectedAppFilter !== 'auto' && selectedAppFilter !== 'all') {
+      const selectedProj = projects.find(p => p.packageName === selectedAppFilter || p.bundleId === selectedAppFilter);
+      if (selectedProj?.platform) return selectedProj.platform;
+    }
     if (activeProject?.platform) return activeProject.platform;
     if (platform && platform !== 'all') return platform;
     return 'all';
-  }, [activeProject, platform]);
+  }, [selectedAppFilter, activeProject, platform, projects]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -91,8 +95,12 @@ export default function Releases({
     return rawList.filter(rel => {
       // Filter by Package Name
       if (effectivePackageName !== 'all') {
-        if (rel.packageName && rel.packageName !== 'all' && rel.packageName !== effectivePackageName) {
-          return false;
+        if (rel.packageName && rel.packageName !== 'all') {
+          const relPkgNorm = String(rel.packageName).trim().toLowerCase().replace(/[-_]/g, '');
+          const effPkgNorm = String(effectivePackageName).trim().toLowerCase().replace(/[-_]/g, '');
+          if (relPkgNorm !== effPkgNorm) {
+            return false;
+          }
         }
       }
       // Filter by Platform
@@ -182,11 +190,17 @@ export default function Releases({
   // Handle open modal for create
   const handleOpenCreateModal = () => {
     setEditingRelease(null);
+    const defaultPkg = effectivePackageName !== 'all' && effectivePackageName !== 'auto'
+      ? effectivePackageName
+      : (activeProject?.packageName || projects[0]?.packageName || 'all');
+    
+    const defaultPlat = projects.find(p => p.packageName === defaultPkg)?.platform || effectivePlatform || 'google';
+
     setFormData({
       version: '',
       date: new Date().toISOString().split('T')[0],
-      platform: selectedAppFilter !== 'all' ? (projects.find(p => p.packageName === selectedAppFilter)?.platform || 'google') : 'google',
-      packageName: selectedAppFilter === 'auto' ? (activeProject?.packageName || 'all') : selectedAppFilter,
+      platform: defaultPlat === 'all' ? 'google' : defaultPlat,
+      packageName: defaultPkg,
       notes: ''
     });
     setIsModalOpen(true);
@@ -199,7 +213,7 @@ export default function Releases({
       version: rel.version || rel.releaseName || '',
       date: rel.releaseDate || rel.date || new Date().toISOString().split('T')[0],
       platform: rel.platform || 'google',
-      packageName: rel.packageName || 'all',
+      packageName: rel.packageName || (projects[0]?.packageName || 'all'),
       notes: rel.notes || ''
     });
     setIsModalOpen(true);
@@ -254,11 +268,13 @@ export default function Releases({
     setDetectStatus(null);
     try {
       if (autoDetectReleases) {
-        const res = await autoDetectReleases();
+        const pkgToDetect = effectivePackageName;
+        const platToDetect = effectivePlatform;
+        const res = await autoDetectReleases(pkgToDetect, platToDetect);
         if (res?.message) {
           setDetectStatus(res.message);
         } else if (res && res.addedCount !== undefined) {
-          setDetectStatus(`Scanned apps. Added ${res.addedCount} new store version release${res.addedCount === 1 ? '' : 's'}.`);
+          setDetectStatus(`Scanned ${res.scannedCount || 1} app(s). Added ${res.addedCount} new store version release${res.addedCount === 1 ? '' : 's'}.`);
         } else {
           setDetectStatus('Auto-detect scan complete.');
         }
@@ -333,15 +349,28 @@ export default function Releases({
           </button>
 
           {/* Auto-Detect Store Releases Button */}
-          <button
-            onClick={handleAutoDetect}
-            disabled={isDetecting}
-            className="glass-card hover:bg-white/10 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all border border-white/10 flex items-center space-x-2 disabled:opacity-50"
-            title="Scan store pages for current live version updates"
-          >
-            <Sparkles size={15} className={`text-amber-400 ${isDetecting ? 'animate-spin' : ''}`} />
-            <span>{isDetecting ? 'Scanning Stores...' : 'Auto-Detect Store Releases'}</span>
-          </button>
+          {(() => {
+            const activeApp = projects.find(p => p.packageName === effectivePackageName);
+            const autoDetectBtnText = isDetecting
+              ? 'Scanning Stores...'
+              : activeApp
+              ? `Auto-Detect (${activeApp.name})`
+              : effectivePlatform !== 'all'
+              ? `Auto-Detect (${effectivePlatform === 'apple' ? 'iOS' : 'Android'})`
+              : 'Auto-Detect Store Releases';
+
+            return (
+              <button
+                onClick={handleAutoDetect}
+                disabled={isDetecting}
+                className="glass-card hover:bg-white/10 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all border border-white/10 flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                title={`Scan store metadata for ${activeApp ? activeApp.name : 'version releases'}`}
+              >
+                <Sparkles size={15} className={`text-amber-400 ${isDetecting ? 'animate-spin' : ''}`} />
+                <span>{autoDetectBtnText}</span>
+              </button>
+            );
+          })()}
 
           {/* Log Release Button */}
           <button

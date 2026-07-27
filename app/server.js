@@ -1033,7 +1033,7 @@ app.delete("/api/releases/:id", authenticate, (req, res) => {
   res.json({ success: true, deletedId: id });
 });
 
-// Auto-detect store releases from store metadata APIs & web scrapers
+// Auto-detect store releases from store metadata APIs & web scrapers (per app or portfolio)
 app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
   const baseConfig = getBaseConfig();
   if (!baseConfig) {
@@ -1043,9 +1043,22 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
   let releases = getReleasesFromFile();
   let addedCount = 0;
   let scannedCount = 0;
+  const targetPackage = req.body?.packageName;
+  const targetPlatform = req.body?.platform;
 
   try {
-    const rawProjects = await fetchPackagesByPlatform('all', baseConfig);
+    let rawProjects = await fetchPackagesByPlatform('all', baseConfig);
+    if (targetPackage && targetPackage !== 'all' && targetPackage !== 'auto') {
+      const normTarget = String(targetPackage).trim().toLowerCase().replace(/[-_]/g, '');
+      rawProjects = rawProjects.filter(p => {
+        const normPkg = String(p.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
+        const normBundle = String(p.bundleId || '').trim().toLowerCase().replace(/[-_]/g, '');
+        return normPkg === normTarget || normBundle === normTarget;
+      });
+    }
+    if (targetPlatform && targetPlatform !== 'all') {
+      rawProjects = rawProjects.filter(p => p.platform === targetPlatform);
+    }
     scannedCount = rawProjects.length;
 
     for (const proj of rawProjects) {
@@ -1073,6 +1086,16 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
           } catch (e) {
             console.warn(`iTunes API lookup failed for ${bundleOrId}:`, e.message);
           }
+
+          // Fallback to cached Apple store data if live lookup failed
+          if (!versionFound) {
+            const cached = await getScrapedAppleStoreData(bundleOrId);
+            if (cached?.version) {
+              versionFound = cached.version;
+              releaseDateFound = cached.updated;
+              appTitle = cached.title || appTitle;
+            }
+          }
         } else {
           // 2. Google Play: Live Scraper Call
           try {
@@ -1085,17 +1108,45 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
           } catch (e) {
             console.warn(`Play Store scrape failed for ${proj.packageName}:`, e.message);
           }
+
+          // Fallback if live scrape failed or returned "Varies with device"
+          if (!versionFound || versionFound === 'Varies with device') {
+            const cached = await getScrapedPlayStoreData(proj.packageName);
+            if (cached && cached.version && cached.version !== 'Varies with device') {
+              versionFound = cached.version;
+              releaseDateFound = releaseDateFound || cached.updated;
+              appTitle = cached.title || appTitle;
+            }
+          }
+
+          // Final fallback to config metadata if available
+          if (!versionFound || versionFound === 'Varies with device') {
+            const meta = baseConfig.appMetadata?.[proj.packageName];
+            if (meta && meta.version) {
+              versionFound = meta.version;
+              releaseDateFound = releaseDateFound || meta.releaseDate;
+              appTitle = meta.displayName || appTitle;
+            }
+          }
         }
 
-        // Clean version string
+        // Clean version string and format release date reliably
         if (versionFound && typeof versionFound === 'string' && versionFound !== 'Varies with device' && versionFound !== 'N/A') {
           const verStr = versionFound.startsWith('v') ? versionFound : `v${versionFound}`;
 
           let releaseDate = releaseDateFound;
-          if (releaseDate) {
-            const parsed = new Date(releaseDate);
-            if (!isNaN(parsed.getTime())) {
-              releaseDate = parsed.toISOString().split('T')[0];
+          if (releaseDate !== null && releaseDate !== undefined) {
+            let parsedDate;
+            if (typeof releaseDate === 'number') {
+              parsedDate = new Date(releaseDate);
+            } else if (typeof releaseDate === 'string' && /^\d+$/.test(releaseDate.trim())) {
+              parsedDate = new Date(Number(releaseDate.trim()));
+            } else {
+              parsedDate = new Date(releaseDate);
+            }
+
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+              releaseDate = parsedDate.toISOString().split('T')[0];
             } else {
               releaseDate = new Date().toISOString().split('T')[0];
             }
@@ -1103,10 +1154,14 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
             releaseDate = new Date().toISOString().split('T')[0];
           }
 
-          const exists = releases.some(r =>
-            (r.version === verStr || r.version === versionFound) &&
-            (!r.packageName || r.packageName === proj.packageName || r.packageName === 'all')
-          );
+          const normProjPkg = String(proj.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
+          const exists = releases.some(r => {
+            const rVerMatches = (r.version === verStr || r.version === versionFound);
+            const rPkg = String(r.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
+            const rPkgMatches = rPkg === normProjPkg;
+            const rPlatMatches = !r.platform || r.platform === 'all' || r.platform === proj.platform;
+            return rVerMatches && rPkgMatches && rPlatMatches;
+          });
 
           if (!exists) {
             const newRel = {
@@ -1121,6 +1176,70 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
             };
             releases.push(newRel);
             addedCount++;
+          }
+        }
+
+        // 3. Scan historical report storage for past version launch dates
+        if (proj.platform === 'google' && proj.packageName) {
+          try {
+            const googleViewer = buildGoogleViewer(baseConfig, proj.packageName);
+            await googleViewer.initializeStorage();
+            const bucketName = googleViewer.inputParamsModel.bucketName;
+            const [files] = await googleViewer.packageUtils.authenticatedStorageObj
+              .bucket(bucketName)
+              .getFiles({ prefix: `stats/installs/installs_${proj.packageName}_` });
+
+            const versionFiles = (files || []).filter(f => f.name.includes('_app_version.csv')).sort((a, b) => a.name.localeCompare(b.name));
+            const firstSeenMap = new Map();
+
+            for (const file of versionFiles) {
+              try {
+                const [contentBuffer] = await file.download();
+                let str = contentBuffer.toString('utf16le');
+                if (!str.includes('Date')) {
+                  str = contentBuffer.toString('utf8');
+                }
+                const lines = str.split(/\r?\n/);
+                for (let i = 1; i < lines.length; i++) {
+                  const parts = lines[i].split(',').map(p => p.trim().replace(/\0/g, ''));
+                  if (parts.length >= 3) {
+                    const dateStr = parts[0];
+                    const verCodeStr = parts[2];
+                    if (dateStr && verCodeStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                      if (!firstSeenMap.has(verCodeStr) || dateStr < firstSeenMap.get(verCodeStr)) {
+                        firstSeenMap.set(verCodeStr, dateStr);
+                      }
+                    }
+                  }
+                }
+              } catch (e) {}
+            }
+
+            const normProjPkg = String(proj.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
+            for (const [verCode, firstDate] of firstSeenMap.entries()) {
+              const verTag = `v${verCode}`;
+              const existsHist = releases.some(r => {
+                const rVerMatches = (r.version === verTag || r.version === verCode);
+                const rPkg = String(r.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
+                return rVerMatches && rPkg === normProjPkg;
+              });
+
+              if (!existsHist) {
+                releases.push({
+                  id: `rel_auto_hist_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                  version: verTag,
+                  platform: 'google',
+                  packageName: proj.packageName,
+                  date: firstDate,
+                  releaseDate: firstDate,
+                  notes: `Historical release auto-detected from report data for ${appTitle} (Build ${verCode})`,
+                  source: 'auto_historical'
+                });
+                addedCount++;
+              }
+            }
+          } catch (histErr) {
+            console.warn(`Historical report scan error for ${proj.packageName}:`, histErr.message);
           }
         }
       } catch (e) {

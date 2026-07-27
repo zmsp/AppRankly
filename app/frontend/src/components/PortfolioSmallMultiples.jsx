@@ -13,7 +13,7 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
 
   // Enhance each project with momentum & quiet stats
   const enhancedProjects = projects.map((proj) => {
-    const appTrendEntry = appTrends[proj.packageName];
+    const appTrendEntry = appTrends[proj.packageName] || appTrends[proj.name];
     const trendData = appTrendEntry?.trends || appTrendEntry || [];
     const totalInstalls = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
     const points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
