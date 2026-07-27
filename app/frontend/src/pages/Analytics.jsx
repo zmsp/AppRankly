@@ -182,7 +182,6 @@ export default function Analytics({
              ) : (
                <TrendChart
                  data={stats.dailyTrends}
-                 releases={releases}
                  platform={platform}
                  isLogarithmic={isLogarithmic}
                />

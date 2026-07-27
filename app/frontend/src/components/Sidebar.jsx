@@ -47,10 +47,7 @@ export default function Sidebar({
       <div className="p-6 flex items-center space-x-3">
         <img src="/logo.png" alt="AppRankly" className="w-10 h-10 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
         {!collapsed && (
-          <div className="flex flex-col">
-            <span className="font-extrabold text-xl tracking-tight text-white leading-tight">AppRankly</span>
-            <span className="text-[10px] font-mono text-slate-500 font-bold">v1.0.0</span>
-          </div>
+          <span className="font-extrabold text-xl tracking-tight text-white">AppRankly</span>
         )}
       </div>
 

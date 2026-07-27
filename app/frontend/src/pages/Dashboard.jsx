@@ -426,7 +426,6 @@ export default function Dashboard({
             ) : (
               <TrendChart
                 data={stats.dailyTrends}
-                releases={releases}
                 platform={platform}
                 hasUninstallData={hasUninstallData}
                 isLogarithmic={isLogarithmic}
