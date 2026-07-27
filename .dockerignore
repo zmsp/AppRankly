@@ -17,3 +17,5 @@ data/
 .DS_Store
 Thumbs.db
 ./app/config
+
+attic/

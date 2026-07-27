@@ -53,3 +53,4 @@ app/data/
 data/
 test_apple_auth.js
 app/test_apple_stats.js
+attic/*
