@@ -550,7 +550,7 @@ export default function Dashboard({
             "Combined Total",
             "Avg / Day"
           )}
-          <div className="h-[300px]">
+          <div className="h-[380px]">
             {isAllProjects ? (
               <CombinedInstallsChart
                 dailyTrends={stats.dailyTrends}

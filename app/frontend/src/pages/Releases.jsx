@@ -37,8 +37,12 @@ export default function Releases({
   // Compute effective package name and platform filter from active global project selection
   const effectivePackageName = useMemo(() => {
     if (activeProject?.packageName) return activeProject.packageName;
+    if (activeProject?.bundleId) return activeProject.bundleId;
+    if (selectedProjectIndex && selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
+      return selectedProjectIndex;
+    }
     return 'all';
-  }, [activeProject]);
+  }, [activeProject, selectedProjectIndex]);
 
   const effectivePlatform = useMemo(() => {
     if (activeProject?.platform) return activeProject.platform;
@@ -93,7 +97,7 @@ export default function Releases({
     rawList.forEach(r => {
       const isAuto = r.source === 'auto' || r.source === 'auto_historical';
       if (!isAuto) {
-        const pkg = String(r.packageName || 'all').trim().toLowerCase();
+        const pkg = String(r.packageName || r.bundleId || 'all').trim().toLowerCase();
         const date = String(r.releaseDate || r.date || '').substring(0, 10);
         const ver = String(r.version || r.releaseName || '').trim().toLowerCase();
         if (date && date !== 'undefined') manualKeys.add(`${pkg}_date_${date}`);
@@ -105,7 +109,7 @@ export default function Releases({
     rawList.forEach(r => {
       const isAuto = r.source === 'auto' || r.source === 'auto_historical';
       if (isAuto) {
-        const pkg = String(r.packageName || 'all').trim().toLowerCase();
+        const pkg = String(r.packageName || r.bundleId || 'all').trim().toLowerCase();
         const date = String(r.releaseDate || r.date || '').substring(0, 10);
         const ver = String(r.version || r.releaseName || '').trim().toLowerCase();
 
@@ -121,12 +125,14 @@ export default function Releases({
     return deduplicatedList.filter(rel => {
       // Filter by Package Name
       if (effectivePackageName !== 'all') {
-        if (rel.packageName && rel.packageName !== 'all') {
-          const relPkgNorm = String(rel.packageName).trim().toLowerCase().replace(/[-_]/g, '');
-          const effPkgNorm = String(effectivePackageName).trim().toLowerCase().replace(/[-_]/g, '');
-          if (relPkgNorm !== effPkgNorm) {
-            return false;
-          }
+        const relPkg = rel.packageName || rel.bundleId || rel.appId;
+        if (!relPkg || relPkg === 'all') {
+          return false;
+        }
+        const relPkgNorm = String(relPkg).trim().toLowerCase().replace(/[-_]/g, '');
+        const effPkgNorm = String(effectivePackageName).trim().toLowerCase().replace(/[-_]/g, '');
+        if (relPkgNorm !== effPkgNorm) {
+          return false;
         }
       }
       // Filter by Platform
@@ -388,7 +394,7 @@ export default function Releases({
 
           {/* Auto-Detect Store Releases Button */}
           {(() => {
-            const activeApp = projects.find(p => p.packageName === effectivePackageName);
+            const activeApp = activeProject || findProject(projects, effectivePackageName, effectivePlatform);
             const autoDetectBtnText = isDetecting
               ? 'Scanning Stores...'
               : activeApp
@@ -562,11 +568,13 @@ export default function Releases({
         </div>
 
         {stats?.dailyTrends && stats.dailyTrends.length > 0 ? (
-          <div className="h-72 w-full pt-2">
+          <div className="h-[380px] w-full pt-1">
             <TrendChart
+              key={`${effectivePackageName}_${effectivePlatform}`}
               data={stats.dailyTrends}
               releases={sortedReleases}
               platform={effectivePlatform}
+              packageName={effectivePackageName}
               hasUninstallData={stats.hasUninstallData}
               isLogarithmic={isLogarithmic}
             />
@@ -634,7 +642,7 @@ export default function Releases({
               const hasImpact = imp && (imp.avgPreInstalls > 0 || imp.avgPostInstalls > 0 || imp.avgPreUninstalls > 0 || imp.avgPostUninstalls > 0);
               const isLowVolRow = imp && (imp.avgPostUninstalls < 5);
               const relId = rel.id || rel.version;
-              const matchedProj = projects.find(p => p.packageName === rel.packageName);
+              const matchedProj = findProject(projects, rel.packageName || rel.bundleId, rel.platform);
               const isExpanded = expandedReleaseId === relId;
 
               return (

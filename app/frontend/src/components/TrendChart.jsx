@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,6 +13,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { CHART_COLORS, baseOptions } from '../lib/chartTheme';
+import { ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -49,52 +50,118 @@ const normalizeDateStr = (dateVal) => {
   return String(dateVal).trim().substring(0, 10);
 };
 
-const findNearestDataIndex = (data, releaseDateStr) => {
+const findExactDataIndex = (data, releaseDateStr) => {
   const targetNorm = normalizeDateStr(releaseDateStr);
   if (!targetNorm || !Array.isArray(data) || data.length === 0) return -1;
 
-  // 1. Exact match
-  const exactIndex = data.findIndex(d => normalizeDateStr(d.date) === targetNorm);
-  if (exactIndex !== -1) return exactIndex;
-
-  // 2. Out-of-bounds check: if release date is outside active chart date window, do not plot it
-  const firstNorm = normalizeDateStr(data[0].date);
-  const lastNorm = normalizeDateStr(data[data.length - 1].date);
-  if (firstNorm && lastNorm) {
-    if (targetNorm < firstNorm || targetNorm > lastNorm) {
-      return -1;
-    }
-  }
-
-  // 3. Nearest date match within 7 days for in-range gap dates
-  const targetTime = new Date(targetNorm + 'T00:00:00Z').getTime();
-  if (isNaN(targetTime)) return -1;
-
-  let minDiff = Infinity;
-  let closestIndex = -1;
-
-  data.forEach((d, i) => {
-    const dNorm = normalizeDateStr(d.date);
-    if (!dNorm) return;
-    const dTime = new Date(dNorm + 'T00:00:00Z').getTime();
-    if (isNaN(dTime)) return;
-
-    const diff = Math.abs(dTime - targetTime);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closestIndex = i;
-    }
-  });
-
-  const MAX_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days max
-  if (minDiff <= MAX_THRESHOLD_MS) {
-    return closestIndex;
-  }
-
-  return -1;
+  // Strictly match exact dates in trend data. Drop unmatched or bad dates.
+  return data.findIndex(d => normalizeDateStr(d.date) === targetNorm);
 };
 
-export default function TrendChart({ data, releases = [], platform = 'google', hasUninstallData, isLogarithmic = false, onSelectPoint }) {
+export default function TrendChart({
+  data = [],
+  releases = [],
+  platform = 'google',
+  packageName,
+  hasUninstallData,
+  isLogarithmic = false,
+  onSelectPoint,
+  showZoomControls = true
+}) {
+  const [startIndex, setStartIndex] = useState(0);
+  const [endIndex, setEndIndex] = useState(() => (data && data.length > 0 ? data.length - 1 : 0));
+
+  // Sync zoom range when data length changes
+  useEffect(() => {
+    if (data && data.length > 0) {
+      setStartIndex(0);
+      setEndIndex(data.length - 1);
+    }
+  }, [data?.length]);
+
+  const totalPoints = data ? data.length : 0;
+  const isZoomed = startIndex > 0 || (totalPoints > 0 && endIndex < totalPoints - 1);
+  const visibleCount = Math.max(0, endIndex - startIndex + 1);
+
+  // Zoom & Pan Handlers
+  const handleZoomIn = useCallback(() => {
+    if (visibleCount <= 4) return;
+    const currentRange = endIndex - startIndex + 1;
+    const newRangeSize = Math.max(4, Math.floor(currentRange * 0.7));
+    const delta = currentRange - newRangeSize;
+    const trimLeft = Math.floor(delta / 2);
+    const trimRight = delta - trimLeft;
+
+    const newStart = Math.min(endIndex - 3, startIndex + trimLeft);
+    const newEnd = Math.max(newStart + 3, endIndex - trimRight);
+
+    setStartIndex(newStart);
+    setEndIndex(newEnd);
+  }, [startIndex, endIndex, visibleCount]);
+
+  const handleZoomOut = useCallback(() => {
+    if (!data || data.length === 0) return;
+    const currentRange = endIndex - startIndex + 1;
+    if (currentRange >= data.length) {
+      setStartIndex(0);
+      setEndIndex(data.length - 1);
+      return;
+    }
+    const newRangeSize = Math.min(data.length, Math.ceil(currentRange * 1.4));
+    const delta = newRangeSize - currentRange;
+    const expandLeft = Math.floor(delta / 2);
+    const expandRight = delta - expandLeft;
+
+    let newStart = Math.max(0, startIndex - expandLeft);
+    let newEnd = Math.min(data.length - 1, endIndex + expandRight);
+
+    if (newStart === 0) {
+      newEnd = Math.min(data.length - 1, newStart + newRangeSize - 1);
+    }
+    if (newEnd === data.length - 1) {
+      newStart = Math.max(0, newEnd - newRangeSize + 1);
+    }
+
+    setStartIndex(newStart);
+    setEndIndex(newEnd);
+  }, [data, startIndex, endIndex]);
+
+  const handleResetZoom = useCallback(() => {
+    if (data && data.length > 0) {
+      setStartIndex(0);
+      setEndIndex(data.length - 1);
+    }
+  }, [data]);
+
+  const handlePanLeft = useCallback(() => {
+    if (startIndex <= 0) return;
+    const currentRange = endIndex - startIndex + 1;
+    const shift = Math.max(1, Math.floor(currentRange * 0.25));
+    const actualShift = Math.min(shift, startIndex);
+    setStartIndex(startIndex - actualShift);
+    setEndIndex(endIndex - actualShift);
+  }, [startIndex, endIndex]);
+
+  const handlePanRight = useCallback(() => {
+    if (!data || endIndex >= data.length - 1) return;
+    const currentRange = endIndex - startIndex + 1;
+    const shift = Math.max(1, Math.floor(currentRange * 0.25));
+    const actualShift = Math.min(shift, data.length - 1 - endIndex);
+    setStartIndex(startIndex + actualShift);
+    setEndIndex(endIndex + actualShift);
+  }, [data, startIndex, endIndex]);
+
+  const handlePresetDays = useCallback((days) => {
+    if (!data || data.length === 0) return;
+    if (days >= data.length) {
+      setStartIndex(0);
+      setEndIndex(data.length - 1);
+    } else {
+      setEndIndex(data.length - 1);
+      setStartIndex(Math.max(0, data.length - days));
+    }
+  }, [data]);
+
   if (!data || data.length === 0) {
     return (
       <div className="h-full w-full flex items-center justify-center text-xs text-slate-400 italic p-6 text-center">
@@ -103,31 +170,50 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     );
   }
 
-  const labels = data.map(item => {
+  // Slice data based on zoom range
+  const slicedData = data.slice(startIndex, endIndex + 1);
+
+  const labels = slicedData.map(item => {
     const norm = normalizeDateStr(item.date);
     const date = norm ? new Date(norm + 'T00:00:00Z') : new Date(item.date);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   });
 
-  const filteredReleases = (releases || []).filter(r => {
-    if (!r) return false;
-    if (!platform || platform === 'all' || platform === 'auto') return true;
-    if (!r.platform || r.platform === 'all' || r.platform === 'both') return true;
-    return r.platform === platform;
-  });
+  const filteredReleases = useMemo(() => {
+    return (releases || []).filter(r => {
+      if (!r) return false;
+      if (packageName && packageName !== 'all') {
+        const rPkg = r.packageName || r.bundleId || r.appId;
+        if (!rPkg || rPkg === 'all') return false;
+        const rPkgNorm = String(rPkg).trim().toLowerCase().replace(/[-_]/g, '');
+        const targetPkgNorm = String(packageName).trim().toLowerCase().replace(/[-_]/g, '');
+        if (rPkgNorm !== targetPkgNorm) return false;
+      }
+      if (!platform || platform === 'all' || platform === 'auto') return true;
+      if (!r.platform || r.platform === 'all' || r.platform === 'both') return true;
+      return r.platform === platform;
+    });
+  }, [releases, platform, packageName]);
+
+  const releasesRef = useRef(filteredReleases);
+  releasesRef.current = filteredReleases;
+  const slicedDataRef = useRef(slicedData);
+  slicedDataRef.current = slicedData;
 
   const showUninstalls = hasUninstallData !== undefined
     ? hasUninstallData
     : (platform !== 'apple' && platform !== 'appstore');
 
-  const totalInstallsInWindow = data.reduce((sum, item) => sum + (item.dailyUserInstalls || item.dailyInstalls || 0), 0);
-  const showForecast = data.length >= 7 && totalInstallsInWindow >= 20;
+  // Show forecast only when viewing full data or right end of dataset
+  const totalInstallsInWindow = slicedData.reduce((sum, item) => sum + (item.dailyUserInstalls || item.dailyInstalls || 0), 0);
+  const isAtRightEdge = endIndex === data.length - 1;
+  const showForecast = isAtRightEdge && slicedData.length >= 7 && totalInstallsInWindow >= 20;
 
   let extendedLabels = [...labels];
-  let forecastPoints = Array(data.length).fill(null);
+  let forecastPoints = Array(slicedData.length).fill(null);
 
   if (showForecast) {
-    const series = data.map(item => item.dailyUserInstalls || item.dailyInstalls || 0);
+    const series = slicedData.map(item => item.dailyUserInstalls || item.dailyInstalls || 0);
     const n = series.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
     for (let i = 0; i < n; i++) {
@@ -139,9 +225,9 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
 
-    const lastNorm = normalizeDateStr(data[data.length - 1].date);
-    const lastDateObj = lastNorm ? new Date(lastNorm + 'T00:00:00Z') : new Date(data[data.length - 1].date);
-    forecastPoints[data.length - 1] = series[n - 1]; // connect seamlessly
+    const lastNorm = normalizeDateStr(slicedData[slicedData.length - 1].date);
+    const lastDateObj = lastNorm ? new Date(lastNorm + 'T00:00:00Z') : new Date(slicedData[slicedData.length - 1].date);
+    forecastPoints[slicedData.length - 1] = series[n - 1]; // connect seamlessly
 
     for (let i = 1; i <= 14; i++) {
       const nextDate = new Date(lastDateObj);
@@ -155,10 +241,10 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
   const datasets = [
     {
       label: 'Daily Installs',
-      data: showForecast ? [...data.map(item => {
+      data: showForecast ? [...slicedData.map(item => {
         const val = item.dailyUserInstalls || item.dailyInstalls || 0;
         return isLogarithmic ? Math.max(val, 1) : val;
-      }), ...Array(14).fill(null)] : data.map(item => {
+      }), ...Array(14).fill(null)] : slicedData.map(item => {
         const val = item.dailyUserInstalls || item.dailyInstalls || 0;
         return isLogarithmic ? Math.max(val, 1) : val;
       }),
@@ -181,7 +267,7 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
   ];
 
   if (showUninstalls) {
-    const uninstData = data.map(item => {
+    const uninstData = slicedData.map(item => {
       const val = item.dailyUserUninstalls || item.dailyUninstalls || 0;
       return isLogarithmic ? Math.max(val, 1) : val;
     });
@@ -230,8 +316,8 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     onClick: (event, elements) => {
       if (elements && elements.length > 0 && onSelectPoint) {
         const index = elements[0].index;
-        if (data[index]) {
-          onSelectPoint(data[index]);
+        if (slicedData[index]) {
+          onSelectPoint(slicedData[index]);
         }
       }
     },
@@ -252,11 +338,13 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
           },
           afterBody: function(context) {
             if (!context || !context.length) return '';
+            const currentSliced = slicedDataRef.current || [];
+            const currentRels = releasesRef.current || [];
             const index = context[0].dataIndex;
-            if (index >= data.length) return '';
+            if (index >= currentSliced.length) return '';
 
-            const dayReleases = filteredReleases.filter(r => {
-              const rIndex = findNearestDataIndex(data, r.releaseDate || r.date);
+            const dayReleases = currentRels.filter(r => {
+              const rIndex = findExactDataIndex(currentSliced, r.releaseDate || r.date);
               return rIndex === index;
             });
 
@@ -287,15 +375,18 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     }
   };
 
-  const plugins = [{
+  const plugins = useMemo(() => [{
     id: 'releaseLines',
     afterDraw: (chart) => {
       const { ctx, scales: { x, y } } = chart;
       if (!x || !y) return;
 
+      const currentSliced = slicedDataRef.current || [];
+      const currentRels = releasesRef.current || [];
+
       const releasesByIndex = new Map();
-      filteredReleases.forEach(release => {
-        const index = findNearestDataIndex(data, release.releaseDate || release.date);
+      currentRels.forEach(release => {
+        const index = findExactDataIndex(currentSliced, release.releaseDate || release.date);
         if (index === -1) return;
 
         if (!releasesByIndex.has(index)) {
@@ -370,8 +461,129 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
         ctx.restore();
       });
     }
-  }];
+  }], []);
 
-  return <Line data={chartData} options={options} plugins={plugins} />;
+  const startDateLabel = data[startIndex]?.date ? normalizeDateStr(data[startIndex].date) : '';
+  const endDateLabel = data[endIndex]?.date ? normalizeDateStr(data[endIndex].date) : '';
+
+  const canPanLeft = startIndex > 0;
+  const canPanRight = endIndex < data.length - 1;
+  const canZoomIn = visibleCount > 4;
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      {showZoomControls && (
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 bg-slate-900/60 p-2 px-3 rounded-xl border border-white/10 text-xs shrink-0">
+          {/* Quick Presets & Zoom Info */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-lg border border-white/10 font-medium text-[11px]">
+              <span className="text-[10px] uppercase font-extrabold text-slate-400 px-1">Zoom:</span>
+              <button
+                type="button"
+                onClick={() => handlePresetDays(7)}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 7 && endIndex === data.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
+              >
+                7D
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePresetDays(14)}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 14 && endIndex === data.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
+              >
+                14D
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePresetDays(30)}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 30 && endIndex === data.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
+              >
+                30D
+              </button>
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${!isZoomed ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
+              >
+                All ({data.length}D)
+              </button>
+            </div>
+
+            {isZoomed && (
+              <span className="hidden sm:inline-flex items-center text-[10px] text-accent-blue font-bold px-2 py-1 bg-accent-blue/10 rounded-lg border border-accent-blue/20">
+                Viewing {visibleCount} of {data.length} days ({startDateLabel} → {endDateLabel})
+              </span>
+            )}
+          </div>
+
+          {/* Interactive Zoom Buttons */}
+          <div className="flex items-center space-x-1.5">
+            {/* Pan Left / Right */}
+            <div className="flex items-center space-x-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
+              <button
+                type="button"
+                onClick={handlePanLeft}
+                disabled={!canPanLeft}
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                title="Pan Left (Earlier dates)"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handlePanRight}
+                disabled={!canPanRight}
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                title="Pan Right (Later dates)"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-white/10" />
+
+            {/* Zoom In / Zoom Out / Reset */}
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={!canZoomIn}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 font-bold transition-all disabled:opacity-30 disabled:hover:bg-white/5 cursor-pointer"
+              title="Zoom In to inspect closer date range"
+            >
+              <ZoomIn size={13} className="text-accent-blue" />
+              <span>Zoom In</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={!isZoomed}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 font-bold transition-all disabled:opacity-30 disabled:hover:bg-white/5 cursor-pointer"
+              title="Zoom Out to widen date range"
+            >
+              <ZoomOut size={13} className="text-slate-400" />
+              <span>Zoom Out</span>
+            </button>
+
+            {isZoomed && (
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                className="flex items-center space-x-1 px-2 py-1 bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue rounded-lg border border-accent-blue/30 font-bold transition-all cursor-pointer"
+                title="Reset Zoom to 100% full dataset"
+              >
+                <RotateCcw size={12} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 w-full min-h-0 relative">
+        <Line key={`${packageName || 'all'}_${platform}`} data={chartData} options={options} plugins={plugins} />
+      </div>
+    </div>
+  );
 }
+
 

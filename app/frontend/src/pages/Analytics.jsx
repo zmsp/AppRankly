@@ -172,7 +172,7 @@ export default function Analytics({
               <span>Log Scale</span>
             </button>
           </div>
-          <div className="h-[300px]">
+          <div className="h-[380px]">
              {isAllProjects ? (
                <CombinedInstallsChart
                  dailyTrends={stats.dailyTrends}

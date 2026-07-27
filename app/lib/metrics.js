@@ -387,8 +387,10 @@ function correlateReleases(dailyTrends = [], releases = [], packageName = null, 
   }
 
   const filteredReleases = releases.filter(rel => {
-    if (packageName && packageName !== 'all' && rel.packageName && rel.packageName !== 'all') {
-      const relPkgNorm = String(rel.packageName).trim().toLowerCase().replace(/[-_]/g, '');
+    if (packageName && packageName !== 'all') {
+      const relPkg = rel.packageName || rel.bundleId || rel.appId;
+      if (!relPkg || relPkg === 'all') return false;
+      const relPkgNorm = String(relPkg).trim().toLowerCase().replace(/[-_]/g, '');
       const targetPkgNorm = String(packageName).trim().toLowerCase().replace(/[-_]/g, '');
       if (relPkgNorm !== targetPkgNorm) {
         return false;
