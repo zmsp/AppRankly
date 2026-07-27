@@ -151,8 +151,9 @@ export function getDemoAsoData(pkgName = '', project = {}) {
 }
 
 export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken, onSelectProject, setPlatform }) {
-  const activeProject = findProject(projects, selectedProjectIndex) || projects[0] || MOCK_PROJECTS[0];
+  const activeProject = findProject(projects, selectedProjectIndex, platform) || projects[0] || MOCK_PROJECTS[0];
   const packageName = activeProject?.packageName || 'com.example.app';
+  const effectivePlatform = activeProject?.platform || platform;
   const isAllScope = selectedProjectIndex === 'all' || !selectedProjectIndex;
 
   // Sub-Navigation Tab State
@@ -271,7 +272,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     try {
       const res = await apiFetch('/api/aso/overview', {
         method: 'POST',
-        body: JSON.stringify({ packageName, platform, projectIndex: selectedProjectIndex })
+        body: JSON.stringify({ packageName, platform: effectivePlatform, projectIndex: selectedProjectIndex })
       }, authToken);
       if (res.ok) {
         const data = await res.json();
@@ -309,7 +310,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         method: 'POST',
         body: JSON.stringify({
           packageName,
-          platform,
+          platform: effectivePlatform,
           focusArea: overrideFocus || focusArea
         })
       }, authToken);
@@ -368,7 +369,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         method: 'POST',
         body: JSON.stringify({
           packageName,
-          platform,
+          platform: effectivePlatform,
           provider: selectedProvider,
           model: customModel || undefined,
           focusArea,
@@ -412,7 +413,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     try {
       await apiFetch('/api/aso/keywords/expand', {
         method: 'POST',
-        body: JSON.stringify({ packageName, platform, seed: seedKeyword })
+        body: JSON.stringify({ packageName, platform: effectivePlatform, seed: seedKeyword })
       }, authToken);
       setSeedKeyword('');
       fetchAsoOverview();
@@ -430,7 +431,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
       if (!isDemoMode) {
         await apiFetch('/api/aso/ranks/check', {
           method: 'POST',
-          body: JSON.stringify({ packageName, platform })
+          body: JSON.stringify({ packageName, platform: effectivePlatform })
         }, authToken);
         await fetchAsoOverview();
       }
@@ -452,7 +453,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     try {
       const res = await apiFetch('/api/aso/competitors', {
         method: 'POST',
-        body: JSON.stringify({ packageName, platform, provider: selectedProvider, model: customModel || undefined })
+        body: JSON.stringify({ packageName, platform: effectivePlatform, provider: selectedProvider, model: customModel || undefined })
       }, authToken);
       if (res.ok) {
         const data = await res.json();
@@ -482,7 +483,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     try {
       const res = await apiFetch('/api/aso/reviews/digest', {
         method: 'POST',
-        body: JSON.stringify({ packageName, platform, provider: selectedProvider, model: customModel || undefined })
+        body: JSON.stringify({ packageName, platform: effectivePlatform, provider: selectedProvider, model: customModel || undefined })
       }, authToken);
       if (res.ok) {
         const data = await res.json();
@@ -555,7 +556,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
         method: 'POST',
         body: JSON.stringify({
           packageName,
-          platform,
+          platform: effectivePlatform,
           cluster: clusterTarget,
           provider: selectedProvider,
           model: customModel || undefined
@@ -592,7 +593,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
     try {
       const res = await apiFetch('/api/aso/coverage', {
         method: 'POST',
-        body: JSON.stringify({ packageName, platform, metadata: metadataInputs })
+        body: JSON.stringify({ packageName, platform: effectivePlatform, metadata: metadataInputs })
       }, authToken);
       if (res.ok) {
         const data = await res.json();

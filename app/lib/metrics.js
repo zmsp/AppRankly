@@ -471,6 +471,57 @@ function calculateRetentionBenchmarks(dailyTrends = []) {
   return { survivalTrend, churnAnomalies };
 }
 
+/**
+ * Ensures dailyTrends has a continuous entry for every date between startDate and endDate.
+ * Fills any missing dates with 0-value metric entries to prevent gaps in charts and release correlations.
+ */
+function fillContinuousDailyTrends(trends = [], startDate, endDate) {
+  if (!startDate || !endDate) return trends || [];
+
+  const existingMap = new Map();
+  (trends || []).forEach(t => {
+    if (t && t.date) {
+      existingMap.set(t.date.substring(0, 10), t);
+    }
+  });
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+    return trends || [];
+  }
+
+  const result = [];
+  let curr = new Date(start);
+
+  while (curr <= end) {
+    const dateStr = curr.toISOString().split('T')[0];
+    if (existingMap.has(dateStr)) {
+      result.push(existingMap.get(dateStr));
+    } else {
+      result.push({
+        date: dateStr,
+        dailyInstalls: 0,
+        dailyUninstalls: 0,
+        dailyUserInstalls: 0,
+        dailyUserUninstalls: 0,
+        netGrowth: 0,
+        activeDevices: 0,
+        upgrades: 0,
+        revenue: 0,
+        netRevenue: 0,
+        impressions: 0,
+        pageViews: 0,
+        sessions: 0,
+        crashes: 0
+      });
+    }
+    curr.setUTCDate(curr.getUTCDate() + 1);
+  }
+
+  return result;
+}
+
 module.exports = {
   movingAverage,
   rollingStdDev,
@@ -484,6 +535,7 @@ module.exports = {
   aggregateOverviews,
   matchAndPairApps,
   correlateReleases,
-  calculateRetentionBenchmarks
+  calculateRetentionBenchmarks,
+  fillContinuousDailyTrends
 };
 

@@ -3,8 +3,8 @@ import { FileText, Download, Activity, PackageCheck } from 'lucide-react';
 import { toCSV, downloadCSV } from '../lib/csv';
 import { findProject } from '../lib/projectUtils';
 
-export default function Reports({ stats, dimensionStats, activeDimension = 'country', loading, projects = [], selectedProjectIndex }) {
-  const currentProject = findProject(projects, selectedProjectIndex) || { name: 'App' };
+export default function Reports({ stats, dimensionStats, activeDimension = 'country', loading, projects = [], selectedProjectIndex, platform }) {
+  const currentProject = findProject(projects, selectedProjectIndex, platform) || { name: 'App' };
 
   const handleExportOverview = () => {
     if (!stats) return;

@@ -28,7 +28,7 @@ export function sortProjectsByPlatformAndName(projectList) {
  * @param {string|object} identifier 
  * @returns {object|null} Matched project or null
  */
-export function findProject(projectList, identifier) {
+export function findProject(projectList, identifier, preferredPlatform = null) {
   if (!Array.isArray(projectList) || !projectList.length || !identifier || identifier === 'all') {
     return null;
   }
@@ -36,28 +36,27 @@ export function findProject(projectList, identifier) {
     return identifier;
   }
   const idStr = String(identifier).trim().toLowerCase();
+  const targetPlat = preferredPlatform && preferredPlatform !== 'all'
+    ? ((preferredPlatform === 'apple' || preferredPlatform === 'ios') ? 'apple' : 'google')
+    : null;
 
-  // 1. Match by packageName
-  let match = projectList.find(p => p.packageName && String(p.packageName).toLowerCase() === idStr);
-  if (match) return match;
+  const matchesId = (p) => (
+    (p.packageName && String(p.packageName).toLowerCase() === idStr) ||
+    (p.bundleId && String(p.bundleId).toLowerCase() === idStr) ||
+    (p.index && String(p.index).toLowerCase() === idStr) ||
+    (p.sku && String(p.sku).toLowerCase() === idStr) ||
+    (p.id && String(p.id).toLowerCase() === idStr) ||
+    (p.name && String(p.name).toLowerCase() === idStr)
+  );
 
-  // 2. Match by bundleId
-  match = projectList.find(p => p.bundleId && String(p.bundleId).toLowerCase() === idStr);
-  if (match) return match;
+  // If a target platform is provided (e.g., 'google' or 'apple'), check platform-matched projects first
+  if (targetPlat) {
+    const platformMatch = projectList.find(p => p.platform === targetPlat && matchesId(p));
+    if (platformMatch) return platformMatch;
+  }
 
-  // 3. Match by index (e.g. g-0, a-0)
-  match = projectList.find(p => p.index && String(p.index).toLowerCase() === idStr);
-  if (match) return match;
-
-  // 4. Match by sku or id
-  match = projectList.find(p => (p.sku && String(p.sku).toLowerCase() === idStr) || (p.id && String(p.id).toLowerCase() === idStr));
-  if (match) return match;
-
-  // 5. Match by name / displayName
-  match = projectList.find(p => p.name && String(p.name).toLowerCase() === idStr);
-  if (match) return match;
-
-  return null;
+  // Fallback to searching all projects
+  return projectList.find(matchesId) || null;
 }
 
 /**

@@ -117,7 +117,7 @@ export function useAppState() {
       }
       return;
     }
-    const targetProj = findProject(projects, newProject);
+    const targetProj = findProject(projects, newProject, newPlatform || platform);
     const platSegment = newPlatform === 'google' ? 'android' : newPlatform === 'apple' ? 'apple' : 'all';
     const projSegment = targetProj ? getProjectUrlSegment(targetProj) : (newProject || 'all');
     const currentSearch = new URLSearchParams(location.search);
@@ -200,7 +200,7 @@ export function useAppState() {
       nextProj = 'all';
       setSelectedProjectIndex('all');
     } else if (p !== 'all') {
-      const activeProj = findProject(projects, selectedProjectIndex);
+      const activeProj = findProject(projects, selectedProjectIndex, p);
       if (activeProj && activeProj.platform && activeProj.platform !== p) {
         const filtered = projects.filter(proj => proj.platform === p);
         if (filtered.length > 0) {
@@ -212,14 +212,14 @@ export function useAppState() {
         }
       }
     }
-    const targetProj = findProject(projects, nextProj);
+    const targetProj = findProject(projects, nextProj, p);
     const projSeg = targetProj ? getProjectUrlSegment(targetProj) : nextProj;
     updateUrl(p, projSeg, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
 
   const handleSetSelectedProjectIndex = (pIndex) => {
     let nextPlatform = platform;
-    const targetProj = findProject(projects, pIndex);
+    const targetProj = findProject(projects, pIndex, platform);
     if (pIndex === 'all') {
       nextPlatform = 'all';
     } else if (targetProj && targetProj.platform) {
@@ -299,7 +299,7 @@ export function useAppState() {
         let currentActive = dailyTrends[dailyTrends.length - 1]?.activeDevices || MOCK_DATA.overview.currentlyActiveDevices;
 
         if (selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
-            const proj = findProject(projects, selectedProjectIndex);
+            const proj = findProject(projects, selectedProjectIndex, platform);
             if (proj && appTrends[proj.name]) {
                currentTrends = appTrends[proj.name];
                currentActive = currentTrends[currentTrends.length - 1]?.activeDevices || currentActive;
@@ -318,7 +318,7 @@ export function useAppState() {
     }
 
     try {
-      const project = findProject(projects, selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex, platform);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,
@@ -470,7 +470,7 @@ export function useAppState() {
     }
 
     try {
-      const project = findProject(projects, selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex, platform);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,
@@ -516,7 +516,7 @@ export function useAppState() {
     }
 
     try {
-      const project = findProject(projects, selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex, platform);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,

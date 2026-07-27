@@ -225,7 +225,7 @@ export default function TopBar({
             
             {/* The rest of the apps: sorted alphabetically, Apple first, Google second */}
             {sortProjectsByPlatformAndName(filteredProjects).map(proj => {
-              const activeProj = findProject(projects, selectedProjectIndex);
+              const activeProj = findProject(projects, selectedProjectIndex, platform);
               const isSelected = activeProj?.packageName === proj.packageName || activeProj?.index === proj.index;
               return (
                 <button

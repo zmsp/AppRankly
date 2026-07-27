@@ -21,7 +21,13 @@ ChartJS.register(
 );
 
 export default function DimensionChart({ data, dimension, isLogarithmic = true }) {
-  if (!data) return null;
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400 italic p-6 text-center">
+        No dimension data available for selected scope.
+      </div>
+    );
+  }
 
   const chartData = {
     labels: data.map(item => {

@@ -747,9 +747,15 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
     load();
   }, [authToken, isStaticMode, isDemoMode]);
 
-  const entry = Array.isArray(config) ? config[0] : config;
+  const entry = (Array.isArray(config) ? config[0] : config) || {};
 
   const updateEntry = (key, value) => {
+    if (!config || (Array.isArray(config) && config.length === 0)) {
+      const newConfig = [{ [key]: value }];
+      setConfig(newConfig);
+      setRawJson(JSON.stringify(newConfig, null, 2));
+      return;
+    }
     const updated = Array.isArray(config)
       ? config.map((c, i) => i === 0 ? { ...c, [key]: value } : c)
       : { ...config, [key]: value };

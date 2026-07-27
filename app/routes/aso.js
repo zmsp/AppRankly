@@ -20,6 +20,18 @@ function calculateAiCost(provider, inputTokens = 0, outputTokens = 0) {
   return (inputTokens * pricing.inputPerToken) + (outputTokens * pricing.outputPerToken);
 }
 
+function isPlayPlatform(platform) {
+  if (!platform) return true;
+  const p = String(platform).toLowerCase();
+  return p === 'play' || p === 'google' || p === 'android';
+}
+
+function isApplePlatform(platform) {
+  if (!platform) return false;
+  const p = String(platform).toLowerCase();
+  return p === 'apple' || p === 'ios';
+}
+
 /**
  * AI Provider Endpoints
  */
@@ -257,7 +269,7 @@ router.post('/aso/ranks/check', async (req, res) => {
       return res.json({ success: true, checkedCount: 0, message: 'No tracked keywords found for this app' });
     }
 
-    const storeName = platform === 'apple' || platform === 'ios' ? 'apple' : 'play';
+    const storeName = isApplePlatform(platform) ? 'apple' : 'play';
     const checkTime = new Date().toISOString();
     const results = [];
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -323,7 +335,7 @@ router.post('/aso/prompt-preview', async (req, res) => {
 
   try {
     let detailedData = null;
-    if (platform === 'play') {
+    if (isPlayPlatform(platform)) {
       detailedData = await scraper.getPlayListing(packageName);
     } else {
       detailedData = await scraper.getAppleLookup(packageName);
@@ -402,7 +414,7 @@ router.post('/aso/audit', async (req, res) => {
     let detailedData = null;
 
     if (!listingText) {
-      if (platform === 'play') {
+      if (isPlayPlatform(platform)) {
         detailedData = await scraper.getPlayListing(packageName);
         if (detailedData) {
           listingText = `Title: ${detailedData.title}\nDeveloper: ${detailedData.developer}\nCategory: ${detailedData.category}\nRating: ${detailedData.score} (${detailedData.ratings} ratings)\nContent Rating: ${detailedData.contentRating}\nInstalls: ${detailedData.installs}\nShort Description: ${detailedData.summary}\nDescription: ${detailedData.description}`;
@@ -506,7 +518,7 @@ router.post('/aso/variants', async (req, res) => {
     }
 
     if (!scrapedMeta) {
-      if (platform === 'play') {
+      if (isPlayPlatform(platform)) {
         const pData = await scraper.getPlayListing(packageName);
         if (pData) {
           scrapedMeta = `Current Title: ${pData.title}\nCurrent Short Description: ${pData.summary}\nCurrent Description: ${pData.description}`;
@@ -579,7 +591,7 @@ router.post('/aso/competitors', async (req, res) => {
 
   try {
     let comps = [];
-    if (platform === 'play') {
+    if (isPlayPlatform(platform)) {
       comps = await scraper.getPlaySimilar(packageName);
     }
 
@@ -627,7 +639,7 @@ router.post('/aso/reviews/digest', async (req, res) => {
 
   try {
     let reviews = [];
-    if (platform === 'play') {
+    if (isPlayPlatform(platform)) {
       reviews = await scraper.getPlayReviews(packageName, 30);
     } else {
       reviews = await scraper.getAppleReviewsRSS(packageName);

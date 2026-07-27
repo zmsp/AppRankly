@@ -5,7 +5,7 @@ import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import clsx from 'clsx';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
-export default function AppSwitcherModal({ projects = [], selectedProjectIndex, onSelectProject, setPlatform }) {
+export default function AppSwitcherModal({ projects = [], selectedProjectIndex, onSelectProject, setPlatform, platform }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -26,7 +26,7 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
 
   if (!open) return null;
 
-  const activeProject = findProject(projects, selectedProjectIndex);
+  const activeProject = findProject(projects, selectedProjectIndex, platform);
   const filtered = projects.filter(p => p.name?.toLowerCase().includes(query.toLowerCase()) || p.packageName?.toLowerCase().includes(query.toLowerCase()));
 
   const handleSelect = (proj, projPlatform) => {

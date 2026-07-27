@@ -8,9 +8,18 @@ import { getProjectUrlSegment } from '../lib/projectUtils';
 import { clsx } from 'clsx';
 
 export default function PortfolioSmallMultiples({ projects = [], appTrends = {}, onSelectProject }) {
-  const [sortMode, setSortMode] = useState('decliners'); // 'decliners', 'installs', 'default'
+  const [sortMode, setSortMode] = useState('installs'); // 'installs', 'decliners', 'default'
 
-  if (!projects || projects.length === 0) return null;
+  if (!projects || projects.length === 0) {
+    return (
+      <div className="glass-card p-6 border border-white/10 text-center space-y-2">
+        <p className="text-xs font-bold text-slate-300">No Apps Available for Selected Scope</p>
+        <p className="text-[11px] text-slate-400 max-w-md mx-auto">
+          No apps match the selected platform filter. Ensure credentials for Apple App Store Connect or Google Play Console are configured in the Config page.
+        </p>
+      </div>
+    );
+  }
 
   // Enhance each project with momentum & quiet stats
   const enhancedProjects = projects.map((proj) => {
@@ -105,16 +114,16 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
           <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-lg border border-white/10 text-[10px]">
             <ArrowUpDown size={12} className="text-slate-400 ml-1" />
             <button
-              onClick={() => setSortMode('decliners')}
-              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'decliners' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
-            >
-              Decliners First
-            </button>
-            <button
               onClick={() => setSortMode('installs')}
               className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'installs' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
             >
               Top Installs
+            </button>
+            <button
+              onClick={() => setSortMode('decliners')}
+              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'decliners' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
+            >
+              Decliners First
             </button>
           </div>
           <span className="text-xs text-slate-400 font-medium">{projects.length} Apps</span>

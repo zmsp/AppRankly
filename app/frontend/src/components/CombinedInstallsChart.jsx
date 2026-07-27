@@ -34,7 +34,13 @@ const COLOR_PALETTE = [
 ];
 
 export default function CombinedInstallsChart({ dailyTrends = [], appTrends = {}, isLogarithmic = true }) {
-  if (!dailyTrends || dailyTrends.length === 0) return null;
+  if (!dailyTrends || dailyTrends.length === 0) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400 italic p-6 text-center">
+        No installation trend data available for selected platform scope or date range.
+      </div>
+    );
+  }
 
   const labels = dailyTrends.map(item => {
     const date = new Date(item.date);

@@ -12,7 +12,7 @@ const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
-const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex } = require("./lib/metrics");
+const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex, fillContinuousDailyTrends } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification } = require("./lib/notifier");
@@ -469,7 +469,7 @@ app.post("/api/store-details", authenticate, async (req, res) => {
     return res.status(400).json({ error: "packageName is required" });
   }
 
-  const isApple = platform === "apple";
+  const isApple = platform === "apple" || platform === "ios";
 
   if (isApple) {
     let cache = {};
@@ -510,8 +510,8 @@ app.post("/api/store-details", authenticate, async (req, res) => {
   }
 
   let scraped = await getScrapedPlayStoreData(packageName);
-  if (!scraped) {
-    // Fallback attempt with Apple metadata
+  if (!scraped && !platform) {
+    // Fallback attempt with Apple metadata only if platform was completely unprovided
     scraped = await getScrapedAppleStoreData(packageName);
   }
 
@@ -856,10 +856,25 @@ app.post("/api/stats", authenticate, async (req, res) => {
         });
 
         const validResults = results.filter(Boolean);
-        if (validResults.length === 0) throw new Error('No data found for any package');
+        if (validResults.length === 0) {
+          return {
+            dailyTrends: [],
+            appTrends: {},
+            currentlyActiveDevices: 0,
+            totalInstallCountByUser: 0,
+            totalDailyUserInstalls: 0,
+            totalDailyUserUninstalls: 0,
+            platformTotals: {
+              apple: { totalInstalls: 0, totalDailyUserInstalls: 0 },
+              google: { totalInstalls: 0, totalDailyUserInstalls: 0 }
+            },
+            message: 'No store stats or configuration available for selected scope.'
+          };
+        }
 
         const aggregated = aggregateOverviews(validResults);
-        if (aggregated && aggregated.dailyTrends) {
+        if (aggregated) {
+          aggregated.dailyTrends = fillContinuousDailyTrends(aggregated.dailyTrends || [], startDate, endDate);
           // For groups / all apps view: skip auto-calculating release correlations & benchmarks
           aggregated.retentionBenchmarks = { survivalTrend: [], churnAnomalies: [] };
           aggregated.releaseCorrelations = [];
@@ -870,18 +885,31 @@ app.post("/api/stats", authenticate, async (req, res) => {
         return aggregated;
       } else {
         let stats;
-        if (platform === "apple") {
-          const statsViewer = buildAppleViewer(baseConfig, packageName);
-          stats = await statsViewer.getAppStats(startDate, endDate);
-        } else {
-          const statsViewer = buildGoogleViewer(baseConfig, packageName);
-          stats = await statsViewer.getAppStats(startDate, endDate);
+        try {
+          if (platform === "apple") {
+            const statsViewer = buildAppleViewer(baseConfig, packageName);
+            stats = await statsViewer.getAppStats(startDate, endDate);
+          } else {
+            const statsViewer = buildGoogleViewer(baseConfig, packageName);
+            stats = await statsViewer.getAppStats(startDate, endDate);
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch stats for single app ${packageName} on ${platform}:`, e.message);
+          stats = {
+            dailyTrends: [],
+            appTrends: {},
+            currentlyActiveDevices: 0,
+            totalInstallCountByUser: 0,
+            totalDailyUserInstalls: 0,
+            totalDailyUserUninstalls: 0
+          };
         }
 
         stats.platform = platform === "apple" ? "apple" : "google";
         stats.hasUninstallData = platform !== "apple";
 
-        if (stats.dailyTrends) {
+        if (stats) {
+          stats.dailyTrends = fillContinuousDailyTrends(stats.dailyTrends || [], startDate, endDate);
           stats.retentionBenchmarks = calculateRetentionBenchmarks(stats.dailyTrends);
           stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases, packageName, platform);
           stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
@@ -961,10 +989,15 @@ app.post("/api/dimension", authenticate, async (req, res) => {
 
         return aggregatedDimensions;
       } else {
-        const viewer = platform === 'apple'
-          ? buildAppleViewer(baseConfig, packageName)
-          : buildGoogleViewer(baseConfig, packageName);
-        return await viewer.getDimensionStats(dimension, startDate, endDate);
+        try {
+          const viewer = platform === 'apple'
+            ? buildAppleViewer(baseConfig, packageName)
+            : buildGoogleViewer(baseConfig, packageName);
+          return await viewer.getDimensionStats(dimension, startDate, endDate);
+        } catch (e) {
+          console.warn(`Failed dimension stats for single app ${packageName} on ${platform}:`, e.message);
+          return [];
+        }
       }
     });
 

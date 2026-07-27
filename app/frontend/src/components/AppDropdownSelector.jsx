@@ -41,7 +41,7 @@ export default function AppDropdownSelector({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const activeProject = findProject(projects, selectedProjectIndex);
+  const activeProject = findProject(projects, selectedProjectIndex, platform);
 
   const isAllApps = selectedProjectIndex === 'all' || !activeProject;
   const isAppleStoreSelected = isAllApps && platform === 'apple';

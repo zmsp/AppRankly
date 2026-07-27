@@ -161,7 +161,7 @@ export default function Dashboard({
 
   const isAllProjects = selectedProjectIndex === 'all' || platform === 'all';
   const filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
-  const activeProject = findProject(projects, selectedProjectIndex);
+  const activeProject = findProject(projects, selectedProjectIndex, platform);
   const lastDataDate = stats.lastDate || (stats.dailyTrends?.length > 0 ? stats.dailyTrends[stats.dailyTrends.length - 1].date : null);
 
   const hasUninstallData = stats.hasUninstallData !== false &&

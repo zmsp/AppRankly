@@ -23,7 +23,7 @@ export default function Releases({
   // Find active project from global selection
   const activeProject = useMemo(() => {
     if (!selectedProjectIndex || selectedProjectIndex === 'all' || selectedProjectIndex === 'manual') return null;
-    return findProject(projects, selectedProjectIndex);
+    return findProject(projects, selectedProjectIndex, platform);
   }, [projects, selectedProjectIndex]);
 
   const [onlyInDateRange, setOnlyInDateRange] = useState(false);
@@ -523,45 +523,45 @@ export default function Releases({
       </div>
 
       {/* Embedded Build Impact & Timeline Chart */}
-      {stats?.dailyTrends && stats.dailyTrends.length > 0 && (
-        <div className="glass-card p-6 border border-white/10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-            <div className="flex items-center space-x-2">
-              <LineChartIcon size={18} className="text-accent-blue" />
-              <h3 className="text-base sm:text-lg font-bold text-white">Release Markers & Daily Trend Impact Timeline</h3>
-            </div>
+      <div className="glass-card p-6 border border-white/10 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+          <div className="flex items-center space-x-2">
+            <LineChartIcon size={18} className="text-accent-blue" />
+            <h3 className="text-base sm:text-lg font-bold text-white">Release Markers & Daily Trend Impact Timeline</h3>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <span className="text-xs text-slate-400 hidden lg:inline">Vertical dashed markers represent build release dates</span>
             
-            <div className="flex items-center space-x-3">
-              <span className="text-xs text-slate-400 hidden lg:inline">Vertical dashed markers represent build release dates</span>
-              
-              {/* Log Scale Switcher */}
-              <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setIsLogarithmic(false)}
-                  className={`px-2.5 py-1 rounded-lg transition-all ${
-                    !isLogarithmic
-                      ? 'bg-accent-blue text-white shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white font-medium'
-                  }`}
-                >
-                  Linear
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsLogarithmic(true)}
-                  className={`px-2.5 py-1 rounded-lg transition-all ${
-                    isLogarithmic
-                      ? 'bg-accent-blue text-white shadow-sm font-bold'
-                      : 'text-slate-400 hover:text-white font-medium'
-                  }`}
-                >
-                  Log Scale
-                </button>
-              </div>
+            {/* Log Scale Switcher */}
+            <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setIsLogarithmic(false)}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  !isLogarithmic
+                    ? 'bg-accent-blue text-white shadow-sm font-bold'
+                    : 'text-slate-400 hover:text-white font-medium'
+                }`}
+              >
+                Linear
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLogarithmic(true)}
+                className={`px-2.5 py-1 rounded-lg transition-all ${
+                  isLogarithmic
+                    ? 'bg-accent-blue text-white shadow-sm font-bold'
+                    : 'text-slate-400 hover:text-white font-medium'
+                }`}
+              >
+                Log Scale
+              </button>
             </div>
           </div>
+        </div>
 
+        {stats?.dailyTrends && stats.dailyTrends.length > 0 ? (
           <div className="h-72 w-full pt-2">
             <TrendChart
               data={stats.dailyTrends}
@@ -571,8 +571,12 @@ export default function Releases({
               isLogarithmic={isLogarithmic}
             />
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="h-48 w-full flex items-center justify-center text-slate-400 text-xs italic">
+            Loading timeline & release markers data...
+          </div>
+        )}
+      </div>
 
       {/* Version Adoption Breakdown Card */}
       <div className="glass-card p-6 border border-white/10 space-y-4">

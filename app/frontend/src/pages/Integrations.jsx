@@ -50,7 +50,7 @@ export default function Integrations({ authToken, isStaticMode, isDemoMode, rele
         />
         <ConnectionCard
           platform="Apple App Store Connect"
-          status={status?.apple?.connected ? 'connected' : 'partial'}
+          status={status?.apple?.connected ? 'connected' : (status?.apple?.issuerId ? 'partial' : 'disconnected')}
           details={status?.apple?.issuerId ? `Issuer ID: ${status.apple.issuerId.substring(0, 8)}...` : 'Credentials missing'}
           icon="https://upload.wikimedia.org/wikipedia/commons/6/67/App_Store_Smart_Icon.png"
         />

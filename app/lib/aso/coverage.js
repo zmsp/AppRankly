@@ -16,7 +16,8 @@ const storeRules = {
  * Validate metadata fields against store length limits
  */
 function validateMetadata(field, text, platform = 'play') {
-  const store = storeRules[platform] || storeRules.play;
+  const normPlat = (platform === 'apple' || platform === 'ios') ? 'apple' : 'play';
+  const store = storeRules[normPlat] || storeRules.play;
   const maxLimit = store[field] || 255;
   const length = (text || '').length;
   const isValid = length <= maxLimit;
@@ -41,6 +42,7 @@ function simulateCoverage(trackedKeywords, metadata = {}, platform = 'play') {
   const shortDescText = (metadata.short_description || metadata.subtitle || '').toLowerCase();
   const longDescText = (metadata.description || '').toLowerCase();
   const keywordFieldText = (metadata.keyword_field || '').toLowerCase();
+  const isPlay = platform === 'play' || platform === 'google' || platform === 'android';
 
   for (const item of keywords) {
     const term = (typeof item === 'string' ? item : item.term || '').toLowerCase().trim();
@@ -52,7 +54,7 @@ function simulateCoverage(trackedKeywords, metadata = {}, platform = 'play') {
     let isKwFieldCovered = keywordFieldText.split(',').map(s => s.trim()).includes(term);
 
     let status = 'none';
-    if (platform === 'play') {
+    if (isPlay) {
       if (isTitleCovered) status = 'exact_title';
       else if (isSubCovered) status = 'exact_short';
       else if (isDescCovered) status = 'exact_desc';

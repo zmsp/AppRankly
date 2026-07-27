@@ -46,7 +46,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
     setStoreDetails(null);
     setScrapeError(null);
 
-    if (!activeProject?.packageName || activeProject?.platform !== 'google') {
+    if (!activeProject?.packageName) {
       return;
     }
 
@@ -55,7 +55,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
       try {
         const res = await apiFetch('/api/store-details', {
           method: 'POST',
-          body: JSON.stringify({ packageName: activeProject.packageName, cacheOnly: true })
+          body: JSON.stringify({ packageName: activeProject.packageName, platform: activeProject.platform, cacheOnly: true })
         }, authToken, isStaticMode);
 
         if (res.ok) {
@@ -75,7 +75,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
 
   // Explicit action button to trigger live scraping
   const handleGrabMetadata = async () => {
-    if (!activeProject?.packageName || activeProject?.platform !== 'google') return;
+    if (!activeProject?.packageName) return;
 
     setLoadingScrape(true);
     setScrapeError(null);
@@ -83,7 +83,7 @@ export default function HeroKPI({ value, totalInstalls, activeDevices, activePro
     try {
       const res = await apiFetch('/api/store-details', {
         method: 'POST',
-        body: JSON.stringify({ packageName: activeProject.packageName, cacheOnly: false })
+        body: JSON.stringify({ packageName: activeProject.packageName, platform: activeProject.platform, cacheOnly: false })
       }, authToken, isStaticMode);
 
       if (!res.ok) throw new Error('Failed to grab store metadata');

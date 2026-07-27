@@ -30,7 +30,7 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const activeProject = findProject(state.projects, state.selectedProjectIndex);
+  const activeProject = findProject(state.projects, state.selectedProjectIndex, state.platform);
   const lastDataDate = state.stats?.lastDate || (state.stats?.dailyTrends?.length > 0 ? state.stats.dailyTrends[state.stats.dailyTrends.length - 1].date : null);
   
   const isWorking = state.loading || state.dimensionLoading;

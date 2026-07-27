@@ -51,13 +51,22 @@ const normalizeDateStr = (dateVal) => {
 
 const findNearestDataIndex = (data, releaseDateStr) => {
   const targetNorm = normalizeDateStr(releaseDateStr);
-  if (!targetNorm) return -1;
+  if (!targetNorm || !Array.isArray(data) || data.length === 0) return -1;
 
   // 1. Exact match
   const exactIndex = data.findIndex(d => normalizeDateStr(d.date) === targetNorm);
   if (exactIndex !== -1) return exactIndex;
 
-  // 2. Nearest date match within 7 days
+  // 2. Out-of-bounds check: if release date is outside active chart date window, do not plot it
+  const firstNorm = normalizeDateStr(data[0].date);
+  const lastNorm = normalizeDateStr(data[data.length - 1].date);
+  if (firstNorm && lastNorm) {
+    if (targetNorm < firstNorm || targetNorm > lastNorm) {
+      return -1;
+    }
+  }
+
+  // 3. Nearest date match within 7 days for in-range gap dates
   const targetTime = new Date(targetNorm + 'T00:00:00Z').getTime();
   if (isNaN(targetTime)) return -1;
 
@@ -86,7 +95,13 @@ const findNearestDataIndex = (data, releaseDateStr) => {
 };
 
 export default function TrendChart({ data, releases = [], platform = 'google', hasUninstallData, isLogarithmic = false, onSelectPoint }) {
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-full w-full flex items-center justify-center text-xs text-slate-400 italic p-6 text-center">
+        No daily trend data available for selected platform scope.
+      </div>
+    );
+  }
 
   const labels = data.map(item => {
     const norm = normalizeDateStr(item.date);
@@ -204,6 +219,14 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
 
   const options = {
     ...baseOptions,
+    layout: {
+      padding: {
+        top: 32,
+        bottom: 4,
+        left: 8,
+        right: 8
+      }
+    },
     onClick: (event, elements) => {
       if (elements && elements.length > 0 && onSelectPoint) {
         const index = elements[0].index;
