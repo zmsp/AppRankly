@@ -4,6 +4,7 @@ import { Layers, ArrowUpDown, Flame } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { formatNumber } from '../lib/format';
 import AppIcon from './AppIcon';
+import { getProjectUrlSegment } from '../lib/projectUtils';
 import { clsx } from 'clsx';
 
 export default function PortfolioSmallMultiples({ projects = [], appTrends = {}, onSelectProject }) {
@@ -126,8 +127,8 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
 
           return (
             <div
-              key={proj.index}
-              onClick={() => onSelectProject && onSelectProject(proj.index)}
+              key={proj.index || proj.packageName}
+              onClick={() => onSelectProject && onSelectProject(getProjectUrlSegment(proj))}
               className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-3 sm:p-3.5 rounded-xl transition-all cursor-pointer flex flex-col justify-between space-y-2.5 group min-h-[135px]"
             >
               <div className="space-y-2">

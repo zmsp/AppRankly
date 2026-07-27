@@ -13,6 +13,7 @@ import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
 import { MOCK_PROJECTS } from '../lib/mockData';
+import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 function clsx(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -150,7 +151,7 @@ export function getDemoAsoData(pkgName = '', project = {}) {
 }
 
 export default function StoreASO({ stats, isDemoMode, projects = [], selectedProjectIndex, platform = 'play', authToken, onSelectProject, setPlatform }) {
-  const activeProject = projects.find(p => p.index === selectedProjectIndex) || projects[0] || MOCK_PROJECTS[0];
+  const activeProject = findProject(projects, selectedProjectIndex) || projects[0] || MOCK_PROJECTS[0];
   const packageName = activeProject?.packageName || 'com.example.app';
   const isAllScope = selectedProjectIndex === 'all' || !selectedProjectIndex;
 
@@ -938,7 +939,7 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {(projects.length > 0 ? projects : MOCK_PROJECTS).map((proj) => {
-                  const isCurrent = proj.packageName === packageName || proj.index === selectedProjectIndex;
+                  const isCurrent = proj.packageName === packageName || proj.packageName === activeProject?.packageName || proj.index === activeProject?.index;
                   const auditInfo = (isCurrent && asoData?.lastAudit?.score)
                     ? asoData.lastAudit
                     : getAppAsoAudit(proj, isDemoMode, getDemoAsoData);
@@ -948,9 +949,9 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
 
                   return (
                     <div
-                      key={proj.index}
+                      key={proj.index || proj.packageName}
                       onClick={() => {
-                        if (typeof onSelectProject === 'function') onSelectProject(proj.index);
+                        if (typeof onSelectProject === 'function') onSelectProject(getProjectUrlSegment(proj));
                       }}
                       className={clsx(
                         "p-4 rounded-2xl border transition-all cursor-pointer space-y-3",

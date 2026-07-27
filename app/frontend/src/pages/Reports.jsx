@@ -1,9 +1,10 @@
 import React from 'react';
 import { FileText, Download, Activity, PackageCheck } from 'lucide-react';
 import { toCSV, downloadCSV } from '../lib/csv';
+import { findProject } from '../lib/projectUtils';
 
 export default function Reports({ stats, dimensionStats, activeDimension = 'country', loading, projects = [], selectedProjectIndex }) {
-  const currentProject = projects.find(p => p.index === selectedProjectIndex) || { name: 'App' };
+  const currentProject = findProject(projects, selectedProjectIndex) || { name: 'App' };
 
   const handleExportOverview = () => {
     if (!stats) return;

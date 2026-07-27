@@ -19,7 +19,7 @@ import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
 import AppIcon from './AppIcon';
 import { getPresetDateRange } from '../lib/dateUtils';
-import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
+import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 export default function TopBar({
   onMenuClick,
@@ -217,21 +217,25 @@ export default function TopBar({
             </button>
             
             {/* The rest of the apps: sorted alphabetically, Apple first, Google second */}
-            {sortProjectsByPlatformAndName(filteredProjects).map(proj => (
-              <button
-                key={proj.index}
-                onClick={() => setSelectedProjectIndex(proj.index.toString())}
-                className={clsx(
-                  "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border bg-white/5",
-                  selectedProjectIndex === proj.index.toString() || selectedProjectIndex === proj.index
-                    ? "border-accent-blue ring-2 ring-accent-blue/30 scale-105 shadow-lg"
-                    : "border-transparent hover:scale-105 hover:bg-white/10"
-                )}
-                title={`${proj.name} (${proj.platform === 'apple' ? 'Apple Store' : 'Play Store'})`}
-              >
-                <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-full h-full rounded-[10px] sm:rounded-xl" />
-              </button>
-            ))}
+            {sortProjectsByPlatformAndName(filteredProjects).map(proj => {
+              const activeProj = findProject(projects, selectedProjectIndex);
+              const isSelected = activeProj?.packageName === proj.packageName || activeProj?.index === proj.index;
+              return (
+                <button
+                  key={proj.index || proj.packageName}
+                  onClick={() => setSelectedProjectIndex(getProjectUrlSegment(proj))}
+                  className={clsx(
+                    "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border bg-white/5",
+                    isSelected
+                      ? "border-accent-blue ring-2 ring-accent-blue/30 scale-105 shadow-lg"
+                      : "border-transparent hover:scale-105 hover:bg-white/10"
+                  )}
+                  title={`${proj.name} (${proj.platform === 'apple' ? 'Apple Store' : 'Play Store'})`}
+                >
+                  <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-full h-full rounded-[10px] sm:rounded-xl" />
+                </button>
+              );
+            })}
 
             <button
               onClick={() => setSelectedProjectIndex('manual')}

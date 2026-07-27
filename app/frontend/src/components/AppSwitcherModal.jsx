@@ -3,6 +3,7 @@ import { Search, Command, X, Check } from 'lucide-react';
 import AppIcon from './AppIcon';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import clsx from 'clsx';
+import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 export default function AppSwitcherModal({ projects = [], selectedProjectIndex, onSelectProject, setPlatform }) {
   const [open, setOpen] = useState(false);
@@ -25,14 +26,16 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
 
   if (!open) return null;
 
+  const activeProject = findProject(projects, selectedProjectIndex);
   const filtered = projects.filter(p => p.name?.toLowerCase().includes(query.toLowerCase()) || p.packageName?.toLowerCase().includes(query.toLowerCase()));
 
-  const handleSelect = (projIndex, projPlatform) => {
-    if (projIndex === 'all') {
+  const handleSelect = (proj, projPlatform) => {
+    if (proj === 'all') {
       onSelectProject('all');
       if (setPlatform) setPlatform('all');
     } else {
-      onSelectProject(projIndex);
+      const seg = getProjectUrlSegment(proj);
+      onSelectProject(seg);
       if (setPlatform && projPlatform) setPlatform(projPlatform);
     }
     setOpen(false);
@@ -81,11 +84,11 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
           </div>
 
           {filtered.map((proj) => {
-            const isSelected = selectedProjectIndex?.toString() === proj.index?.toString();
+            const isSelected = activeProject?.packageName === proj.packageName || activeProject?.index === proj.index;
             return (
               <div
-                key={proj.index}
-                onClick={() => handleSelect(proj.index, proj.platform)}
+                key={proj.index || proj.packageName}
+                onClick={() => handleSelect(proj, proj.platform)}
                 className={clsx(
                   "flex items-center justify-between p-3 rounded-xl cursor-pointer text-xs transition-colors",
                   isSelected ? "bg-accent-blue/15 text-white" : "hover:bg-white/5 text-slate-300"

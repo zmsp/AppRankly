@@ -6,6 +6,7 @@ import AppIcon from './AppIcon';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { getDemoAsoData } from '../pages/StoreASO';
 import { getAppAsoAudit } from '../lib/asoCache';
+import { getProjectUrlSegment } from '../lib/projectUtils';
 import { clsx } from 'clsx';
 
 export default function PortfolioAsoScores({
@@ -48,7 +49,7 @@ export default function PortfolioAsoScores({
       setPlatform(proj.platform || 'google');
     }
     if (typeof onSelectProject === 'function') {
-      onSelectProject(proj.index);
+      onSelectProject(getProjectUrlSegment(proj));
     }
     navigate('/store');
   };

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Tag, CheckCircle, Clock, Calendar, AlertTriangle, Plus, Edit2, Trash2, Sparkles, RefreshCw, Layers, X, Smartphone, ArrowUpRight, Filter, LineChart as LineChartIcon, BarChart2, Zap } from 'lucide-react';
 import { formatNumber } from '../lib/format';
 import TrendChart from '../components/TrendChart';
+import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -22,7 +23,7 @@ export default function Releases({
   // Find active project from global selection
   const activeProject = useMemo(() => {
     if (!selectedProjectIndex || selectedProjectIndex === 'all' || selectedProjectIndex === 'manual') return null;
-    return projects.find(p => String(p.index) === String(selectedProjectIndex));
+    return findProject(projects, selectedProjectIndex);
   }, [projects, selectedProjectIndex]);
 
   const [onlyInDateRange, setOnlyInDateRange] = useState(false);
@@ -363,7 +364,7 @@ export default function Releases({
               >
                 <option value="all" className="bg-slate-900 text-white">Show All Apps ({projects.length})</option>
                 {projects.map(p => (
-                  <option key={p.index} value={String(p.index)} className="bg-slate-900 text-white">
+                  <option key={p.index} value={getProjectUrlSegment(p)} className="bg-slate-900 text-white">
                     {p.name} ({p.platform === 'apple' ? 'iOS' : 'Android'})
                   </option>
                 ))}

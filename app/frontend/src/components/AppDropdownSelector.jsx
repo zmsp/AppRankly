@@ -4,7 +4,7 @@ import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 
 import AppIcon from './AppIcon';
-import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
+import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 import { useLocation } from 'react-router-dom';
 
@@ -41,9 +41,7 @@ export default function AppDropdownSelector({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const activeProject = projects.find(
-    p => p.index.toString() === selectedProjectIndex?.toString()
-  );
+  const activeProject = findProject(projects, selectedProjectIndex);
 
   const isAllApps = selectedProjectIndex === 'all' || !activeProject;
   const isAppleStoreSelected = isAllApps && platform === 'apple';
@@ -72,7 +70,7 @@ export default function AppDropdownSelector({
   };
 
   const handleSelectProject = (proj) => {
-    onSelectProject(proj.index);
+    onSelectProject(getProjectUrlSegment(proj));
     if (setPlatform && proj.platform) setPlatform(proj.platform);
     setIsOpen(false);
     setSearchQuery('');
@@ -233,7 +231,7 @@ export default function AppDropdownSelector({
                       Apple Store ({appleProjects.length})
                     </div>
                     {appleProjects.map((proj) => {
-                      const isSelected = !isAllApps && (activeProject?.index === proj.index || selectedProjectIndex?.toString() === proj.index?.toString());
+                      const isSelected = !isAllApps && (activeProject?.packageName === proj.packageName || activeProject?.index === proj.index);
                       return (
                         <div
                           key={proj.index}
@@ -276,7 +274,7 @@ export default function AppDropdownSelector({
                       Play Store ({googleProjects.length})
                     </div>
                     {googleProjects.map((proj) => {
-                      const isSelected = !isAllApps && (activeProject?.index === proj.index || selectedProjectIndex?.toString() === proj.index?.toString());
+                      const isSelected = !isAllApps && (activeProject?.packageName === proj.packageName || activeProject?.index === proj.index);
                       return (
                         <div
                           key={proj.index}

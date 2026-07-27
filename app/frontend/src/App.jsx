@@ -14,6 +14,7 @@ import AuthOverlay from './components/AuthOverlay';
 import DemoPopup from './components/DemoPopup';
 import AppSwitcherModal from './components/AppSwitcherModal';
 import { useAppState } from './hooks/useAppState';
+import { findProject } from './lib/projectUtils';
 
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
@@ -29,7 +30,7 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const activeProject = state.projects?.find(p => p.index === state.selectedProjectIndex);
+  const activeProject = findProject(state.projects, state.selectedProjectIndex);
   const lastDataDate = state.stats?.lastDate || (state.stats?.dailyTrends?.length > 0 ? state.stats.dailyTrends[state.stats.dailyTrends.length - 1].date : null);
   
   const isWorking = state.loading || state.dimensionLoading;

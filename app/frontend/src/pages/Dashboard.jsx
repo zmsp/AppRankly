@@ -18,6 +18,7 @@ import AllPlatformDashboard from '../components/AllPlatformDashboard';
 import ChartPanel from '../components/ChartPanel';
 import { calculateHealthScore } from '../lib/healthScore';
 import SkeletonDashboard from '../components/SkeletonDashboard';
+import { findProject } from '../lib/projectUtils';
 import { formatNumber } from '../lib/format';
 import {
   Users,
@@ -144,7 +145,7 @@ export default function Dashboard({
 
   const isAllProjects = selectedProjectIndex === 'all' || platform === 'all';
   const filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
-  const activeProject = projects.find(p => p.index === selectedProjectIndex);
+  const activeProject = findProject(projects, selectedProjectIndex);
   const lastDataDate = stats.lastDate || (stats.dailyTrends?.length > 0 ? stats.dailyTrends[stats.dailyTrends.length - 1].date : null);
 
   const hasUninstallData = stats.hasUninstallData !== false &&

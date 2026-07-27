@@ -4,7 +4,7 @@ import { apiFetch } from '../lib/api';
 import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
 import { buildCacheKey, getCached, setCached, cachedFetch, clearCache } from '../lib/statsCache';
-import { sortProjectsByPlatformAndName } from '../lib/projectUtils';
+import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 export function useAppState() {
   const location = useLocation();
@@ -55,7 +55,7 @@ export function useAppState() {
   useEffect(() => {
     if (selectedProjectIndex) localStorage.setItem('apprankly_project', selectedProjectIndex);
   }, [selectedProjectIndex]);
-  
+
   const calculateInitialRange = () => {
     if (startParam && endParam) {
       const parsedStart = parseDateExpression(startParam);
@@ -64,10 +64,33 @@ export function useAppState() {
         return { start: parsedStart, end: parsedEnd, label: 'Custom' };
       }
     }
-    return getPresetDateRange(rangeParam);
+    if (rangeParam) {
+      return getPresetDateRange(rangeParam);
+    }
+    const storedStart = localStorage.getItem('apprankly_date_start');
+    const storedEnd = localStorage.getItem('apprankly_date_end');
+    if (storedStart && storedEnd) {
+      return { start: storedStart, end: storedEnd, label: 'Custom' };
+    }
+    const storedPreset = localStorage.getItem('apprankly_date_preset');
+    return getPresetDateRange(storedPreset || '7d');
   };
 
   const [dateRange, setDateRange] = useState(calculateInitialRange);
+
+  useEffect(() => {
+    if (dateRange) {
+      if (dateRange.preset) {
+        localStorage.setItem('apprankly_date_preset', dateRange.preset.toLowerCase());
+        localStorage.removeItem('apprankly_date_start');
+        localStorage.removeItem('apprankly_date_end');
+      } else if (dateRange.start && dateRange.end) {
+        localStorage.removeItem('apprankly_date_preset');
+        localStorage.setItem('apprankly_date_start', dateRange.start);
+        localStorage.setItem('apprankly_date_end', dateRange.end);
+      }
+    }
+  }, [dateRange]);
 
   const [stats, setStats] = useState(null);
   const [dimensionStats, setDimensionStats] = useState(null);
@@ -86,7 +109,6 @@ export function useAppState() {
     }
   }, [navigate]);
 
-
   // Sync URL when platform, selectedProjectIndex, or dateRange changes
   const updateUrl = useCallback((newPlatform, newProject, newRangePreset, customStart, customEnd) => {
     if (isDemoMode) {
@@ -95,9 +117,14 @@ export function useAppState() {
       }
       return;
     }
+    const targetProj = findProject(projects, newProject);
     const platSegment = newPlatform === 'google' ? 'android' : newPlatform === 'apple' ? 'apple' : 'all';
-    const projSegment = newProject || 'all';
+    const projSegment = targetProj ? getProjectUrlSegment(targetProj) : (newProject || 'all');
     const currentSearch = new URLSearchParams(location.search);
+
+    const rangeToUse = newRangePreset || (dateRange?.preset ? dateRange.preset.toLowerCase() : null);
+    const startToUse = customStart || dateRange?.start;
+    const endToUse = customEnd || dateRange?.end;
 
     if (newRangePreset) {
       currentSearch.set('range', newRangePreset);
@@ -107,10 +134,18 @@ export function useAppState() {
       currentSearch.delete('range');
       currentSearch.set('start', customStart);
       currentSearch.set('end', customEnd);
+    } else if (rangeToUse && rangeToUse !== 'custom') {
+      currentSearch.set('range', rangeToUse);
+      currentSearch.delete('start');
+      currentSearch.delete('end');
+    } else if (startToUse && endToUse) {
+      currentSearch.delete('range');
+      currentSearch.set('start', startToUse);
+      currentSearch.set('end', endToUse);
     }
-    
+
     const searchStr = currentSearch.toString() ? `?${currentSearch.toString()}` : '';
-    
+
     // Preserve sub-routes like /store, /retention, /releases while appending platform/project
     const currentParts = location.pathname.split('/').filter(Boolean);
     const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
@@ -124,7 +159,7 @@ export function useAppState() {
     if (location.pathname + location.search !== newPath) {
       navigate(newPath, { replace: true });
     }
-  }, [location.pathname, location.search, navigate, isDemoMode]);
+  }, [location.pathname, location.search, navigate, isDemoMode, projects, dateRange]);
 
   // Sync state from location pathname if URL segments change
   useEffect(() => {
@@ -159,34 +194,40 @@ export function useAppState() {
       nextProj = 'all';
       setSelectedProjectIndex('all');
     } else if (p !== 'all') {
-      const filtered = projects.filter(proj => proj.platform === p);
-      const exists = filtered.some(proj => proj.index.toString() === selectedProjectIndex.toString());
-      if (!exists && filtered.length > 0) {
-        nextProj = 'all';
-        setSelectedProjectIndex('all');
+      const activeProj = findProject(projects, selectedProjectIndex);
+      if (activeProj && activeProj.platform && activeProj.platform !== p) {
+        const filtered = projects.filter(proj => proj.platform === p);
+        if (filtered.length > 0) {
+          nextProj = getProjectUrlSegment(filtered[0]);
+          setSelectedProjectIndex(nextProj);
+        } else {
+          nextProj = 'all';
+          setSelectedProjectIndex('all');
+        }
       }
     }
-    updateUrl(p, nextProj, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
+    const targetProj = findProject(projects, nextProj);
+    const projSeg = targetProj ? getProjectUrlSegment(targetProj) : nextProj;
+    updateUrl(p, projSeg, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
 
   const handleSetSelectedProjectIndex = (pIndex) => {
     let nextPlatform = platform;
+    const targetProj = findProject(projects, pIndex);
     if (pIndex === 'all') {
       nextPlatform = 'all';
-    } else if (pIndex !== 'manual' && projects.length > 0) {
-      const targetProj = projects.find(p => p.index.toString() === pIndex.toString());
-      if (targetProj && targetProj.platform) {
-        nextPlatform = targetProj.platform;
-      } else if (platform === 'all') {
-        nextPlatform = 'google';
-      }
+    } else if (targetProj && targetProj.platform) {
+      nextPlatform = targetProj.platform;
+    } else if (platform === 'all' && pIndex !== 'manual') {
+      nextPlatform = 'google';
     }
 
     if (nextPlatform !== platform) {
       setPlatform(nextPlatform);
     }
-    setSelectedProjectIndex(pIndex);
-    updateUrl(nextPlatform, pIndex, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
+    const newProjSegment = targetProj ? getProjectUrlSegment(targetProj) : pIndex;
+    setSelectedProjectIndex(newProjSegment);
+    updateUrl(nextPlatform, newProjSegment, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
   };
 
   const handleSetDateRange = (rangeObj, presetName) => {
@@ -252,7 +293,7 @@ export function useAppState() {
         let currentActive = dailyTrends[dailyTrends.length - 1]?.activeDevices || MOCK_DATA.overview.currentlyActiveDevices;
 
         if (selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
-            const proj = projects.find(p => p.index.toString() === selectedProjectIndex.toString());
+            const proj = findProject(projects, selectedProjectIndex);
             if (proj && appTrends[proj.name]) {
                currentTrends = appTrends[proj.name];
                currentActive = currentTrends[currentTrends.length - 1]?.activeDevices || currentActive;
@@ -271,7 +312,7 @@ export function useAppState() {
     }
 
     try {
-      const project = projects.find(p => p.index === selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,
@@ -423,7 +464,7 @@ export function useAppState() {
     }
 
     try {
-      const project = projects.find(p => p.index === selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,
@@ -469,7 +510,7 @@ export function useAppState() {
     }
 
     try {
-      const project = projects.find(p => p.index === selectedProjectIndex);
+      const project = findProject(projects, selectedProjectIndex);
       const body = {
         platform,
         projectIndex: selectedProjectIndex,
