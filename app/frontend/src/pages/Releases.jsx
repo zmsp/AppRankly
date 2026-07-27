@@ -83,10 +83,41 @@ export default function Releases({
     }
 
     const rawList = Array.from(mergedMap.values());
-
     if (!Array.isArray(rawList)) return [];
 
-    return rawList.filter(rel => {
+    // Deduplicate: Manually logged releases take priority over auto-detected releases on same package & date/version
+    const deduplicatedList = [];
+    const manualKeys = new Set();
+
+    rawList.forEach(r => {
+      const isAuto = r.source === 'auto' || r.source === 'auto_historical';
+      if (!isAuto) {
+        const pkg = String(r.packageName || 'all').trim().toLowerCase();
+        const date = String(r.releaseDate || r.date || '').substring(0, 10);
+        const ver = String(r.version || r.releaseName || '').trim().toLowerCase();
+        if (date && date !== 'undefined') manualKeys.add(`${pkg}_date_${date}`);
+        if (ver && ver !== 'undefined') manualKeys.add(`${pkg}_ver_${ver}`);
+        deduplicatedList.push(r);
+      }
+    });
+
+    rawList.forEach(r => {
+      const isAuto = r.source === 'auto' || r.source === 'auto_historical';
+      if (isAuto) {
+        const pkg = String(r.packageName || 'all').trim().toLowerCase();
+        const date = String(r.releaseDate || r.date || '').substring(0, 10);
+        const ver = String(r.version || r.releaseName || '').trim().toLowerCase();
+
+        const hasManualDate = date && date !== 'undefined' && manualKeys.has(`${pkg}_date_${date}`);
+        const hasManualVer = ver && ver !== 'undefined' && manualKeys.has(`${pkg}_ver_${ver}`);
+
+        if (!hasManualDate && !hasManualVer) {
+          deduplicatedList.push(r);
+        }
+      }
+    });
+
+    return deduplicatedList.filter(rel => {
       // Filter by Package Name
       if (effectivePackageName !== 'all') {
         if (rel.packageName && rel.packageName !== 'all') {

@@ -1077,33 +1077,12 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
         let appTitle = proj.name || proj.packageName;
 
         if (proj.platform === 'apple') {
-          // 1. Apple: Direct iTunes Search API Call (Official Public Apple API)
           const bundleOrId = proj.bundleId || proj.packageName;
-          const isNumeric = /^\d+$/.test(bundleOrId);
-          const lookupUrl = isNumeric
-            ? `https://itunes.apple.com/lookup?id=${bundleOrId}`
-            : `https://itunes.apple.com/lookup?bundleId=${bundleOrId}`;
-
-          try {
-            const apiRes = await axios.get(lookupUrl, { timeout: 8000 });
-            if (apiRes.data?.results?.length > 0) {
-              const item = apiRes.data.results[0];
-              versionFound = item.version;
-              releaseDateFound = item.currentVersionReleaseDate || item.releaseDate;
-              appTitle = item.trackName || appTitle;
-            }
-          } catch (e) {
-            console.warn(`iTunes API lookup failed for ${bundleOrId}:`, e.message);
-          }
-
-          // Fallback to cached Apple store data if live lookup failed
-          if (!versionFound) {
-            const cached = await getScrapedAppleStoreData(bundleOrId);
-            if (cached?.version) {
-              versionFound = cached.version;
-              releaseDateFound = cached.updated;
-              appTitle = cached.title || appTitle;
-            }
+          const appleData = await getScrapedAppleStoreData(bundleOrId);
+          if (appleData?.version) {
+            versionFound = appleData.version;
+            releaseDateFound = appleData.updated;
+            appTitle = appleData.title || appTitle;
           }
         } else {
           // 2. Google Play: Live Scraper Call
@@ -1165,11 +1144,12 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
 
           const normProjPkg = String(proj.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
           const exists = releases.some(r => {
-            const rVerMatches = (r.version === verStr || r.version === versionFound);
             const rPkg = String(r.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
-            const rPkgMatches = rPkg === normProjPkg;
+            const rPkgMatches = !r.packageName || r.packageName === 'all' || rPkg === normProjPkg;
             const rPlatMatches = !r.platform || r.platform === 'all' || r.platform === proj.platform;
-            return rVerMatches && rPkgMatches && rPlatMatches;
+            const rVerMatches = (r.version === verStr || r.version === versionFound);
+            const rDateMatches = (r.date === releaseDate || r.releaseDate === releaseDate);
+            return (rVerMatches || rDateMatches) && rPkgMatches && rPlatMatches;
           });
 
           if (!exists) {
@@ -1228,9 +1208,11 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
             for (const [verCode, firstDate] of firstSeenMap.entries()) {
               const verTag = `v${verCode}`;
               const existsHist = releases.some(r => {
-                const rVerMatches = (r.version === verTag || r.version === verCode);
                 const rPkg = String(r.packageName || '').trim().toLowerCase().replace(/[-_]/g, '');
-                return rVerMatches && rPkg === normProjPkg;
+                const rPkgMatches = !r.packageName || r.packageName === 'all' || rPkg === normProjPkg;
+                const rVerMatches = (r.version === verTag || r.version === verCode);
+                const rDateMatches = (r.date === firstDate || r.releaseDate === firstDate);
+                return (rVerMatches || rDateMatches) && rPkgMatches;
               });
 
               if (!existsHist) {

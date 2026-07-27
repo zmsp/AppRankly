@@ -127,6 +127,8 @@ class AppleAppStoreStatsViewer {
     return this.token;
   }
 
+  static disabledVendors = new Set();
+
   async fetchDailySalesReport(dateStr) {
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
@@ -134,17 +136,24 @@ class AppleAppStoreStatsViewer {
 
     const cacheFile = path.join(this.cacheDir, `sales_${dateStr}.txt`);
     if (fs.existsSync(cacheFile)) {
-      return fs.readFileSync(cacheFile, 'utf8');
+      const content = fs.readFileSync(cacheFile, 'utf8');
+      if (content === '__EMPTY__' || content === 'NO_DATA') return null;
+      return content;
     }
 
-    if (!this.vendorId) {
-      console.warn("No Apple vendorId provided or configured.");
+    if (!this.vendorId || AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {
       return null;
     }
 
     return resolver.resolve('apple:sales_report', { vendorId: this.vendorId, dateStr }, async () => {
       if (fs.existsSync(cacheFile)) {
-        return fs.readFileSync(cacheFile, 'utf8');
+        const content = fs.readFileSync(cacheFile, 'utf8');
+        if (content === '__EMPTY__' || content === 'NO_DATA') return null;
+        return content;
+      }
+
+      if (AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {
+        return null;
       }
 
       const token = this.generateToken();
@@ -172,7 +181,15 @@ class AppleAppStoreStatsViewer {
         return rawTxt;
       } catch (err) {
         if (err.response && err.response.status === 404) {
-          // Report not generated yet or no sales for that date
+          // Report not generated yet or no sales for that date — write negative cache
+          try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
+          return null;
+        }
+        if (err.response && (err.response.status === 400 || err.response.status === 403)) {
+          // Vendor not active/authorized or invalid
+          console.warn(`[Apple API] Sales reports unavailable for vendor ${this.vendorId} (HTTP ${err.response.status}). Disabling further sales report requests.`);
+          AppleAppStoreStatsViewer.disabledVendors.add(this.vendorId);
+          try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
           return null;
         }
         console.error(`[DEBUG] Error fetching sales report for ${dateStr}:`, err.message);
@@ -208,9 +225,16 @@ class AppleAppStoreStatsViewer {
       });
     });
 
-    for (const dateStr of dateList) {
-      const rawTxt = await this.fetchDailySalesReport(dateStr);
-      if (!rawTxt) continue;
+    // Parallel fetch for all dates in dateList
+    const reports = await Promise.all(
+      dateList.map(async (dateStr) => {
+        const rawTxt = await this.fetchDailySalesReport(dateStr);
+        return { dateStr, rawTxt };
+      })
+    );
+
+    for (const { dateStr, rawTxt } of reports) {
+      if (!rawTxt || rawTxt === '__EMPTY__') continue;
 
       await new Promise((resolve) => {
         csv.parseString(rawTxt, { headers: true, delimiter: '\t' })
@@ -303,9 +327,15 @@ class AppleAppStoreStatsViewer {
 
     const statsMap = new Map();
 
-    for (const dateStr of dateList) {
-      const rawTxt = await this.fetchDailySalesReport(dateStr);
-      if (!rawTxt) continue;
+    const reports = await Promise.all(
+      dateList.map(async (dateStr) => {
+        const rawTxt = await this.fetchDailySalesReport(dateStr);
+        return { dateStr, rawTxt };
+      })
+    );
+
+    for (const { dateStr, rawTxt } of reports) {
+      if (!rawTxt || rawTxt === '__EMPTY__') continue;
 
       await new Promise((resolve) => {
         csv.parseString(rawTxt, { headers: true, delimiter: '\t' })

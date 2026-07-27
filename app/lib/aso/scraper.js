@@ -1,5 +1,6 @@
 const axios = require('axios');
 const gplay = require('google-play-scraper');
+const resolver = require('../resolver');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -101,19 +102,22 @@ async function getAppleSearch(term, country = 'us', limit = 30) {
 }
 
 async function getAppleLookup(trackIdOrBundleId) {
-  try {
-    const isNumeric = /^\d+$/.test(trackIdOrBundleId);
-    const url = isNumeric
-      ? `https://itunes.apple.com/lookup?id=${trackIdOrBundleId}`
-      : `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(trackIdOrBundleId)}`;
+  if (!trackIdOrBundleId) return null;
+  return resolver.resolve('scrape:apple', { identifier: trackIdOrBundleId }, async () => {
+    try {
+      const isNumeric = /^\d+$/.test(trackIdOrBundleId);
+      const url = isNumeric
+        ? `https://itunes.apple.com/lookup?id=${trackIdOrBundleId}`
+        : `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(trackIdOrBundleId)}`;
 
-    const resp = await axios.get(url, { timeout: 10000 });
-    const raw = resp.data?.results?.[0];
-    return raw ? formatAppleRawData(raw) : null;
-  } catch (err) {
-    console.warn(`[ASO Scraper] Apple lookup failed for ${trackIdOrBundleId}:`, err.message);
-    return null;
-  }
+      const resp = await axios.get(url, { timeout: 10000 });
+      const raw = resp.data?.results?.[0];
+      return raw ? formatAppleRawData(raw) : null;
+    } catch (err) {
+      console.warn(`[ASO Scraper] Apple lookup failed for ${trackIdOrBundleId}:`, err.message);
+      return null;
+    }
+  });
 }
 
 function formatAppleRawData(raw) {

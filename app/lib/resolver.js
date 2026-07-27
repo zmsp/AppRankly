@@ -161,7 +161,7 @@ async function resolve(resource, params = {}, fetchFn) {
   if (fileHit !== undefined) {
     metrics.hits.file++;
     cache.set(key, fileHit); // Backfill Tier 1
-    dbUpsert(resource, params, fileHit); // Backfill Tier 2
+    if (fileHit !== null) dbUpsert(resource, params, fileHit); // Backfill Tier 2
     logTier(resource, 'file');
     return fileHit;
   }
@@ -171,10 +171,12 @@ async function resolve(resource, params = {}, fetchFn) {
   logTier(resource, 'api');
   const value = await singleFlight(key, fetchFn);
 
-  // Backfill all faster tiers
-  if (value !== undefined && value !== null) {
+  // Backfill all faster tiers (including null for negative caching)
+  if (value !== undefined) {
     cache.set(key, value);
-    dbUpsert(resource, params, value);
+    if (value !== null) {
+      dbUpsert(resource, params, value);
+    }
     fileSet(key, value);
   }
 
