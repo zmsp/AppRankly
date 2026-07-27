@@ -112,8 +112,9 @@ export function useAppState() {
     const searchStr = currentSearch.toString() ? `?${currentSearch.toString()}` : '';
     
     // Preserve sub-routes like /store, /retention, /releases while appending platform/project
+    const currentParts = location.pathname.split('/').filter(Boolean);
     const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
-    const currentSubRoute = pathParts.find(part => knownSubRoutes.includes(part));
+    const currentSubRoute = currentParts.find(part => knownSubRoutes.includes(part));
 
     let newPath = `/${platSegment}/${projSegment}${searchStr}`;
     if (currentSubRoute) {
@@ -123,7 +124,33 @@ export function useAppState() {
     if (location.pathname + location.search !== newPath) {
       navigate(newPath, { replace: true });
     }
-  }, [location.pathname, location.search, navigate, isDemoMode, pathParts]);
+  }, [location.pathname, location.search, navigate, isDemoMode]);
+
+  // Sync state from location pathname if URL segments change
+  useEffect(() => {
+    if (isDemoMode) return;
+    const currentParts = location.pathname.split('/').filter(Boolean);
+    const knownSubRoutes = ['store', 'retention', 'releases', 'reports', 'config', 'glossary'];
+    const hasSubRoute = knownSubRoutes.includes(currentParts[0]);
+
+    const platIdx = hasSubRoute ? 1 : 0;
+    const projIdx = hasSubRoute ? 2 : 1;
+
+    const rawPlat = currentParts[platIdx];
+    const urlPlatform = (rawPlat === 'android' || rawPlat === 'google') ? 'google'
+      : (rawPlat === 'apple' || rawPlat === 'ios') ? 'apple'
+      : (rawPlat === 'all') ? 'all'
+      : null;
+
+    const urlProject = currentParts[projIdx] || null;
+
+    if (urlPlatform && urlPlatform !== platform) {
+      setPlatform(urlPlatform);
+    }
+    if (urlProject && urlProject !== selectedProjectIndex) {
+      setSelectedProjectIndex(urlProject);
+    }
+  }, [location.pathname, isDemoMode, platform, selectedProjectIndex]);
 
   const handleSetPlatform = (p) => {
     setPlatform(p);

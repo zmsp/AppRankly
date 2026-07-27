@@ -25,8 +25,6 @@ export default function Releases({
     return projects.find(p => String(p.index) === String(selectedProjectIndex));
   }, [projects, selectedProjectIndex]);
 
-  // Local filter state ('auto' syncs with active project/platform selection)
-  const [selectedAppFilter, setSelectedAppFilter] = useState('auto');
   const [onlyInDateRange, setOnlyInDateRange] = useState(false);
   const [isLogarithmic, setIsLogarithmic] = useState(false);
   const [expandedReleaseId, setExpandedReleaseId] = useState(null);
@@ -35,22 +33,17 @@ export default function Releases({
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectStatus, setDetectStatus] = useState(null);
 
-  // Compute effective package name and platform filter
+  // Compute effective package name and platform filter from active global project selection
   const effectivePackageName = useMemo(() => {
-    if (selectedAppFilter !== 'auto') return selectedAppFilter;
     if (activeProject?.packageName) return activeProject.packageName;
     return 'all';
-  }, [selectedAppFilter, activeProject]);
+  }, [activeProject]);
 
   const effectivePlatform = useMemo(() => {
-    if (selectedAppFilter !== 'auto' && selectedAppFilter !== 'all') {
-      const selectedProj = projects.find(p => p.packageName === selectedAppFilter || p.bundleId === selectedAppFilter);
-      if (selectedProj?.platform) return selectedProj.platform;
-    }
     if (activeProject?.platform) return activeProject.platform;
     if (platform && platform !== 'all') return platform;
     return 'all';
-  }, [selectedAppFilter, activeProject, platform, projects]);
+  }, [activeProject, platform]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -319,15 +312,17 @@ export default function Releases({
             <div className="flex items-center space-x-2">
               <select
                 className="bg-white/5 border border-white/10 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-accent-blue appearance-none font-medium cursor-pointer"
-                value={selectedAppFilter}
-                onChange={e => setSelectedAppFilter(e.target.value)}
+                value={selectedProjectIndex || 'all'}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (setSelectedProjectIndex) {
+                    setSelectedProjectIndex(val);
+                  }
+                }}
               >
-                <option value="auto" className="bg-slate-900 text-white">
-                  {activeProject ? `App: ${activeProject.name}` : 'Auto (All Apps)'}
-                </option>
                 <option value="all" className="bg-slate-900 text-white">Show All Apps ({projects.length})</option>
                 {projects.map(p => (
-                  <option key={p.index} value={p.packageName} className="bg-slate-900 text-white">
+                  <option key={p.index} value={String(p.index)} className="bg-slate-900 text-white">
                     {p.name} ({p.platform === 'apple' ? 'iOS' : 'Android'})
                   </option>
                 ))}
