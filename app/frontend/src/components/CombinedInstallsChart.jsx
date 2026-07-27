@@ -171,6 +171,7 @@ export default function CombinedInstallsChart({
   const datasets = [
     {
       label: 'Total Installs (All Apps)',
+      fullName: 'Total Installs (All Apps)',
       data: slicedTrends.map(item => {
         const val = item.dailyUserInstalls || item.dailyInstalls || 0;
         return isLogarithmic ? Math.max(val, 1) : val;
@@ -189,8 +190,13 @@ export default function CombinedInstallsChart({
       const trends = trendEntry?.trends || (Array.isArray(trendEntry) ? trendEntry : []);
       const trendMap = new Map(trends.map(t => [t.date, t.dailyUserInstalls || t.dailyInstalls || 0]));
 
+      const rawName = trendEntry?.displayName || appName;
+      // Truncate long display names for concise legend presentation
+      const displayName = rawName.length > 22 ? `${rawName.slice(0, 20)}…` : rawName;
+
       return {
-        label: trendEntry?.displayName || appName,
+        label: displayName,
+        fullName: rawName,
         data: slicedTrends.map(item => {
           const val = trendMap.get(item.date) || 0;
           return isLogarithmic ? Math.max(val, 1) : val;
@@ -219,23 +225,28 @@ export default function CombinedInstallsChart({
       legend: {
         display: true,
         position: 'top',
+        align: 'start',
         labels: {
-          color: 'rgba(255, 255, 255, 0.7)',
-          font: { family: 'Inter', size: 11, weight: 'bold' },
-          boxWidth: 12,
+          color: 'rgba(255, 255, 255, 0.75)',
+          font: { family: 'Inter', size: 10.5, weight: '500' },
+          boxWidth: 8,
+          boxHeight: 8,
+          padding: 8,
           usePointStyle: true
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(11, 19, 38, 0.9)',
-        titleFont: { family: 'Inter', size: 12 },
+        backgroundColor: 'rgba(11, 19, 38, 0.95)',
+        titleFont: { family: 'Inter', size: 12, weight: '600' },
         bodyFont: { family: 'Inter', size: 12 },
         padding: 12,
         cornerRadius: 12,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
         displayColors: true,
         callbacks: {
           label: function(context) {
-            let label = context.dataset.label || '';
+            let label = context.dataset.fullName || context.dataset.label || '';
             if (label) label += ': ';
             if (context.parsed.y !== null) {
               label += new Intl.NumberFormat().format(context.parsed.y);
@@ -248,13 +259,13 @@ export default function CombinedInstallsChart({
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: 'rgba(255, 255, 255, 0.3)', font: { size: 10 } }
+        ticks: { color: 'rgba(255, 255, 255, 0.35)', font: { size: 10 } }
       },
       y: {
         type: isLogarithmic ? 'logarithmic' : 'linear',
         grid: { color: 'rgba(255, 255, 255, 0.05)' },
         ticks: {
-          color: 'rgba(255, 255, 255, 0.3)',
+          color: 'rgba(255, 255, 255, 0.35)',
           font: { size: 10 },
           callback: (value) => new Intl.NumberFormat().format(value)
         }
@@ -272,105 +283,98 @@ export default function CombinedInstallsChart({
   return (
     <div className="flex flex-col h-full w-full">
       {showZoomControls && (
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 bg-slate-900/60 p-2 px-3 rounded-xl border border-white/10 text-xs shrink-0">
-          {/* Quick Presets & Zoom Info */}
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-lg border border-white/10 font-medium text-[11px]">
-              <span className="text-[10px] uppercase font-extrabold text-slate-400 px-1">Zoom:</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 bg-white/[0.03] p-1.5 px-3 rounded-xl border border-white/10 text-xs shrink-0">
+          {/* Quick Presets */}
+          <div className="flex items-center space-x-1 bg-white/5 p-0.5 rounded-lg border border-white/10 text-[11px]">
+            {[7, 14, 30].map(days => (
               <button
+                key={days}
                 type="button"
-                onClick={() => handlePresetDays(7)}
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 7 && endIndex === dailyTrends.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
+                onClick={() => handlePresetDays(days)}
+                className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                  visibleCount === days && endIndex === dailyTrends.length - 1
+                    ? 'bg-accent-blue text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
               >
-                7D
+                {days}D
               </button>
-              <button
-                type="button"
-                onClick={() => handlePresetDays(14)}
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 14 && endIndex === dailyTrends.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
-              >
-                14D
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePresetDays(30)}
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${visibleCount === 30 && endIndex === dailyTrends.length - 1 ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
-              >
-                30D
-              </button>
-              <button
-                type="button"
-                onClick={handleResetZoom}
-                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${!isZoomed ? 'bg-accent-blue text-white font-bold' : 'text-slate-300 hover:text-white'}`}
-              >
-                All ({dailyTrends.length}D)
-              </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className={`px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                !isZoomed
+                  ? 'bg-accent-blue text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              All
+            </button>
+          </div>
 
+          {/* Active Date Range Indicator */}
+          <div className="text-[11px] font-medium text-slate-300 flex items-center space-x-1.5">
+            <span>{startDateLabel}</span>
+            <span className="text-slate-500">→</span>
+            <span>{endDateLabel}</span>
             {isZoomed && (
-              <span className="hidden sm:inline-flex items-center text-[10px] text-accent-blue font-bold px-2 py-1 bg-accent-blue/10 rounded-lg border border-accent-blue/20">
-                Viewing {visibleCount} of {dailyTrends.length} days ({startDateLabel} → {endDateLabel})
+              <span className="text-[10px] text-accent-blue font-semibold bg-accent-blue/10 px-1.5 py-0.5 rounded border border-accent-blue/20">
+                {visibleCount} days
               </span>
             )}
           </div>
 
-          {/* Interactive Zoom Buttons */}
+          {/* Compact Zoom & Pan Control Cluster */}
           <div className="flex items-center space-x-1.5">
-            {/* Pan Left / Right */}
             <div className="flex items-center space-x-0.5 bg-white/5 p-0.5 rounded-lg border border-white/10">
               <button
                 type="button"
                 onClick={handlePanLeft}
                 disabled={!canPanLeft}
-                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-20 transition-all cursor-pointer"
                 title="Pan Left (Earlier dates)"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={13} />
               </button>
               <button
                 type="button"
                 onClick={handlePanRight}
                 disabled={!canPanRight}
-                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-20 transition-all cursor-pointer"
                 title="Pan Right (Later dates)"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
+              </button>
+              <span className="w-px h-3.5 bg-white/10 my-auto mx-0.5" />
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                disabled={!isZoomed}
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-20 transition-all cursor-pointer"
+                title="Zoom Out"
+              >
+                <ZoomOut size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                disabled={!canZoomIn}
+                className="p-1 text-slate-300 hover:text-white hover:bg-white/10 rounded disabled:opacity-20 transition-all cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn size={13} />
               </button>
             </div>
-
-            <div className="h-4 w-px bg-white/10" />
-
-            {/* Zoom In / Zoom Out / Reset */}
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              disabled={!canZoomIn}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 font-bold transition-all disabled:opacity-30 disabled:hover:bg-white/5 cursor-pointer"
-              title="Zoom In to inspect closer date range"
-            >
-              <ZoomIn size={13} className="text-accent-blue" />
-              <span>Zoom In</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              disabled={!isZoomed}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 font-bold transition-all disabled:opacity-30 disabled:hover:bg-white/5 cursor-pointer"
-              title="Zoom Out to widen date range"
-            >
-              <ZoomOut size={13} className="text-slate-400" />
-              <span>Zoom Out</span>
-            </button>
 
             {isZoomed && (
               <button
                 type="button"
                 onClick={handleResetZoom}
-                className="flex items-center space-x-1 px-2 py-1 bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue rounded-lg border border-accent-blue/30 font-bold transition-all cursor-pointer"
-                title="Reset Zoom to 100% full dataset"
+                className="flex items-center space-x-1 px-2 py-1 bg-accent-blue/20 hover:bg-accent-blue/30 text-accent-blue rounded-lg border border-accent-blue/30 text-[11px] font-semibold transition-all cursor-pointer"
+                title="Reset Zoom"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={11} />
                 <span>Reset</span>
               </button>
             )}

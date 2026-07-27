@@ -272,7 +272,7 @@ export default function Dashboard({
         {/* Combined Portfolio Installs & Dimension Analysis */}
         <div id="trend-chart" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 glass-card p-4 sm:p-6 min-h-[400px]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-white/5">
               <div>
                 <h3 className="text-base sm:text-lg font-bold">
                   Combined Installs per App & Portfolio Total
@@ -282,10 +282,23 @@ export default function Dashboard({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                {/* Integrated Summary Chips */}
+                <div className="flex items-center space-x-3 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-400 text-[11px]">Total:</span>
+                    <span className="font-bold text-white">{formatNumber(combinedTotalInstalls)}</span>
+                  </div>
+                  <span className="text-white/10">|</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-400 text-[11px]">Avg/Day:</span>
+                    <span className="font-bold text-white">{formatNumber(combinedAvgInstalls)}</span>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setIsLogarithmic(!isLogarithmic)}
                   className={clsx(
-                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center space-x-1.5 cursor-pointer",
+                    "px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center space-x-1.5 cursor-pointer",
                     isLogarithmic 
                       ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue" 
                       : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
@@ -295,22 +308,9 @@ export default function Dashboard({
                   <Percent size={12} />
                   <span>Log Scale</span>
                 </button>
-                
-                <div className="flex items-center space-x-3 text-xs bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
-                    <span className="text-[10px] font-bold text-slate-300">Total Portfolio Installs</span>
-                  </div>
-                </div>
               </div>
             </div>
-            {renderSummary(
-              combinedTotalInstalls,
-              combinedAvgInstalls,
-              "Combined Total",
-              "Avg / Day"
-            )}
-            <div className="h-[300px]">
+            <div className="h-[340px]">
               <CombinedInstallsChart
                 dailyTrends={stats.dailyTrends}
                 appTrends={stats.appTrends}
@@ -502,7 +502,7 @@ export default function Dashboard({
       {/* Main Installs & Acquisition Chart */}
       <div id="trend-chart" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-card p-4 sm:p-6 min-h-[400px]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-4 border-b border-white/5">
             <div>
               <h3 className="text-base sm:text-lg font-bold">
                 {isAllProjects ? 'Combined Installs per App & Total' : (hasUninstallData ? 'Installs vs Uninstalls' : 'Daily Installs & Acquisitions')}
@@ -512,11 +512,25 @@ export default function Dashboard({
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+              {isAllProjects && (
+                <div className="flex items-center space-x-3 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-400 text-[11px]">Total:</span>
+                    <span className="font-bold text-white">{formatNumber(combinedTotalInstalls)}</span>
+                  </div>
+                  <span className="text-white/10">|</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-400 text-[11px]">Avg/Day:</span>
+                    <span className="font-bold text-white">{formatNumber(combinedAvgInstalls)}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Log Scale Toggle */}
               <button
                 onClick={() => setIsLogarithmic(!isLogarithmic)}
                 className={clsx(
-                  "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center space-x-1.5",
+                  "px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center space-x-1.5 cursor-pointer",
                   isLogarithmic 
                     ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue" 
                     : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
@@ -527,29 +541,25 @@ export default function Dashboard({
                 <span>Log Scale</span>
               </button>
               
-              <div className="flex items-center space-x-3 text-xs bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
-                <div className="flex items-center space-x-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
-                  <span className="text-[10px] font-bold text-slate-300">Installs</span>
+              {!isAllProjects && (
+                <div className="flex items-center space-x-3 text-xs bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
+                    <span className="text-[10px] font-bold text-slate-300">Installs</span>
+                  </div>
+                  {hasUninstallData && (
+                    <>
+                      <span className="text-slate-600">|</span>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-accent-rose" />
+                        <span className="text-[10px] font-bold text-slate-300">Uninstalls</span>
+                      </div>
+                    </>
+                  )}
                 </div>
-                {hasUninstallData && (
-                  <>
-                    <span className="text-slate-600">|</span>
-                    <div className="flex items-center space-x-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-accent-rose" />
-                      <span className="text-[10px] font-bold text-slate-300">Uninstalls</span>
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
             </div>
           </div>
-          {isAllProjects && renderSummary(
-            combinedTotalInstalls,
-            combinedAvgInstalls,
-            "Combined Total",
-            "Avg / Day"
-          )}
           <div className="h-[380px]">
             {isAllProjects ? (
               <CombinedInstallsChart
