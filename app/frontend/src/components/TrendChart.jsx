@@ -26,15 +26,80 @@ ChartJS.register(
   Legend
 );
 
+const normalizeDateStr = (dateVal) => {
+  if (!dateVal) return '';
+  
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    // Match YYYY-MM-DD or YYYY/MM/DD or YYYY.MM.DD
+    const match = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (match) {
+      const year = match[1];
+      const month = match[2].padStart(2, '0');
+      const day = match[3].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  const d = new Date(dateVal);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+
+  return String(dateVal).trim().substring(0, 10);
+};
+
+const findNearestDataIndex = (data, releaseDateStr) => {
+  const targetNorm = normalizeDateStr(releaseDateStr);
+  if (!targetNorm) return -1;
+
+  // 1. Exact match
+  const exactIndex = data.findIndex(d => normalizeDateStr(d.date) === targetNorm);
+  if (exactIndex !== -1) return exactIndex;
+
+  // 2. Nearest date match within 7 days
+  const targetTime = new Date(targetNorm + 'T00:00:00Z').getTime();
+  if (isNaN(targetTime)) return -1;
+
+  let minDiff = Infinity;
+  let closestIndex = -1;
+
+  data.forEach((d, i) => {
+    const dNorm = normalizeDateStr(d.date);
+    if (!dNorm) return;
+    const dTime = new Date(dNorm + 'T00:00:00Z').getTime();
+    if (isNaN(dTime)) return;
+
+    const diff = Math.abs(dTime - targetTime);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestIndex = i;
+    }
+  });
+
+  const MAX_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days max
+  if (minDiff <= MAX_THRESHOLD_MS) {
+    return closestIndex;
+  }
+
+  return -1;
+};
+
 export default function TrendChart({ data, releases = [], platform = 'google', hasUninstallData, isLogarithmic = false, onSelectPoint }) {
   if (!data || data.length === 0) return null;
 
   const labels = data.map(item => {
-    const date = new Date(item.date);
+    const norm = normalizeDateStr(item.date);
+    const date = norm ? new Date(norm + 'T00:00:00Z') : new Date(item.date);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   });
 
-  const filteredReleases = releases.filter(r => r.platform === platform || r.platform === 'both');
+  const filteredReleases = (releases || []).filter(r => {
+    if (!r) return false;
+    if (!platform || platform === 'all' || platform === 'auto') return true;
+    if (!r.platform || r.platform === 'all' || r.platform === 'both') return true;
+    return r.platform === platform;
+  });
 
   const showUninstalls = hasUninstallData !== undefined
     ? hasUninstallData
@@ -59,7 +124,8 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     const intercept = (sumY - slope * sumX) / n;
 
-    const lastDateObj = new Date(data[data.length - 1].date);
+    const lastNorm = normalizeDateStr(data[data.length - 1].date);
+    const lastDateObj = lastNorm ? new Date(lastNorm + 'T00:00:00Z') : new Date(data[data.length - 1].date);
     forecastPoints[data.length - 1] = series[n - 1]; // connect seamlessly
 
     for (let i = 1; i <= 14; i++) {
@@ -162,11 +228,23 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
             return label;
           },
           afterBody: function(context) {
+            if (!context || !context.length) return '';
             const index = context[0].dataIndex;
-            const dateStr = data[index]?.date;
-            const release = filteredReleases.find(r => r.date === dateStr);
-            if (release) {
-              return [`\nRelease: v${release.version}`, release.notes || ''];
+            if (index >= data.length) return '';
+
+            const dayReleases = filteredReleases.filter(r => {
+              const rIndex = findNearestDataIndex(data, r.releaseDate || r.date);
+              return rIndex === index;
+            });
+
+            if (dayReleases.length > 0) {
+              return dayReleases.map(r => {
+                const version = r.version || r.releaseName || 'Release';
+                const versionLabel = version.startsWith('v') ? version : `v${version}`;
+                const pkg = r.packageName ? ` (${r.packageName})` : '';
+                const notes = r.notes ? ` - ${r.notes}` : '';
+                return `\n🚀 Release: ${versionLabel}${pkg}${notes}`;
+              }).join('');
             }
             return '';
           }
@@ -190,36 +268,81 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
     id: 'releaseLines',
     afterDraw: (chart) => {
       const { ctx, scales: { x, y } } = chart;
+      if (!x || !y) return;
 
+      const releasesByIndex = new Map();
       filteredReleases.forEach(release => {
-        const index = data.findIndex(d => d.date === release.date);
+        const index = findNearestDataIndex(data, release.releaseDate || release.date);
         if (index === -1) return;
 
+        if (!releasesByIndex.has(index)) {
+          releasesByIndex.set(index, []);
+        }
+        releasesByIndex.get(index).push(release);
+      });
+
+      releasesByIndex.forEach((rels, index) => {
         const xPos = x.getPixelForValue(index);
+        if (isNaN(xPos) || xPos < x.left || xPos > x.right) return;
 
         ctx.save();
+
+        // Dashed Vertical Line
         ctx.beginPath();
-        ctx.setLineDash([5, 5]);
+        ctx.setLineDash([4, 4]);
         ctx.moveTo(xPos, y.top);
         ctx.lineTo(xPos, y.bottom);
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#38bdf8';
         ctx.stroke();
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-        const text = `v${release.version}`;
-        const metrics = ctx.measureText(text);
-        const padding = 4;
-        const rectWidth = metrics.width + padding * 2;
-        const rectHeight = 16;
+        // Circle marker at top
+        ctx.beginPath();
+        ctx.arc(xPos, y.top, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#0f172a';
+        ctx.stroke();
 
-        ctx.fillRect(xPos - rectWidth / 2, y.top - 20, rectWidth, rectHeight);
+        // Release label badge text
+        const versions = rels.map(r => {
+          const v = r.version || r.releaseName || 'Release';
+          return v.startsWith('v') ? v : `v${v}`;
+        });
+        const badgeText = `🚀 ${versions.join(', ')}`;
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.font = 'bold 9px Inter';
+        ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+        const metrics = ctx.measureText(badgeText);
+        const paddingX = 6;
+        const rectWidth = metrics.width + paddingX * 2;
+        const rectHeight = 18;
+        const badgeY = Math.max(0, y.top - rectHeight - 4);
+
+        let badgeX = xPos - rectWidth / 2;
+        if (badgeX < x.left) badgeX = x.left;
+        if (badgeX + rectWidth > x.right) badgeX = x.right - rectWidth;
+
+        // Pill background
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+        ctx.lineWidth = 1;
+
+        if (typeof ctx.roundRect === 'function') {
+          ctx.beginPath();
+          ctx.roundRect(badgeX, badgeY, rectWidth, rectHeight, 4);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillRect(badgeX, badgeY, rectWidth, rectHeight);
+          ctx.strokeRect(badgeX, badgeY, rectWidth, rectHeight);
+        }
+
+        // Text label
+        ctx.fillStyle = '#38bdf8';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(text, xPos, y.top - 12);
+        ctx.fillText(badgeText, badgeX + rectWidth / 2, badgeY + rectHeight / 2);
 
         ctx.restore();
       });
@@ -228,3 +351,4 @@ export default function TrendChart({ data, releases = [], platform = 'google', h
 
   return <Line data={chartData} options={options} plugins={plugins} />;
 }
+

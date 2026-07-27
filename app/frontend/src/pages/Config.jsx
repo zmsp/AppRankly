@@ -658,11 +658,12 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [aiUsage, setAiUsage] = useState(null);
 
   useEffect(() => {
+    if (!authToken) return;
     fetch('/api/aso/ai/usage', {
-      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+      headers: { Authorization: `Bearer ${authToken}` }
     })
-      .then(res => res.json())
-      .then(data => setAiUsage(data))
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data && setAiUsage(data))
       .catch(() => {});
   }, [authToken]);
 

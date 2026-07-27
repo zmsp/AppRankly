@@ -43,7 +43,10 @@ export function useAppState() {
   const [granularity, setGranularity] = useState('day'); // 'day' | 'week' | 'month'
   const [projects, setProjects] = useState([]);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(() => localStorage.getItem('apprankly_project') || initialProject);
-  const [authToken, setAuthToken] = useState(localStorage.getItem('apprankly_token'));
+  const [authToken, setAuthToken] = useState(() => {
+    const stored = localStorage.getItem('apprankly_token');
+    return (stored && stored !== 'null' && stored !== 'undefined') ? stored : null;
+  });
 
   useEffect(() => {
     if (platform) localStorage.setItem('apprankly_platform', platform);
@@ -169,8 +172,9 @@ export function useAppState() {
   };
 
   const fetchProjects = useCallback(async (token) => {
+    const tokenToUse = token || authToken;
     try {
-      const res = await apiFetch('/api/projects', {}, token, isStaticMode);
+      const res = await apiFetch('/api/projects', {}, tokenToUse, isStaticMode);
       if (res.ok) {
         const data = await res.json();
         const sortedData = sortProjectsByPlatformAndName(data);
@@ -185,9 +189,13 @@ export function useAppState() {
         }
       }
     } catch (err) {
+      if (err.message === 'Unauthorized') {
+        setAuthToken(null);
+        localStorage.removeItem('apprankly_token');
+      }
       console.error('Failed to fetch projects', err);
     }
-  }, [isStaticMode, platform, selectedProjectIndex]);
+  }, [isStaticMode, platform, selectedProjectIndex, authToken]);
 
   const fetchReleases = useCallback(async () => {
     try {
@@ -197,6 +205,10 @@ export function useAppState() {
         setReleases(data);
       }
     } catch (err) {
+      if (err.message === 'Unauthorized') {
+        setAuthToken(null);
+        localStorage.removeItem('apprankly_token');
+      }
       console.error('Failed to fetch releases', err);
     }
   }, [authToken, isStaticMode]);
@@ -459,10 +471,11 @@ export function useAppState() {
 
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {
+      fetchProjects(authToken);
       loadOverviewStats();
       fetchReleases();
     }
-  }, [loadOverviewStats, fetchReleases, authToken, isDemoMode, noPass]);
+  }, [loadOverviewStats, fetchReleases, fetchProjects, authToken, isDemoMode, noPass]);
 
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {

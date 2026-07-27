@@ -28,6 +28,7 @@ export default function Releases({
   // Local filter state ('auto' syncs with active project/platform selection)
   const [selectedAppFilter, setSelectedAppFilter] = useState('auto');
   const [onlyInDateRange, setOnlyInDateRange] = useState(false);
+  const [isLogarithmic, setIsLogarithmic] = useState(false);
   const [expandedReleaseId, setExpandedReleaseId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRelease, setEditingRelease] = useState(null);
@@ -477,12 +478,41 @@ export default function Releases({
       {/* Embedded Build Impact & Timeline Chart */}
       {stats?.dailyTrends && stats.dailyTrends.length > 0 && (
         <div className="glass-card p-6 border border-white/10 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
             <div className="flex items-center space-x-2">
               <LineChartIcon size={18} className="text-accent-blue" />
               <h3 className="text-base sm:text-lg font-bold text-white">Release Markers & Daily Trend Impact Timeline</h3>
             </div>
-            <span className="text-xs text-slate-400">Vertical dashed markers represent build release dates</span>
+            
+            <div className="flex items-center space-x-3">
+              <span className="text-xs text-slate-400 hidden lg:inline">Vertical dashed markers represent build release dates</span>
+              
+              {/* Log Scale Switcher */}
+              <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setIsLogarithmic(false)}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    !isLogarithmic
+                      ? 'bg-accent-blue text-white shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white font-medium'
+                  }`}
+                >
+                  Linear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLogarithmic(true)}
+                  className={`px-2.5 py-1 rounded-lg transition-all ${
+                    isLogarithmic
+                      ? 'bg-accent-blue text-white shadow-sm font-bold'
+                      : 'text-slate-400 hover:text-white font-medium'
+                  }`}
+                >
+                  Log Scale
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="h-72 w-full pt-2">
@@ -491,6 +521,7 @@ export default function Releases({
               releases={sortedReleases}
               platform={effectivePlatform}
               hasUninstallData={stats.hasUninstallData}
+              isLogarithmic={isLogarithmic}
             />
           </div>
         </div>

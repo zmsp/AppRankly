@@ -20,20 +20,29 @@ const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = requ
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-let JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    console.error("FATAL: JWT_SECRET env var is not set. Refusing to start in production.");
-    process.exit(1);
-  } else {
-    console.warn("WARNING: JWT_SECRET not set. Using insecure fallback for development.");
-    JWT_SECRET = "dev-insecure-secret-key";
-  }
-}
 const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, "data") : path.join(__dirname, "..", "data"));
 
 // Ensure all data directories and template files exist on initial load
 ensureDirectoriesAndTemplates(DATA_DIR);
+
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  const secretFile = path.join(DATA_DIR, ".jwt_secret");
+  if (fs.existsSync(secretFile)) {
+    try {
+      JWT_SECRET = fs.readFileSync(secretFile, "utf8").trim();
+    } catch (e) {
+      JWT_SECRET = "dev-insecure-secret-key-fallback";
+    }
+  } else {
+    JWT_SECRET = "dev-insecure-secret-key-" + bcrypt.genSaltSync(10);
+    try {
+      fs.writeFileSync(secretFile, JWT_SECRET, "utf8");
+    } catch (e) {
+      JWT_SECRET = "dev-insecure-secret-key-fallback";
+    }
+  }
+}
 
 const PASSWORD_FILE = path.join(DATA_DIR, ".admin_password");
 const RELEASES_FILE = path.join(DATA_DIR, "releases.json");
@@ -103,7 +112,7 @@ app.post("/api/auth/login", (req, res) => {
 
   const isValid = bcrypt.compareSync(password, storedHash);
   if (isValid) {
-    const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "24h" });
+    const token = jwt.sign({ role: "admin" }, JWT_SECRET, { expiresIn: "365d" });
     res.json({ token });
   } else {
     res.status(401).json({ error: "Invalid password" });
