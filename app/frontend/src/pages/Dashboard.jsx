@@ -22,7 +22,6 @@ import SkeletonDashboard from '../components/SkeletonDashboard';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 import { formatNumber } from '../lib/format';
 import AppIcon from '../components/AppIcon';
-import AppDropdownSelector from '../components/AppDropdownSelector';
 import {
   Users,
   Download,
@@ -415,14 +414,6 @@ export default function Dashboard({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <AppDropdownSelector
-            projects={projects}
-            selectedProjectIndex={selectedProjectIndex}
-            onSelectProject={setSelectedProjectIndex}
-            platform={platform}
-            setPlatform={setPlatform}
-          />
-
           <button
             onClick={() => setSelectedProjectIndex('all')}
             className="text-xs font-semibold px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
