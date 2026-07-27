@@ -270,6 +270,94 @@ export default function Dashboard({
           setPlatform={setPlatform}
         />
 
+        {/* Combined Portfolio Installs & Dimension Analysis */}
+        <div id="trend-chart" className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 glass-card p-4 sm:p-6 min-h-[400px]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold">
+                  Combined Installs per App & Portfolio Total
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Individual app installs alongside combined portfolio aggregate installs over time
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+                <button
+                  onClick={() => setIsLogarithmic(!isLogarithmic)}
+                  className={clsx(
+                    "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all flex items-center space-x-1.5 cursor-pointer",
+                    isLogarithmic 
+                      ? "bg-accent-blue/20 border-accent-blue/40 text-accent-blue" 
+                      : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                  )}
+                  title="Toggle logarithmic vertical scale for wide-range data"
+                >
+                  <Percent size={12} />
+                  <span>Log Scale</span>
+                </button>
+                
+                <div className="flex items-center space-x-3 text-xs bg-white/5 border border-white/5 rounded-xl px-3 py-1.5">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-accent-blue" />
+                    <span className="text-[10px] font-bold text-slate-300">Total Portfolio Installs</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {renderSummary(
+              combinedTotalInstalls,
+              combinedAvgInstalls,
+              "Combined Total",
+              "Avg / Day"
+            )}
+            <div className="h-[300px]">
+              <CombinedInstallsChart
+                dailyTrends={stats.dailyTrends}
+                appTrends={stats.appTrends}
+                isLogarithmic={isLogarithmic}
+              />
+            </div>
+          </div>
+
+          {/* Dimension Breakdown Card */}
+          <div id="dimension-chart" className="glass-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg font-bold">Dimension Analysis</h3>
+              <p className="text-xs text-slate-400">Portfolio breakdown by {activeDimension.replace('_', ' ')}</p>
+            </div>
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap bg-white/5 p-1 rounded-xl mb-6 gap-1">
+              {['country', 'os_version', 'app_version', 'device'].map((dim) => (
+                <button
+                  key={dim}
+                  onClick={() => setActiveDimension(dim)}
+                  className={`sm:flex-1 py-1.5 px-2 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                    activeDimension === dim ? 'bg-white/10 text-white border border-white/10' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {dim.replace('_', ' ').toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <div className="h-[280px]">
+              <DimensionChart data={dimensionStats} dimension={activeDimension} />
+            </div>
+          </div>
+        </div>
+
+        {/* Aggregated Secondary Performance Trends */}
+        <div id="active-chart" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <ChartPanel title="Daily Net Growth" total={netGrowthTotal} avg={netGrowthAvg}>
+            <NetGrowthChart data={stats.dailyTrends} />
+          </ChartPanel>
+          <ChartPanel title="Daily Upgrades" total={upgradesTotal} avg={upgradesAvg}>
+            <UpgradesChart data={stats.dailyTrends} />
+          </ChartPanel>
+          <ChartPanel title="Active Devices Trend" total={activeDevicesMax} avg={activeDevicesAvg} label1="Max" label2="Avg">
+            <ActiveDevicesChart data={stats.dailyTrends} />
+          </ChartPanel>
+        </div>
+
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
             <div className="flex items-center space-x-3">
