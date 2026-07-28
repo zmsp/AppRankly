@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import logoImg from '../assets/logo.png';
 import {
   LayoutDashboard,
   Smartphone,
@@ -48,7 +49,7 @@ export default function Sidebar({
     )}>
       {/* Brand */}
       <div className="p-6 flex items-center space-x-3">
-        <img src="/logo.png" alt="AppRankly" className="w-10 h-10 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
+        <img src={logoImg} alt="AppRankly" className="w-10 h-10 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
         {!collapsed && (
           <span className="font-extrabold text-xl tracking-tight text-white">AppRankly</span>
         )}
