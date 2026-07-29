@@ -34,7 +34,7 @@
       },
       "anthropic": {
         "apiKey": "YOUR_ANTHROPIC_API_KEY (Get from https://console.anthropic.com/settings/keys)",
-        "model": "claude-3-5-sonnet-20241022"
+        "model": "claude-opus-4-8"
       },
       "gemini": {
         "apiKey": "YOUR_GEMINI_API_KEY (Get from https://aistudio.google.com/app/apikey)",

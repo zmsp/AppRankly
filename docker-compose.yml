@@ -1,8 +1,6 @@
 services:
   apprankly-dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/zmsp/apprankly:latest
     container_name: AppRankly
     ports:
       - "3000:3000"
