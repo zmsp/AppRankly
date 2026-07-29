@@ -29,7 +29,7 @@
 <!-- Community -->
 <p align="center">
   <a href="https://zmsp.github.io/AppRankly/#demo"><img src="https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-success?logo=googlechrome&logoColor=white" alt="Live Demo"></a>
-  <a href="#contributing"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome"></a>
   <a href="https://apps.shahadat.us/"><img src="https://img.shields.io/badge/My%20Apps-apps.shahadat.us-indigo?logo=googleplay&logoColor=white" alt="My Apps"></a>
   <a href="https://buymeacoffee.com/zprimecreates"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?logo=buy-me-a-coffee&logoColor=white" alt="Buy Me A Coffee"></a>
 </p>
@@ -42,7 +42,7 @@ Stop switching between App Store Connect and Google Play Console. **AppRankly** 
 
 **[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no install needed, runs on sample data.
 
-**Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq)
+**Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 ## Screenshots
 
@@ -435,12 +435,9 @@ Yes — use the <a href="https://zmsp.github.io/AppRankly/#demo">hosted live dem
 
 ## Contributing
 
-Contributions are welcome — open an issue for bugs and feature requests, or:
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for step-by-step instructions on setting up your local development environment, submitting feature requests, and opening pull requests.
 
-1. Fork the repository (`https://github.com/zmsp/AppRankly/fork`)
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push and open a Pull Request
+For security concerns and vulnerability reporting, please review our [Security Policy](SECURITY.md).
 
 ---
 
