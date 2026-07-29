@@ -6,24 +6,9 @@ on:
       - main
     tags:
       - '*'
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
-      - 'images/**'
-      - 'unraid/**'
-      - '.gitignore'
-      - '.dockerignore'
-      - 'attic/**'
-      - 'experiment/**'
-      - 'docs/**'
-      - 'docker-compose.yml'
-      - 'publish_docs.sh'
-      - 'ca_profile.xml'
-      - 'example.config.json'
-      - 'config/example.config.json'
-      - 'test_apple_auth.js'
-      - '.idea/**'
-      - '.vscode/**'
+    paths:
+      - 'app/**'
+      - 'Dockerfile'
   workflow_dispatch:
 
 permissions:

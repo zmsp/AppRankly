@@ -40,24 +40,56 @@ Stop switching between App Store Connect and Google Play Console. **AppRankly** 
 
 **[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no install needed, runs on sample data.
 
+## Screenshots
+
+<p align="center">
+  <img src="images/screenshot/carousel.gif" alt="AppRankly Dashboard Showcase Carousel" width="100%" />
+</p>
+
+<details>
+<summary><b>📷 Click to view individual full-resolution screenshots</b></summary>
+<br />
+
 **Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq)
 
-## Screenshots
+
 
 ### Unified Analytics Dashboard
 Installs, uninstalls, active devices, and country breakdowns across Google Play & Apple App Store in one glassmorphic interface.
 
-![Overview Dashboard](images/overview.png)
+![Overview Dashboard](images/screenshot/overview.png)
 
 ### Detailed App Metrics
 Per-app drill-down: version performance, daily trends, retention, and country-level distribution.
 
-![App Details View](images/app_details.png)
+![App Details View](images/screenshot/app_details.png)
+
+### Retention & User Survival Analytics
+Cohort retention heatmaps, active retention proxies, survival curves, stickiness index, and churn risk intelligence.
+
+![Retention Analytics](images/screenshot/retention.png)
 
 ### AI-Powered ASO Studio
 Mine store autocomplete for zero-cost keyword discovery, check keyword ranks, audit listing health, and generate metadata variants with your choice of AI provider (OpenAI, Anthropic, or Gemini).
 
-![AI-Powered ASO Studio](images/aso_screenshot.png)
+![AI-Powered ASO Studio](images/screenshot/aso_screenshot.png)
+
+### Reports & Data Exports
+Export overview stats, daily trends, dimension breakdowns, or full raw data archive bundles for offline analysis.
+
+![Reports & Data Exports](images/screenshot/reports.png)
+
+### Configuration Editor
+Form editor, raw JSON manager, test connection tools, and built-in setup guide for credentials and data sources.
+
+![Configuration Editor](images/screenshot/config.png)
+
+### Metrics Glossary & Formulas
+Authoritative mathematical formulas, interpretation guides, platform origins, and data lag disclosures I have used to draw out metrics. 
+
+![Metrics Glossary & Formulas](images/screenshot/glossary.png)
+
+</details>
 
 ---
 
