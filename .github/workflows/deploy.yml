@@ -46,19 +46,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd app
-          npm ci
+          cd app && npm ci
+          cd frontend && npm ci
 
       - name: Build demo frontend
         run: |
-          cd app
-          npm run build:frontend
+          cd app/frontend && npm run build
+          cd ..
           # Create dummy config for build process if secrets are not available
           if [ ! -f ../config/config.json ]; then
             mkdir -p ../config
             echo '[]' > ../config/config.json
           fi
-          npm run build:demo
+          node generate_static_data.js --demo --no-pass
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4

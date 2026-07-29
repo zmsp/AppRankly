@@ -2,18 +2,20 @@
 FROM node:22-alpine AS frontend-builder
 WORKDIR /build
 COPY app/frontend/package*.json ./app/frontend/
-RUN cd app/frontend && npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    cd app/frontend && npm ci
 COPY package*.json ./
 COPY app/package*.json ./app/
 COPY app/frontend ./app/frontend
-RUN npm run build:frontend
+RUN cd app/frontend && npm run build
 
 # --- Stage 2: Build Backend & Dependencies ---
 FROM node:22-alpine AS builder
 WORKDIR /build
 COPY app/package*.json ./
 # Install only production dependencies
-RUN npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
 COPY app/ ./
 # Remove frontend source code to keep runtime bundle light
 RUN rm -rf frontend
