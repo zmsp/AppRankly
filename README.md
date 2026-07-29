@@ -38,7 +38,11 @@
 
 Stop switching between App Store Connect and Google Play Console. **AppRankly** brings your iOS and Android performance metrics into a single self-hosted dashboard — installs, uninstalls, active devices, retention, releases, and an AI-assisted ASO studio for keyword discovery and listing audits. Credentials and analytics stay 100% on your own server.
 
+
+
 **[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no install needed, runs on sample data.
+
+**Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq)
 
 ## Screenshots
 
@@ -50,7 +54,7 @@ Stop switching between App Store Connect and Google Play Console. **AppRankly** 
 <summary><b>📷 Click to view individual full-resolution screenshots</b></summary>
 <br />
 
-**Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq)
+
 
 
 
