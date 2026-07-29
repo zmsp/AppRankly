@@ -169,5 +169,29 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
     };
   }).filter(Boolean);
 
-  return { dailyTrends, appTrends };
+  // Key appTrends by packageName as well for exact lookup
+  appTrends["com.demo.alpha"] = appTrends["App Alpha"];
+  appTrends["com.demo.beta"] = appTrends["App Beta"];
+  appTrends["com.demo.gamma"] = appTrends["App Gamma"];
+
+  // Compute platformTotals for Google and Apple
+  const googleTotal = appTrends["App Alpha"].reduce((sum, d) => sum + d.dailyUserInstalls, 0) +
+                      appTrends["App Beta"].reduce((sum, d) => sum + d.dailyUserInstalls, 0);
+  const appleTotal = appTrends["App Gamma"].reduce((sum, d) => sum + d.dailyUserInstalls, 0);
+
+  const platformTotals = {
+    google: {
+      totalDailyUserInstalls: googleTotal,
+      totalInstalls: googleTotal,
+      appCount: 2
+    },
+    apple: {
+      totalDailyUserInstalls: appleTotal,
+      totalInstalls: appleTotal,
+      appCount: 1
+    }
+  };
+
+  return { dailyTrends, appTrends, platformTotals };
 };
+

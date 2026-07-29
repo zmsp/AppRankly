@@ -120,6 +120,7 @@ export function useAppState() {
 
   const switchToDemoMode = useCallback(() => {
     setIsDemoMode(true);
+    setProjects(MOCK_PROJECTS);
     setError(null);
     if (!window.location.hash.includes('#/demo')) {
       navigate('/demo', { replace: true });
@@ -263,20 +264,29 @@ export function useAppState() {
   };
 
   const fetchProjects = useCallback(async (token) => {
+    if (isDemoMode) {
+      setProjects(MOCK_PROJECTS);
+      return;
+    }
     const tokenToUse = token || authToken;
     try {
       const res = await apiFetch('/api/projects', {}, tokenToUse, isStaticMode);
       if (res.ok) {
         const data = await res.json();
         const sortedData = sortProjectsByPlatformAndName(data);
-        setProjects(sortedData);
-        if (sortedData.length > 0) {
-          setIsDemoMode(false);
+        if (sortedData && sortedData.length > 0) {
+          setProjects(sortedData);
+          if (!window.location.hash.includes('#/demo') && !location.pathname.startsWith('/demo')) {
+            setIsDemoMode(false);
+          }
           if (selectedProjectIndex === 'manual') {
             const platformFiltered = sortedData.filter(p => p.platform === platform);
             const defaultProj = platformFiltered.length > 1 ? 'all' : (sortedData[0]?.index ?? 'all');
             setSelectedProjectIndex(defaultProj);
           }
+        } else {
+          // If no projects found on backend, populate MOCK_PROJECTS so Demo Mode presents realistic artificial data
+          setProjects(MOCK_PROJECTS);
         }
       }
     } catch (err) {
@@ -285,8 +295,9 @@ export function useAppState() {
         localStorage.removeItem('apprankly_token');
       }
       console.error('Failed to fetch projects', err);
+      setProjects(MOCK_PROJECTS);
     }
-  }, [isStaticMode, authToken]);
+  }, [isStaticMode, authToken, isDemoMode, platform, selectedProjectIndex, location.pathname]);
 
   const fetchReleases = useCallback(async () => {
     try {
@@ -311,14 +322,16 @@ export function useAppState() {
     if (isDemoMode) {
       setLoading(true);
       setTimeout(() => {
-        const { dailyTrends, appTrends } = generateDemoTrends(dateRange.start, dateRange.end);
+        const { dailyTrends, appTrends, platformTotals } = generateDemoTrends(dateRange.start, dateRange.end);
         let currentTrends = dailyTrends;
         let currentActive = dailyTrends[dailyTrends.length - 1]?.activeDevices || MOCK_DATA.overview.currentlyActiveDevices;
 
+        const effectiveProjects = projects.length > 0 ? projects : MOCK_PROJECTS;
         if (selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
-            const proj = findProject(projects, selectedProjectIndex, platform);
-            if (proj && appTrends[proj.name]) {
-               currentTrends = appTrends[proj.name];
+            const proj = findProject(effectiveProjects, selectedProjectIndex, platform);
+            if (proj && (appTrends[proj.packageName] || appTrends[proj.name])) {
+               const entry = appTrends[proj.packageName] || appTrends[proj.name];
+               currentTrends = entry.trends || entry;
                currentActive = currentTrends[currentTrends.length - 1]?.activeDevices || currentActive;
             }
         }
@@ -327,6 +340,7 @@ export function useAppState() {
           ...MOCK_DATA.overview,
           dailyTrends: currentTrends,
           appTrends,
+          platformTotals,
           currentlyActiveDevices: currentActive
         });
         setLoading(false);

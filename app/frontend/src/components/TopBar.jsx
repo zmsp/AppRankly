@@ -173,7 +173,7 @@ export default function TopBar({
         <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
 
         {/* App / Project Selector */}
-        {!isDemoMode && projects.length > 0 && (
+        {projects.length > 0 && (
           <div className="flex items-center space-x-2 shrink-0">
             {/* 1. All App */}
             <button

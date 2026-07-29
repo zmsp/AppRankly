@@ -6,6 +6,8 @@ import {
   Bell, Clock, BookOpen, HelpCircle, ChevronDown, ChevronRight, Search, FileText
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
+import { TOP_10_TIMEZONES } from '../lib/constants';
+
 
 function clsx(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -367,9 +369,10 @@ const CONFIG_DOCS_GROUPS = [
         required: false,
         default: 'Server local time',
         summary: 'Target IANA Timezone for active window evaluation.',
-        description: 'Optional IANA timezone string (e.g. America/New_York, UTC, Europe/London) used to calculate active start and end hours. Defaults to server system time if empty.',
-        example: 'America/New_York'
+        description: 'Optional IANA timezone string (e.g. America/New_York, UTC, Europe/London, Asia/Tokyo) used to calculate active start and end hours. Choose from the top 10 global timezones dropdown or enter a custom timezone. Defaults to server system time if empty.',
+        example: '"America/New_York"'
       }
+
     ]
   },
   {
@@ -666,6 +669,8 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [configPath, setConfigPath] = useState('');
   const [aiUsage, setAiUsage] = useState(null);
   const [schedulerStatus, setSchedulerStatus] = useState(null);
+  const [isCustomTz, setIsCustomTz] = useState(false);
+
 
   useEffect(() => {
     if (!authToken) return;
@@ -1092,40 +1097,99 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
 
               <Field
                 label="Scheduler Timezone"
-                hint="IANA Timezone for active hours evaluation (e.g. America/New_York, UTC, Europe/London)"
+                hint="Select from top 10 global timezones or enter a custom IANA timezone for active hours evaluation"
               >
-                <div className="space-y-1.5">
-                  <div className="flex items-center space-x-2">
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <div className="flex-1">
+                      <select
+                        value={
+                          entry.timezone === '' || entry.timezone === undefined || entry.timezone === null
+                            ? ''
+                            : isCustomTz
+                              ? '__custom__'
+                              : TOP_10_TIMEZONES.some(tz => tz.value === entry.timezone) ||
+                                entry.timezone === Intl.DateTimeFormat().resolvedOptions().timeZone
+                                ? entry.timezone
+                                : '__custom__'
+                        }
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '__custom__') {
+                            setIsCustomTz(true);
+                          } else {
+                            setIsCustomTz(false);
+                            updateEntry('timezone', val);
+                          }
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
+                      >
+                        <option value="" className="bg-slate-900 text-white">
+                          Default (Server Timezone: {schedulerStatus?.config?.serverTimezone || 'System local'})
+                        </option>
+                        <optgroup label="Top 10 Timezones" className="bg-slate-900 text-accent-blue font-bold">
+                          {TOP_10_TIMEZONES.map(tz => (
+                            <option key={tz.value} value={tz.value} className="bg-slate-900 text-white font-sans">
+                              {tz.label}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {!TOP_10_TIMEZONES.some(tz => tz.value === Intl.DateTimeFormat().resolvedOptions().timeZone) && (
+                          <option value={Intl.DateTimeFormat().resolvedOptions().timeZone} className="bg-slate-900 text-emerald-300">
+                            Browser Timezone ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                          </option>
+                        )}
+                        {entry.timezone &&
+                         entry.timezone !== '' &&
+                         !TOP_10_TIMEZONES.some(tz => tz.value === entry.timezone) &&
+                         entry.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
+                          <option value={entry.timezone} className="bg-slate-900 text-amber-300">
+                            Custom: {entry.timezone}
+                          </option>
+                        )}
+                        <option value="__custom__" className="bg-slate-900 text-white/70 italic">
+                          ✍️ Enter Other Custom Timezone...
+                        </option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { setIsCustomTz(false); updateEntry('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone); }}
+                        className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors"
+                        title="Set to your browser's current timezone"
+                      >
+                        Browser ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setIsCustomTz(false); updateEntry('timezone', 'UTC'); }}
+                        className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors"
+                      >
+                        UTC
+                      </button>
+                    </div>
+                  </div>
+
+                  {(isCustomTz || (entry.timezone && !TOP_10_TIMEZONES.some(tz => tz.value === entry.timezone) && entry.timezone !== Intl.DateTimeFormat().resolvedOptions().timeZone && entry.timezone !== '')) && (
+                    <div className="pt-1">
                       <Input
                         type="text"
                         value={entry.timezone || ''}
                         onChange={v => updateEntry('timezone', v)}
-                        placeholder={`Default (Server time: ${schedulerStatus?.config?.serverTimezone || 'System local'})`}
+                        placeholder="Enter IANA timezone string (e.g. Asia/Kolkata, America/Sao_Paulo)"
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => updateEntry('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone)}
-                      className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors shrink-0"
-                      title="Set to your browser's current timezone"
-                    >
-                      Browser ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateEntry('timezone', 'UTC')}
-                      className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors shrink-0"
-                    >
-                      UTC
-                    </button>
-                  </div>
+                  )}
+
                   <div className="flex items-center justify-between text-[10px] text-white/40 px-1 pt-0.5">
-                    <span>Your Browser Timezone: <span className="text-white/70 font-semibold">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span></span>
-                    <span>Server System Timezone: <span className="text-white/70 font-semibold">{schedulerStatus?.config?.serverTimezone || 'Local System'}</span></span>
+                    <span>Active Timezone: <span className="text-emerald-400 font-semibold">{entry.timezone || schedulerStatus?.config?.serverTimezone || 'Server System Local'}</span></span>
+                    <span>Your Browser: <span className="text-white/70 font-semibold">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span></span>
                   </div>
                 </div>
               </Field>
+
             </div>
 
             <div className="p-3.5 bg-white/3 rounded-xl border border-white/5 text-[11px] text-white/50 space-y-1">

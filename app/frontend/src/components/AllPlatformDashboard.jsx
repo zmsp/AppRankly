@@ -35,7 +35,7 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
     // Fallback: reconstruct from appTrends using exact packageName lookup
     let appleT = 0, googleT = 0;
     projects.forEach(proj => {
-      const entry = stats?.appTrends?.[proj.packageName];
+      const entry = stats?.appTrends?.[proj.packageName] || stats?.appTrends?.[proj.name];
       const trendData = entry?.trends || entry || [];
       const installs = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
       
