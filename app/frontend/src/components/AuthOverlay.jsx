@@ -75,6 +75,11 @@ export default function AuthOverlay({ setupRequired, setAuthToken, fetchProjects
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-4">
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-xl p-3 text-center font-medium">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-xs font-bold text-white/40 uppercase mb-2">
                 {setupRequired ? 'Create Password' : 'Password'}

@@ -101,6 +101,23 @@ export function useAppState() {
   const [error, setError] = useState(null);
   const [setupRequired, setSetupRequired] = useState(false);
 
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      try {
+        const res = await fetch('/api/auth/status');
+        if (res.ok) {
+          const data = await res.json();
+          setSetupRequired(!!data.setupRequired);
+        }
+      } catch (err) {
+        console.warn('Failed to check auth status:', err);
+      }
+    };
+    if (!isDemoMode) {
+      checkAuthStatus();
+    }
+  }, [isDemoMode]);
+
   const switchToDemoMode = useCallback(() => {
     setIsDemoMode(true);
     setError(null);
@@ -572,7 +589,7 @@ export function useAppState() {
     setLoading(true);
     setDimensionLoading(true);
     try {
-      if (!isDemoMode && (authToken || noPass)) {
+      if (!isDemoMode) {
         await apiFetch('/api/refresh', { method: 'POST' }, authToken, isStaticMode);
       }
     } catch (err) {
@@ -585,7 +602,7 @@ export function useAppState() {
         fetchDeviceStatsIfNeeded()
       ]);
     }
-  }, [isDemoMode, authToken, noPass, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
+  }, [isDemoMode, authToken, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
 
   const forceRefreshRange = useCallback(async (customStart, customEnd) => {
     const start = customStart || dateRange?.start;
@@ -593,7 +610,8 @@ export function useAppState() {
     setLoading(true);
     setDimensionLoading(true);
     try {
-      if (!isDemoMode && (authToken || noPass)) {
+      if (!isDemoMode) {
+        console.log(`[Frontend] Calling /api/force-refresh-range for ${start} to ${end}`);
         await apiFetch('/api/force-refresh-range', {
           method: 'POST',
           body: JSON.stringify({
@@ -614,7 +632,7 @@ export function useAppState() {
         fetchDeviceStatsIfNeeded()
       ]);
     }
-  }, [dateRange, platform, selectedProjectIndex, isDemoMode, authToken, noPass, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
+  }, [dateRange, platform, selectedProjectIndex, isDemoMode, authToken, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
 
   return {
     isDemoMode, setIsDemoMode,

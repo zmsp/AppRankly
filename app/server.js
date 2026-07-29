@@ -107,7 +107,7 @@ app.post("/api/auth/login", (req, res) => {
   }
 
   if (!storedHash) {
-    return res.status(500).json({ error: "Authentication not configured" });
+    return res.status(400).json({ error: "Password not set up yet. Please complete initial setup." });
   }
 
   const isValid = bcrypt.compareSync(password, storedHash);
@@ -121,6 +121,10 @@ app.post("/api/auth/login", (req, res) => {
 
 // Auth Middleware
 const authenticate = (req, res, next) => {
+  if (!isPasswordSet()) {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Missing authentication token" });
@@ -1343,6 +1347,7 @@ app.post("/api/refresh", authenticate, async (req, res) => {
 
 // Force refresh specific date range bypassing binary search probing
 app.post("/api/force-refresh-range", authenticate, async (req, res) => {
+  console.log(`[FORCE SYNC] Received request to force refresh range: ${req.body.startDate} to ${req.body.endDate} (Platform: ${req.body.platform}, Package: ${req.body.packageName || req.body.projectIndex})`);
   try {
     const { startDate, endDate, platform, packageName } = req.body;
     resolver.clearCache();
@@ -1353,21 +1358,25 @@ app.post("/api/force-refresh-range", authenticate, async (req, res) => {
     const packages = await fetchPackagesByPlatform(targetPlatform === 'all' ? 'all' : targetPlatform, baseConfig);
     const applePackages = packages.filter(p => p.platform === 'apple' || targetPlatform === 'apple');
 
+    console.log(`[FORCE SYNC] Found ${applePackages.length} Apple app(s) to process for range ${startDate} to ${endDate}...`);
+
     for (const pkg of applePackages) {
       try {
+        console.log(`[FORCE SYNC] Bypassing binary search & clearing empty cache markers for ${pkg.packageName}...`);
         const viewer = buildAppleViewer(baseConfig, pkg.packageName);
         viewer.clearBinarySearchCache(startDate, endDate);
         if (startDate && endDate) {
           await viewer.getAppStats(startDate, endDate, { ignoreBinarySearch: true, forceRefresh: true });
         }
       } catch (err) {
-        console.error(`Error force refreshing range for ${pkg.packageName}:`, err.message);
+        console.error(`[FORCE SYNC] Error force refreshing range for ${pkg.packageName}:`, err.message);
       }
     }
 
+    console.log(`[FORCE SYNC] Successfully completed force refresh for date range ${startDate} to ${endDate}.`);
     res.json({ success: true, message: `Force refreshed date range ${startDate} to ${endDate}` });
   } catch (error) {
-    console.error("Error running force refresh date range:", error);
+    console.error("[FORCE SYNC] Error running force refresh date range:", error);
     res.status(500).json({ error: "Failed to force refresh date range", details: error.message });
   }
 });
