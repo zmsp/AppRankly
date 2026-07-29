@@ -23,10 +23,40 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
 
   // Enhance each project with momentum & quiet stats
   const enhancedProjects = projects.map((proj) => {
-    const appTrendEntry = appTrends[proj.packageName] || appTrends[proj.name];
-    const trendData = appTrendEntry?.trends || appTrendEntry || [];
-    const totalInstalls = trendData.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
-    const points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
+    let points = [];
+    let googleInstalls = 0;
+    let appleInstalls = 0;
+
+    if (proj.isMerged && (proj.googleApp || proj.appleApp)) {
+      const gKey = proj.googlePackageName || proj.googleApp?.name;
+      const aKey = proj.appleBundleId || proj.appleApp?.packageName || proj.appleApp?.name;
+
+      const gEntry = gKey ? (appTrends[gKey]?.trends || appTrends[gKey] || []) : [];
+      const aEntry = aKey ? (appTrends[aKey]?.trends || appTrends[aKey] || []) : [];
+
+      googleInstalls = gEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
+      appleInstalls = aEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
+
+      const maxLen = Math.max(gEntry.length, aEntry.length);
+      points = new Array(maxLen).fill(0);
+      for (let i = 0; i < maxLen; i++) {
+        const gVal = gEntry[i]?.dailyUserInstalls || gEntry[i]?.dailyInstalls || 0;
+        const aVal = aEntry[i]?.dailyUserInstalls || aEntry[i]?.dailyInstalls || 0;
+        points[i] = gVal + aVal;
+      }
+    } else {
+      const appTrendEntry = appTrends[proj.packageName] || appTrends[proj.name];
+      const trendData = appTrendEntry?.trends || appTrendEntry || [];
+      points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
+      const total = points.reduce((sum, v) => sum + v, 0);
+      if (proj.platform === 'apple') {
+        appleInstalls = total;
+      } else {
+        googleInstalls = total;
+      }
+    }
+
+    const totalInstalls = points.reduce((sum, v) => sum + v, 0);
 
     // 1. Fixed Last 7 Days vs Prior 7 Days Momentum (independent of selected date range filter)
     let momentumPct = 0;
@@ -82,6 +112,8 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
     return {
       proj,
       totalInstalls,
+      googleInstalls,
+      appleInstalls,
       points,
       momentumPct,
       momentumStr,
@@ -131,8 +163,9 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {sorted.map(({ proj, totalInstalls, points, momentumStr, momentumType, asoScore }) => {
+        {sorted.map(({ proj, totalInstalls, googleInstalls, appleInstalls, points, momentumStr, momentumType, asoScore }) => {
           const hasTrends = points.length > 1 && points.some(v => v > 0);
+          const isPairedMerged = proj.isMerged && proj.googleApp && proj.appleApp;
 
           return (
             <div
@@ -144,7 +177,12 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                 <div className="flex items-center justify-between gap-1.5 min-w-0">
                   <div className="flex items-center space-x-1.5 min-w-0 flex-1">
                     <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-5 h-5 rounded shrink-0" />
-                    {proj.platform === 'apple' ? (
+                    {isPairedMerged ? (
+                      <div className="flex items-center space-x-0.5 shrink-0" title="Available on Apple App Store & Google Play Store">
+                        <AppleStoreIcon size={11} className="text-sky-300 shrink-0" />
+                        <PlayStoreIcon size={11} className="text-emerald-400 shrink-0" />
+                      </div>
+                    ) : proj.platform === 'apple' ? (
                       <AppleStoreIcon size={11} className="text-white/50 shrink-0" />
                     ) : (
                       <PlayStoreIcon size={11} className="text-white/50 shrink-0" />
@@ -167,7 +205,7 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                   )}
                 </div>
 
-                <div className="flex items-baseline justify-between">
+                <div className="flex items-end justify-between gap-1">
                   <div>
                     <span className="text-[10px] font-medium text-slate-400 uppercase">Period Installs</span>
                     <div className="flex items-center space-x-1.5 mt-0.5">
@@ -189,6 +227,18 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                       </span>
                     </div>
                   </div>
+
+                  {isPairedMerged && (appleInstalls > 0 || googleInstalls > 0) && (
+                    <div className="flex items-center space-x-1 text-[9px] font-mono text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 shrink-0 mb-0.5" title="Platform breakdown">
+                      <span className="text-sky-300 flex items-center gap-0.5">
+                        <AppleStoreIcon size={8} /> {formatNumber(appleInstalls)}
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-emerald-400 flex items-center gap-0.5">
+                        <PlayStoreIcon size={8} /> {formatNumber(googleInstalls)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -4,11 +4,18 @@ import MetricCard from './MetricCard';
 import { Download } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { formatNumber } from '../lib/format';
+import { groupProjectsByPair } from '../lib/projectUtils';
+import { clsx } from 'clsx';
 
 export default function AllPlatformDashboard({ projects = [], filteredProjects, stats, platform = 'all', setSelectedProjectIndex, setPlatform }) {
-  const displayProjects = filteredProjects && filteredProjects.length > 0
-    ? filteredProjects
-    : (platform === 'all' ? projects : projects.filter(p => p.platform === platform));
+  const displayProjects = useMemo(() => {
+    if (platform === 'all') {
+      return groupProjectsByPair(projects);
+    }
+    return filteredProjects && filteredProjects.length > 0
+      ? filteredProjects
+      : projects.filter(p => p.platform === platform);
+  }, [projects, filteredProjects, platform]);
 
   const { appleTotal, googleTotal, combinedTotal, appleCount, googleCount } = useMemo(() => {
     let appleC = 0, googleC = 0;
@@ -58,11 +65,46 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
   const googleShare = combinedTotal > 0 ? ((googleTotal / combinedTotal) * 100).toFixed(1) + '%' : '0%';
   const appleShare = combinedTotal > 0 ? ((appleTotal / combinedTotal) * 100).toFixed(1) + '%' : '0%';
 
+  const handleScopeClick = (targetPlatform) => {
+    if (setPlatform) setPlatform(targetPlatform);
+    if (setSelectedProjectIndex) setSelectedProjectIndex('all');
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Platform Overview Stat Cards */}
+      {/* Top Platform Overview Stat Cards (Combined -> Apple -> Google) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className={platform === 'apple' ? 'ring-2 ring-sky-500/50 rounded-2xl transition-all shadow-lg' : ''}>
+        {/* 1. Combined Installs (First) */}
+        <div
+          onClick={() => handleScopeClick('all')}
+          className={clsx(
+            "cursor-pointer transition-all duration-200 rounded-2xl group",
+            platform === 'all'
+              ? 'ring-2 ring-accent-blue/60 shadow-lg shadow-accent-blue/15 bg-accent-blue/5'
+              : 'hover:scale-[1.015] hover:brightness-110 active:scale-[0.99]'
+          )}
+          title="Click to view Combined Multi-Platform Apps scope"
+        >
+          <MetricCard
+            label="Combined Installs"
+            value={formatNumber(combinedTotal)}
+            sublabel={`${projects.length} Total ${projects.length === 1 ? 'App' : 'Apps'} Tracked • All Scope`}
+            icon={Download}
+            color="emerald"
+          />
+        </div>
+
+        {/* 2. Apple Installs (Second) */}
+        <div
+          onClick={() => handleScopeClick('apple')}
+          className={clsx(
+            "cursor-pointer transition-all duration-200 rounded-2xl group",
+            platform === 'apple'
+              ? 'ring-2 ring-sky-500/60 shadow-lg shadow-sky-500/15 bg-sky-500/5'
+              : 'hover:scale-[1.015] hover:brightness-110 active:scale-[0.99]'
+          )}
+          title="Click to view Apple App Store apps scope"
+        >
           <MetricCard
             label="Apple Installs"
             value={formatNumber(appleTotal)}
@@ -72,23 +114,23 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
           />
         </div>
 
-        <div className={platform === 'google' ? 'ring-2 ring-emerald-500/50 rounded-2xl transition-all shadow-lg' : ''}>
+        {/* 3. Google Installs (Third) */}
+        <div
+          onClick={() => handleScopeClick('google')}
+          className={clsx(
+            "cursor-pointer transition-all duration-200 rounded-2xl group",
+            platform === 'google'
+              ? 'ring-2 ring-emerald-500/60 shadow-lg shadow-emerald-500/15 bg-emerald-500/5'
+              : 'hover:scale-[1.015] hover:brightness-110 active:scale-[0.99]'
+          )}
+          title="Click to view Google Play Store apps scope"
+        >
           <MetricCard
             label="Google Installs"
             value={formatNumber(googleTotal)}
             sublabel={`${googleCount} Google Play ${googleCount === 1 ? 'App' : 'Apps'} • ${googleShare} Share`}
             icon={PlayStoreIcon}
             color="blue"
-          />
-        </div>
-
-        <div className={platform === 'all' ? 'ring-2 ring-accent-blue/50 rounded-2xl transition-all shadow-lg' : ''}>
-          <MetricCard
-            label="Combined Installs"
-            value={formatNumber(combinedTotal)}
-            sublabel={`${projects.length} Total ${projects.length === 1 ? 'App' : 'Apps'} Tracked`}
-            icon={Download}
-            color="emerald"
           />
         </div>
       </div>
