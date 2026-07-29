@@ -73,6 +73,11 @@ Pick a deployment method. **Note where `config.json` lives for each** — it dif
 | Docker Compose (Build from source) | `./config/` | `http://localhost:3000` |
 | Local Node.js | `./data/config/` | `http://localhost:3000` |
 
+> [!NOTE]
+> **Why are API keys needed?** AppRankly fetches stats directly from official store APIs (Google Cloud Storage reports and Apple App Store Connect API) so your analytics remain 100% self-hosted and private. Before launching any deployment option below, obtain your API keys using the setup guides:
+> - **Google Play**: [Google Play Credentials Setup](#1-google-play-via-gcs-reports) (Service Account `.json` key)
+> - **Apple App Store**: [Apple Credentials Setup](#2-apple-app-store-connect-via-api) (`.p8` API key, Issuer ID & Key ID)
+
 ### Option 1: Docker Compose (recommended)
 
 ```bash
