@@ -23,33 +23,33 @@ jobs:
   gh-pages:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 🛎️
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js ⚙️
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: '**/package-lock.json'
 
-      - name: Install dependencies 📦
+      - name: Install dependencies
         run: |
           cd app
           npm ci
 
-      - name: Build Demo 🏗️
+      - name: Build demo frontend
         run: |
           cd app
           npm run build:frontend
-          # We create a dummy config for the build process if secrets are not available
+          # Create dummy config for build process if secrets are not available
           if [ ! -f ../config/config.json ]; then
             mkdir -p ../config
             echo '[]' > ../config/config.json
           fi
           npm run build:demo
 
-      - name: Deploy to GitHub Pages 🚀
+      - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: docs
@@ -58,20 +58,23 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout 🛎️
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx 🛠️
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to the Container registry 🔐
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker 🏷️
+      - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -83,10 +86,11 @@ jobs:
             type=sha,format=long
             latest
 
-      - name: Build and push Docker image 🚀
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
