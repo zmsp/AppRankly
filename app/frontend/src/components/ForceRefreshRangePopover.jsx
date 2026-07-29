@@ -77,68 +77,69 @@ export default function ForceRefreshRangePopover({
       </div>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-slate-900/95 backdrop-blur-xl border border-rose-500/30 rounded-2xl p-4 shadow-2xl z-50 space-y-4">
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center space-x-2 text-rose-400">
-              <AlertTriangle size={18} />
-              <h4 className="font-bold text-sm text-white">Force Sync Date Range</h4>
-            </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
+        <div className="absolute right-0 top-full mt-3 w-72 bg-slate-900/98 backdrop-blur-xl border border-rose-500/25 rounded-xl shadow-2xl shadow-rose-900/30 z-50">
+          {/* Arrow caret */}
+          <div className="absolute -top-[6px] right-3 w-3 h-3 rotate-45 bg-slate-900 border-l border-t border-rose-500/25" />
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Forces a direct re-fetch of daily reports from Apple for the date range below, <span className="text-rose-400 font-semibold">bypassing binary search boundary probes</span> and ignoring cached missing/empty month markers.
-          </p>
-
-          <form onSubmit={handleCustomExecute} className="space-y-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2 pt-2">
+          <div className="p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1.5 text-rose-400">
+                <AlertTriangle size={13} />
+                <span className="font-bold text-[11px] uppercase tracking-wider text-rose-300">Custom Date Range</span>
+              </div>
               <button
-                type="submit"
-                disabled={loading || !startDate || !endDate}
-                className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center space-x-2"
-              >
-                <RefreshCw size={14} className={clsx(loading && "animate-spin")} />
-                <span>Bypass Search & Refetch</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setIsOpen(false)}
-                className="bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs py-2.5 px-3 rounded-xl border border-white/10 transition-colors"
+                className="text-slate-500 hover:text-white p-0.5 rounded hover:bg-white/10 transition-colors"
               >
-                Cancel
+                <X size={13} />
               </button>
             </div>
-          </form>
+
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Bypasses binary search & cache. Re-fetches Apple reports directly for the selected range.
+            </p>
+
+            <form onSubmit={handleCustomExecute} className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-rose-500/60 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-slate-950/80 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white focus:outline-none focus:border-rose-500/60 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading || !startDate || !endDate}
+                  className="flex-1 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg shadow-md shadow-rose-600/20 transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <RefreshCw size={11} className={clsx(loading && "animate-spin")} />
+                  <span>Force Refetch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="bg-white/5 hover:bg-white/10 text-slate-400 font-semibold text-[10px] py-1.5 px-2.5 rounded-lg border border-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
