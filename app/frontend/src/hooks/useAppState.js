@@ -568,10 +568,24 @@ export function useAppState() {
     }
   }, [fetchDeviceStatsIfNeeded, activeDimension, authToken, isDemoMode, noPass]);
 
-  const forceRefresh = useCallback(() => {
-    clearCache();
-    loadOverviewStats();
-  }, [loadOverviewStats]);
+  const forceRefresh = useCallback(async () => {
+    setLoading(true);
+    setDimensionLoading(true);
+    try {
+      if (!isDemoMode && (authToken || noPass)) {
+        await apiFetch('/api/refresh', { method: 'POST' }, authToken, isStaticMode);
+      }
+    } catch (err) {
+      console.warn('Backend stats refresh error:', err);
+    } finally {
+      clearCache();
+      await Promise.all([
+        loadOverviewStats(),
+        loadDimensionStats(activeDimension),
+        fetchDeviceStatsIfNeeded()
+      ]);
+    }
+  }, [isDemoMode, authToken, noPass, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
 
   return {
     isDemoMode, setIsDemoMode,

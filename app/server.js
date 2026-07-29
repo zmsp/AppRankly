@@ -1332,6 +1332,7 @@ app.post("/api/notifications/test", authenticate, async (req, res) => {
 // Manual store stats refresh & notification check endpoint
 app.post("/api/refresh", authenticate, async (req, res) => {
   try {
+    resolver.clearCache();
     const result = await checkAndNotifyStats(schedulerHelpers, { force: true });
     res.json(result);
   } catch (error) {
