@@ -70,6 +70,7 @@ Pick a deployment method. **Note where `config.json` lives for each** — it dif
 | Docker Compose | `./config/` | `http://localhost:3000` |
 | Pre-built image (`docker run`) | `./data/config/` | `http://localhost:3000` |
 | Unraid | `/mnt/user/appdata/AppRankly/config/` | `http://[SERVER-IP]:3020` |
+| Docker Compose (Build from source) | `./config/` | `http://localhost:3000` |
 | Local Node.js | `./data/config/` | `http://localhost:3000` |
 
 ### Option 1: Docker Compose (recommended)
@@ -85,7 +86,7 @@ cp example.config.json config/config.json
 # Edit config/config.json, drop API key files (.json for Google, .p8 for Apple) into config/keys/
 
 # 3. Launch
-docker-compose up -d
+docker compose up -d
 ```
 
 Open **http://localhost:3000**.
@@ -124,7 +125,27 @@ AppRankly is listed on [Unraid Community Applications](https://ca.unraid.net/app
 
 Full guide: [unraid/README.md](unraid/README.md).
 
-### Option 4: Local Node.js development
+### Option 4: Docker Compose (build from source)
+
+Build and run the container locally from source code:
+
+```bash
+# 1. Clone
+git clone https://github.com/zmsp/AppRankly.git
+cd AppRankly
+
+# 2. Create config
+mkdir -p config/keys
+cp example.config.json config/config.json
+# Edit config/config.json, drop API key files into config/keys/
+
+# 3. Launch with local build
+docker compose -f docker-compose.build.yml up -d --build
+```
+
+Open **http://localhost:3000**.
+
+### Option 5: Local Node.js development
 
 Requires Node 20+ (**22.5+ recommended** — the SQLite cache layer uses the built-in `node:sqlite` and disables itself on older versions).
 

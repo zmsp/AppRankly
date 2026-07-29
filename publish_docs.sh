@@ -16,7 +16,7 @@ git checkout -b gh-pages
 # 4. Remove all files except docs/
 # We want the content of docs/ to be at the root of gh-pages
 mv docs/* .
-rm -rf docs app config keys tests Dockerfile docker-compose.yml README.md .gitignore .dockerignore package.json package-lock.json publish_docs.sh
+rm -rf docs app config keys tests Dockerfile docker-compose*.yml README.md .gitignore .dockerignore package.json package-lock.json publish_docs.sh
 
 # 5. Commit and push
 git add .

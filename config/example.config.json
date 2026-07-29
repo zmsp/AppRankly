@@ -13,6 +13,7 @@
   "statsCheckRangeDays": 30,
   "activeStartHour": 9,
   "activeEndHour": 20,
+  "timezone": "America/New_York (Optional IANA timezone string, e.g. UTC, America/New_York. Defaults to server system time)",
   "appMetadata": {
     "com.example.app1": {
       "consoleAppId": "YOUR_CONSOLE_APP_ID_1 (Found in Play Console URL: .../app/YOUR_CONSOLE_APP_ID/app-dashboard)"

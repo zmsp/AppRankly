@@ -1343,6 +1343,7 @@ app.post("/api/refresh", authenticate, async (req, res) => {
 // Notification scheduler status & configuration endpoint
 app.get("/api/notifications/status", authenticate, (req, res) => {
   const baseConfig = getBaseConfig() || {};
+  const serverTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   res.json({
     scheduler: getSchedulerStatus(),
     config: {
@@ -1350,7 +1351,9 @@ app.get("/api/notifications/status", authenticate, (req, res) => {
       refreshIntervalHours: baseConfig.refreshIntervalHours || parseInt(process.env.STATS_REFRESH_HOURS, 10) || 1,
       statsCheckRangeDays: baseConfig.statsCheckRangeDays || parseInt(process.env.STATS_CHECK_RANGE_DAYS, 10) || 30,
       activeStartHour: baseConfig.activeStartHour !== undefined ? baseConfig.activeStartHour : (process.env.STATS_START_HOUR ? parseInt(process.env.STATS_START_HOUR, 10) : 9),
-      activeEndHour: baseConfig.activeEndHour !== undefined ? baseConfig.activeEndHour : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20)
+      activeEndHour: baseConfig.activeEndHour !== undefined ? baseConfig.activeEndHour : (process.env.STATS_END_HOUR ? parseInt(process.env.STATS_END_HOUR, 10) : 20),
+      timezone: baseConfig.timezone || '',
+      serverTimezone
     }
   });
 });

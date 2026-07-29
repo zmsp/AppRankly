@@ -360,6 +360,15 @@ const CONFIG_DOCS_GROUPS = [
         summary: 'Scheduler active window end hour (0-23).',
         description: 'Local hour (0 to 23) when background checks and push notification alerts stop.',
         example: '20 (8:00 PM)'
+      },
+      {
+        name: 'timezone',
+        platform: 'Scheduler',
+        required: false,
+        default: 'Server local time',
+        summary: 'Target IANA Timezone for active window evaluation.',
+        description: 'Optional IANA timezone string (e.g. America/New_York, UTC, Europe/London) used to calculate active start and end hours. Defaults to server system time if empty.',
+        example: 'America/New_York'
       }
     ]
   },
@@ -656,6 +665,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [rawJson, setRawJson] = useState('');
   const [configPath, setConfigPath] = useState('');
   const [aiUsage, setAiUsage] = useState(null);
+  const [schedulerStatus, setSchedulerStatus] = useState(null);
 
   useEffect(() => {
     if (!authToken) return;
@@ -665,7 +675,12 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
       .then(res => res.ok ? res.json() : null)
       .then(data => data && setAiUsage(data))
       .catch(() => {});
-  }, [authToken]);
+
+    apiFetch('/api/notifications/status', {}, authToken, isStaticMode)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => data && setSchedulerStatus(data))
+      .catch(() => {});
+  }, [authToken, isStaticMode]);
 
   const currentJson = JSON.stringify(config, null, 2);
   const isDirty = initialConfigJson && currentJson !== initialConfigJson;
@@ -709,6 +724,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           statsCheckRangeDays: 30,
           activeStartHour: 9,
           activeEndHour: 20,
+          timezone: '',
           ignoredPackages: ['com.example.ignored'],
           appMetadata: {},
           ai: {
@@ -1073,6 +1089,43 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                   />
                 </Field>
               </div>
+
+              <Field
+                label="Scheduler Timezone"
+                hint="IANA Timezone for active hours evaluation (e.g. America/New_York, UTC, Europe/London)"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex-1">
+                      <Input
+                        type="text"
+                        value={entry.timezone || ''}
+                        onChange={v => updateEntry('timezone', v)}
+                        placeholder={`Default (Server time: ${schedulerStatus?.config?.serverTimezone || 'System local'})`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateEntry('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone)}
+                      className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors shrink-0"
+                      title="Set to your browser's current timezone"
+                    >
+                      Browser ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateEntry('timezone', 'UTC')}
+                      className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-semibold text-white/70 hover:text-white transition-colors shrink-0"
+                    >
+                      UTC
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/40 px-1 pt-0.5">
+                    <span>Your Browser Timezone: <span className="text-white/70 font-semibold">{Intl.DateTimeFormat().resolvedOptions().timeZone}</span></span>
+                    <span>Server System Timezone: <span className="text-white/70 font-semibold">{schedulerStatus?.config?.serverTimezone || 'Local System'}</span></span>
+                  </div>
+                </div>
+              </Field>
             </div>
 
             <div className="p-3.5 bg-white/3 rounded-xl border border-white/5 text-[11px] text-white/50 space-y-1">
@@ -1081,7 +1134,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                 <span>Background Scheduler Summary</span>
               </div>
               <p>
-                Auto-refresh polls store APIs every <span className="text-white/80 font-semibold">{entry.refreshIntervalHours || 1}h</span> between <span className="text-white/80 font-semibold">{entry.activeStartHour !== undefined ? entry.activeStartHour : 9}:00</span> and <span className="text-white/80 font-semibold">{entry.activeEndHour !== undefined ? entry.activeEndHour : 20}:00</span>, checking the past <span className="text-white/80 font-semibold">{entry.statsCheckRangeDays || 30} days</span>.
+                Auto-refresh polls store APIs every <span className="text-white/80 font-semibold">{entry.refreshIntervalHours || 1}h</span> between <span className="text-white/80 font-semibold">{entry.activeStartHour !== undefined ? entry.activeStartHour : 9}:00</span> and <span className="text-white/80 font-semibold">{entry.activeEndHour !== undefined ? entry.activeEndHour : 20}:00</span> <span className="text-white/60">({entry.timezone ? `Timezone: ${entry.timezone}` : `Server Timezone: ${schedulerStatus?.config?.serverTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone}`})</span>, checking the past <span className="text-white/80 font-semibold">{entry.statsCheckRangeDays || 30} days</span>.
               </p>
               <p className="pt-0.5">
                 {entry.ntfyTopic && entry.ntfyTopic.trim() ? (
@@ -1407,6 +1460,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
               <InfoRow label="Notification Status" value={entry?.ntfyTopic ? 'Enabled' : 'Disabled (No Topic)'} />
               <InfoRow label="Check Interval" value={entry?.refreshIntervalHours ? `${entry.refreshIntervalHours} hours` : '1 hour'} />
               <InfoRow label="Active Window" value={`${entry?.activeStartHour !== undefined ? entry.activeStartHour : 9}:00 - ${entry?.activeEndHour !== undefined ? entry.activeEndHour : 20}:00`} />
+              <InfoRow label="Timezone" value={entry?.timezone ? entry.timezone : `Server Default (${schedulerStatus?.config?.serverTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone})`} />
             </div>
             <TestButton
               platform="ntfy"
