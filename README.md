@@ -2,43 +2,33 @@
   <img src="images/logo.png" alt="AppRankly Logo" width="128" />
 </p>
 
-<h1 align="center">AppRankly — Mobile App Store Analytics Dashboard</h1>
+# AppRankly — Open-Source Mobile App Analytics & ASO Dashboard
 
-<p align="center">
-  Self-hosted iOS + Android analytics and ASO toolkit. Your keys, your server, your data.
-</p>
+> **Self-hosted iOS & Android analytics toolkit.** A private, unified alternative to App Store Connect and Google Play Console — keep 100% of your data and credentials on your own server.
 
-<!-- Repo stats -->
-<p align="center">
-  <a href="https://github.com/zmsp/AppRankly/stargazers"><img src="https://img.shields.io/github/stars/zmsp/AppRankly?logo=github&color=gold" alt="GitHub Stars"></a>
-  <a href="https://github.com/zmsp/AppRankly/forks"><img src="https://img.shields.io/github/forks/zmsp/AppRankly?logo=github&color=blueviolet" alt="GitHub Forks"></a>
-  <a href="https://github.com/zmsp/AppRankly/issues"><img src="https://img.shields.io/github/issues/zmsp/AppRankly" alt="Open Issues"></a>
-  <a href="https://github.com/zmsp/AppRankly/commits/main"><img src="https://img.shields.io/github/last-commit/zmsp/AppRankly" alt="Last Commit"></a>
-  <a href="https://github.com/zmsp/AppRankly/tags"><img src="https://img.shields.io/github/v/tag/zmsp/AppRankly?label=version" alt="Latest Version"></a>
-  <a href="https://github.com/zmsp/AppRankly/actions/workflows/deploy.yml"><img src="https://img.shields.io/github/actions/workflow/status/zmsp/AppRankly/deploy.yml?branch=main&label=build" alt="Build Status"></a>
-</p>
+[![GitHub Stars](https://img.shields.io/github/stars/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/network/members)
+[![Open Issues](https://img.shields.io/github/issues/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/commits/main)
+[![Latest Version](https://img.shields.io/github/v/release/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/releases)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](https://github.com/zmsp/AppRankly/blob/main/LICENSE)
 
-<!-- Platform -->
-<p align="center">
-  <a href="LICENSE">
-  <a href="app/package.json"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen?logo=node.js&logoColor=white" alt="Node.js Version"></a>
-  <a href="https://github.com/zmsp/AppRankly/pkgs/container/apprankly"><img src="https://img.shields.io/badge/Docker-GHCR-2496ED?logo=docker&logoColor=white" alt="Docker Image"></a>
-  <a href="unraid/README.md"><img src="https://img.shields.io/badge/Unraid-Community%20Apps-f15a2c" alt="Unraid Template"></a>
-</p>
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](https://nodejs.org)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
+[![Unraid Template](https://img.shields.io/badge/unraid-community%20apps-orange?style=flat-square)](https://unraid.net)
 
-<!-- Community -->
-<p align="center">
-  <a href="https://zmsp.github.io/AppRankly/#demo"><img src="https://img.shields.io/badge/Live%20Demo-Try%20It%20Now-success?logo=googlechrome&logoColor=white" alt="Live Demo"></a>
-  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome"></a>
-  <a href="https://apps.shahadat.us/"><img src="https://img.shields.io/badge/My%20Apps-apps.shahadat.us-indigo?logo=googleplay&logoColor=white" alt="My Apps"></a>
-  <a href="https://buymeacoffee.com/zprimecreates"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange?logo=buy-me-a-coffee&logoColor=white" alt="Buy Me A Coffee"></a>
-</p>
+[![Live Demo](https://img.shields.io/badge/demo-live%20interactive-success?style=flat-square)](https://zmsp.github.io/AppRankly/#demo)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/zmsp/AppRankly/blob/main/CONTRIBUTING.md)
+[![My Apps](https://img.shields.io/badge/my%20apps-apps.shahadat.us-informational?style=flat-square)](https://apps.shahadat.us)
+[![Buy Me A Coffee](https://img.shields.io/badge/support-buy%20me%20a%20coffee-yellow?style=flat-square)](https://www.buymeacoffee.com)
 
 ---
 
-Stop switching between App Store Connect and Google Play Console. **AppRankly** brings your iOS and Android performance metrics into a single self-hosted dashboard — installs, uninstalls, active devices, retention, releases, and an AI-assisted ASO studio for keyword discovery and listing audits. Credentials and analytics stay 100% on your own server.
+### Privacy-First Cross-Platform Analytics & Keyword Intelligence
 
+Stop context-switching between App Store Connect and Google Play Console. **AppRankly** unifies your iOS and Android app performance into a single self-hosted dashboard. Monitor **installs, uninstalls, active devices, retention cohorts, user survival curves, and release markers** side-by-side.
 
+Features an **AI-Assisted ASO Studio** for zero-cost store autocomplete keyword discovery, keyword ranking checks, competitor comparisons, and metadata listing audits using your choice of OpenAI, Anthropic, or Gemini — with 100% of your analytics and API keys remaining on your server.
 
 **[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no install needed, runs on sample data.
 
