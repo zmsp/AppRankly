@@ -22,6 +22,12 @@ function getCacheKey(canonical) {
     .digest('hex');
 }
 
+function getTwoDaysAgoStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 2);
+  return d.toISOString().split('T')[0];
+}
+
 async function getOrCompute(req, computeFn) {
   if (!db) {
     return await computeFn();
@@ -29,12 +35,38 @@ async function getOrCompute(req, computeFn) {
   const canonical = canonicalize(req);
   const cacheKey = getCacheKey(canonical);
 
+  const twoDaysAgo = getTwoDaysAgoStr();
+  const coversRecent = !canonical.end || canonical.end >= twoDaysAgo;
+
   const stmt = db.prepare('SELECT payload FROM agg_cache WHERE cache_key = ? AND logic_version = ?');
   const row = stmt.get(cacheKey, LOGIC_VERSION);
 
   if (row) {
-    db.prepare('UPDATE agg_cache SET hit_count = hit_count + 1, last_hit_at = datetime("now") WHERE cache_key = ?').run(cacheKey);
-    return JSON.parse(row.payload);
+    let cachedPayload;
+    try {
+      cachedPayload = JSON.parse(row.payload);
+    } catch {}
+
+    if (cachedPayload) {
+      let isMissingRecent = false;
+      if (coversRecent && canonical.kind === 'stats') {
+        const trends = cachedPayload.dailyTrends;
+        if (!trends || !Array.isArray(trends) || trends.length === 0) {
+          isMissingRecent = true;
+        } else {
+          const maxDate = trends.reduce((max, t) => (t.date > max ? t.date : max), '');
+          if (maxDate < twoDaysAgo) {
+            isMissingRecent = true;
+          }
+        }
+      }
+
+      if (!isMissingRecent) {
+        db.prepare('UPDATE agg_cache SET hit_count = hit_count + 1, last_hit_at = datetime("now") WHERE cache_key = ?').run(cacheKey);
+        return cachedPayload;
+      }
+      console.log(`[db/cache] agg_cache hit for key ${cacheKey} is missing recent days (max date < ${twoDaysAgo}). Repulling recent days...`);
+    }
   }
 
   const start = Date.now();

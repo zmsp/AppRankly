@@ -203,11 +203,18 @@ class AppleAppStoreStatsViewer {
       fs.mkdirSync(this.cacheDir, { recursive: true });
     }
 
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+    const isRecentDate = dateStr >= twoDaysAgo;
+
     const cacheFile = path.join(this.cacheDir, `sales_${dateStr}.txt`);
     if (fs.existsSync(cacheFile)) {
       const content = fs.readFileSync(cacheFile, 'utf8');
-      if (content === '__EMPTY__' || content === 'NO_DATA') return null;
-      return content;
+      const isMissing = (content === '__EMPTY__' || content === 'NO_DATA');
+      if (!isMissing) return content;
+      // If cached data is empty/missing, only return null if it's an old date.
+      // For recent dates, attempt a repull as Apple might have published the report since last fetch.
+      if (!isRecentDate) return null;
+      console.log(`[DEBUG] Apple sales report for recent date ${dateStr} is missing/empty in cache. Attempting repull...`);
     }
 
     if (!this.vendorId || AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {
@@ -217,8 +224,9 @@ class AppleAppStoreStatsViewer {
     return resolver.resolve('apple:sales_report', { vendorId: this.vendorId, dateStr }, async () => {
       if (fs.existsSync(cacheFile)) {
         const content = fs.readFileSync(cacheFile, 'utf8');
-        if (content === '__EMPTY__' || content === 'NO_DATA') return null;
-        return content;
+        const isMissing = (content === '__EMPTY__' || content === 'NO_DATA');
+        if (!isMissing) return content;
+        if (!isRecentDate) return null;
       }
 
       if (AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {

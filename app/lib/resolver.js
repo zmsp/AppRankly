@@ -139,31 +139,43 @@ async function singleFlight(key, fetchFn) {
 async function resolve(resource, params = {}, fetchFn) {
   const key = cache.makeKey(resource, params);
 
+  const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+  const isRecentSalesReport = (resource === 'apple:sales_report' && params.dateStr && params.dateStr >= twoDaysAgo);
+
   // 1. In-Memory Cache
   const memHit = cache.get(key, resource);
   if (memHit !== undefined) {
-    metrics.hits.cache++;
-    logTier(resource, 'cache');
-    return memHit;
+    const isMissing = (memHit === null || memHit === '__EMPTY__' || memHit === 'NO_DATA');
+    if (!isRecentSalesReport || !isMissing) {
+      metrics.hits.cache++;
+      logTier(resource, 'cache');
+      return memHit;
+    }
   }
 
   // 2. Database
   const dbHit = dbGet(resource, params);
   if (dbHit !== undefined) {
-    metrics.hits.db++;
-    cache.set(key, dbHit); // Backfill Tier 1
-    logTier(resource, 'db');
-    return dbHit;
+    const isMissing = (dbHit === null || dbHit === '__EMPTY__' || dbHit === 'NO_DATA');
+    if (!isRecentSalesReport || !isMissing) {
+      metrics.hits.db++;
+      cache.set(key, dbHit); // Backfill Tier 1
+      logTier(resource, 'db');
+      return dbHit;
+    }
   }
 
   // 3. File on Disk
   const fileHit = fileGet(key);
   if (fileHit !== undefined) {
-    metrics.hits.file++;
-    cache.set(key, fileHit); // Backfill Tier 1
-    if (fileHit !== null) dbUpsert(resource, params, fileHit); // Backfill Tier 2
-    logTier(resource, 'file');
-    return fileHit;
+    const isMissing = (fileHit === null || fileHit === '__EMPTY__' || fileHit === 'NO_DATA');
+    if (!isRecentSalesReport || !isMissing) {
+      metrics.hits.file++;
+      cache.set(key, fileHit); // Backfill Tier 1
+      if (fileHit !== null) dbUpsert(resource, params, fileHit); // Backfill Tier 2
+      logTier(resource, 'file');
+      return fileHit;
+    }
   }
 
   // 4. External API (deduplicated)

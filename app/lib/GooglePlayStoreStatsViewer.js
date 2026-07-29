@@ -393,6 +393,15 @@ class PackageUtils {
             const ageMs = now - stat.mtimeMs;
             if (ageMs > 3600 * 1000) { // 1 hour TTL for current month
               needsRefetch = true;
+            } else if (ageMs > 300 * 1000) {
+              const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+              try {
+                const content = this.readFileContent(dest);
+                if (!content.includes(twoDaysAgo)) {
+                  console.log(`[GooglePlay] Current month CSV ${fixedFileName} is missing data for recent date ${twoDaysAgo}. Repulling...`);
+                  needsRefetch = true;
+                }
+              } catch (e) {}
             }
           }
 
