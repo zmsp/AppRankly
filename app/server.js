@@ -1341,6 +1341,37 @@ app.post("/api/refresh", authenticate, async (req, res) => {
   }
 });
 
+// Force refresh specific date range bypassing binary search probing
+app.post("/api/force-refresh-range", authenticate, async (req, res) => {
+  try {
+    const { startDate, endDate, platform, packageName } = req.body;
+    resolver.clearCache();
+    AppleAppStoreStatsViewer.earliestReleaseDateMap.clear();
+
+    const baseConfig = getBaseConfig();
+    const targetPlatform = platform || "all";
+    const packages = await fetchPackagesByPlatform(targetPlatform === 'all' ? 'all' : targetPlatform, baseConfig);
+    const applePackages = packages.filter(p => p.platform === 'apple' || targetPlatform === 'apple');
+
+    for (const pkg of applePackages) {
+      try {
+        const viewer = buildAppleViewer(baseConfig, pkg.packageName);
+        viewer.clearBinarySearchCache(startDate, endDate);
+        if (startDate && endDate) {
+          await viewer.getAppStats(startDate, endDate, { ignoreBinarySearch: true, forceRefresh: true });
+        }
+      } catch (err) {
+        console.error(`Error force refreshing range for ${pkg.packageName}:`, err.message);
+      }
+    }
+
+    res.json({ success: true, message: `Force refreshed date range ${startDate} to ${endDate}` });
+  } catch (error) {
+    console.error("Error running force refresh date range:", error);
+    res.status(500).json({ error: "Failed to force refresh date range", details: error.message });
+  }
+});
+
 // Notification scheduler status & configuration endpoint
 app.get("/api/notifications/status", authenticate, (req, res) => {
   const baseConfig = getBaseConfig() || {};

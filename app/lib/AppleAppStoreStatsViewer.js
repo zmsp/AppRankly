@@ -130,7 +130,35 @@ class AppleAppStoreStatsViewer {
   static disabledVendors = new Set();
   static earliestReleaseDateMap = new Map();
 
-  async findEarliestDataDate(dateList) {
+  clearBinarySearchCache(startDate, endDate) {
+    const cacheKey = this.appId || this.vendorId;
+    if (cacheKey) {
+      AppleAppStoreStatsViewer.earliestReleaseDateMap.delete(cacheKey);
+    } else {
+      AppleAppStoreStatsViewer.earliestReleaseDateMap.clear();
+    }
+
+    if (startDate && endDate && fs.existsSync(this.cacheDir)) {
+      const dateList = generateDateArray(startDate, endDate);
+      for (const dateStr of dateList) {
+        const cacheFile = path.join(this.cacheDir, `sales_${dateStr}.txt`);
+        if (fs.existsSync(cacheFile)) {
+          try {
+            const content = fs.readFileSync(cacheFile, 'utf8');
+            if (content === '__EMPTY__' || content === 'NO_DATA') {
+              fs.unlinkSync(cacheFile);
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  async findEarliestDataDate(dateList, options = {}) {
+    if (options && (options.ignoreBinarySearch || options.forceRefresh)) {
+      console.log(`[DEBUG] Bypassing binary search boundary probe for ${this.appId || this.vendorId}`);
+      return 0;
+    }
     if (!dateList || dateList.length <= 14) return 0;
 
     const cacheKey = this.appId || this.vendorId;
@@ -148,7 +176,7 @@ class AppleAppStoreStatsViewer {
       }
     }
 
-    const startDateTxt = await this.fetchDailySalesReport(dateList[0]);
+    const startDateTxt = await this.fetchDailySalesReport(dateList[0], options);
     if (startDateTxt && startDateTxt !== '__EMPTY__') {
       return 0;
     }
@@ -162,7 +190,7 @@ class AppleAppStoreStatsViewer {
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const midDate = dateList[mid];
-      const rawTxt = await this.fetchDailySalesReport(midDate);
+      const rawTxt = await this.fetchDailySalesReport(midDate, options);
 
       if (rawTxt && rawTxt !== '__EMPTY__') {
         earliestFoundIdx = mid;
@@ -198,23 +226,23 @@ class AppleAppStoreStatsViewer {
     return 0;
   }
 
-  async fetchDailySalesReport(dateStr) {
+  async fetchDailySalesReport(dateStr, options = {}) {
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
     }
 
     const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
     const isRecentDate = dateStr >= twoDaysAgo;
+    const shouldBypassEmpty = options && (options.ignoreBinarySearch || options.forceRefresh);
 
     const cacheFile = path.join(this.cacheDir, `sales_${dateStr}.txt`);
     if (fs.existsSync(cacheFile)) {
       const content = fs.readFileSync(cacheFile, 'utf8');
       const isMissing = (content === '__EMPTY__' || content === 'NO_DATA');
       if (!isMissing) return content;
-      // If cached data is empty/missing, only return null if it's an old date.
-      // For recent dates, attempt a repull as Apple might have published the report since last fetch.
-      if (!isRecentDate) return null;
-      console.log(`[DEBUG] Apple sales report for recent date ${dateStr} is missing/empty in cache. Attempting repull...`);
+      // If cached data is empty/missing, only return null if it's an old date and we are not force refreshing
+      if (!isRecentDate && !shouldBypassEmpty) return null;
+      console.log(`[DEBUG] Apple sales report for date ${dateStr} is missing/empty in cache. Attempting repull...`);
     }
 
     if (!this.vendorId || AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {
@@ -226,7 +254,7 @@ class AppleAppStoreStatsViewer {
         const content = fs.readFileSync(cacheFile, 'utf8');
         const isMissing = (content === '__EMPTY__' || content === 'NO_DATA');
         if (!isMissing) return content;
-        if (!isRecentDate) return null;
+        if (!isRecentDate && !shouldBypassEmpty) return null;
       }
 
       if (AppleAppStoreStatsViewer.disabledVendors.has(this.vendorId)) {
@@ -275,12 +303,12 @@ class AppleAppStoreStatsViewer {
     });
   }
 
-  async getAppStats(startDate, endDate) {
+  async getAppStats(startDate, endDate, options = {}) {
     const numericId = await this.getNumericAppId();
     console.log(`[DEBUG] Starting getAppStats for ${this.appId} (${numericId})`);
 
     const dateList = generateDateArray(startDate, endDate);
-    const earliestIdx = await this.findEarliestDataDate(dateList);
+    const earliestIdx = await this.findEarliestDataDate(dateList, options);
     const activeDates = dateList.slice(earliestIdx);
 
     const mergedTrends = new Map();
@@ -308,7 +336,7 @@ class AppleAppStoreStatsViewer {
     // Parallel fetch for active dates only
     const reports = await Promise.all(
       activeDates.map(async (dateStr) => {
-        const rawTxt = await this.fetchDailySalesReport(dateStr);
+        const rawTxt = await this.fetchDailySalesReport(dateStr, options);
         return { dateStr, rawTxt };
       })
     );
@@ -393,10 +421,10 @@ class AppleAppStoreStatsViewer {
     return { ...aggregated, dailyTrends, platform: 'apple', hasUninstallData: false };
   }
 
-  async getDimensionStats(dimension, startDate, endDate) {
+  async getDimensionStats(dimension, startDate, endDate, options = {}) {
     const numericId = await this.getNumericAppId();
     const dateList = generateDateArray(startDate, endDate);
-    const earliestIdx = await this.findEarliestDataDate(dateList);
+    const earliestIdx = await this.findEarliestDataDate(dateList, options);
     const activeDates = dateList.slice(earliestIdx);
 
     const dimensionMap = {
@@ -411,7 +439,7 @@ class AppleAppStoreStatsViewer {
 
     const reports = await Promise.all(
       activeDates.map(async (dateStr) => {
-        const rawTxt = await this.fetchDailySalesReport(dateStr);
+        const rawTxt = await this.fetchDailySalesReport(dateStr, options);
         return { dateStr, rawTxt };
       })
     );

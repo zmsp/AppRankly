@@ -17,6 +17,7 @@ import {
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
+import ForceRefreshRangePopover from './ForceRefreshRangePopover';
 import AppIcon from './AppIcon';
 import { getPresetDateRange } from '../lib/dateUtils';
 import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
@@ -39,7 +40,8 @@ export default function TopBar({
   setComparisonMode,
   granularity,
   setGranularity,
-  refreshData
+  refreshData,
+  forceRefreshRange
 }) {
   const location = useLocation();
   const isAsoPage = location.pathname.startsWith('/store');
@@ -160,6 +162,13 @@ export default function TopBar({
             <span className="hidden sm:inline ml-1.5 uppercase tracking-wider">Sync</span>
           </button>
         )}
+
+        {/* Force Refresh Date Range Button (Red) */}
+        <ForceRefreshRangePopover
+          dateRange={dateRange}
+          forceRefreshRange={forceRefreshRange}
+          loading={loading}
+        />
 
         <div className="w-px h-6 bg-white/10 mx-2 shrink-0" />
 

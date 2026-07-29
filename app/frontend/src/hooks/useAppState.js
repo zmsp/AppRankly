@@ -587,6 +587,35 @@ export function useAppState() {
     }
   }, [isDemoMode, authToken, noPass, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
 
+  const forceRefreshRange = useCallback(async (customStart, customEnd) => {
+    const start = customStart || dateRange?.start;
+    const end = customEnd || dateRange?.end;
+    setLoading(true);
+    setDimensionLoading(true);
+    try {
+      if (!isDemoMode && (authToken || noPass)) {
+        await apiFetch('/api/force-refresh-range', {
+          method: 'POST',
+          body: JSON.stringify({
+            startDate: start,
+            endDate: end,
+            platform,
+            projectIndex: selectedProjectIndex
+          })
+        }, authToken, isStaticMode);
+      }
+    } catch (err) {
+      console.warn('Backend force refresh date range error:', err);
+    } finally {
+      clearCache();
+      await Promise.all([
+        loadOverviewStats(),
+        loadDimensionStats(activeDimension),
+        fetchDeviceStatsIfNeeded()
+      ]);
+    }
+  }, [dateRange, platform, selectedProjectIndex, isDemoMode, authToken, noPass, isStaticMode, loadOverviewStats, loadDimensionStats, activeDimension, fetchDeviceStatsIfNeeded]);
+
   return {
     isDemoMode, setIsDemoMode,
     isStaticMode, noPass,
@@ -603,6 +632,7 @@ export function useAppState() {
     loading, dimensionLoading, error,
     setupRequired, setSetupRequired,
     refreshData: forceRefresh,
+    forceRefreshRange,
     switchToDemoMode,
     fetchProjects,
     fetchReleases,
