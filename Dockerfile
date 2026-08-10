@@ -1,11 +1,14 @@
 # --- Stage 1: Build Frontend ---
 FROM node:22-alpine AS frontend-builder
 WORKDIR /build
+# Copy ALL package manifests first so npm ci layer is only invalidated
+# when dependencies change, not when source code changes
+COPY package*.json ./
+COPY app/package*.json ./app/
 COPY app/frontend/package*.json ./app/frontend/
 RUN --mount=type=cache,target=/root/.npm \
     cd app/frontend && npm ci
-COPY package*.json ./
-COPY app/package*.json ./app/
+# Source code copied after install — cache hit on clean source changes
 COPY app/frontend ./app/frontend
 RUN cd app/frontend && npm run build
 
