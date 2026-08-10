@@ -2,7 +2,6 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Menu,
-  Bell,
   Calendar,
   Apple,
   LogOut,
@@ -10,14 +9,14 @@ import {
   Settings,
   Play,
   GitCompare,
-  RefreshCw,
   BarChart2,
   Globe
 } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
 import GrafanaDatePicker from './GrafanaDatePicker';
-import ForceRefreshRangePopover from './ForceRefreshRangePopover';
+import SyncDropdown from './SyncDropdown';
+import NotificationPopover from './NotificationPopover';
 import AppIcon from './AppIcon';
 import { getPresetDateRange } from '../lib/dateUtils';
 import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
@@ -94,10 +93,7 @@ export default function TopBar({
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
-          <button className="relative p-2 hover:bg-white/5 rounded-lg transition-colors text-white/60">
-            <Bell size={18} />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-accent-rose rounded-full border-2 border-background" />
-          </button>
+          <NotificationPopover authToken={authToken} isDemoMode={isDemoMode} />
 
           {authToken && (
             <button
@@ -148,26 +144,11 @@ export default function TopBar({
           </div>
         )}
 
-        {/* Sync Action Button */}
-        {refreshData && (
-          <button
-            onClick={refreshData}
-            disabled={loading}
-            className={clsx(
-              "flex items-center justify-center w-8 h-8 sm:w-auto sm:px-3.5 sm:py-1.5 rounded-[10px] sm:rounded-xl text-[11px] font-extrabold transition-all shrink-0 bg-accent-blue hover:bg-accent-blue/90 text-slate-950 shadow-md shadow-accent-blue/20 border border-accent-blue/30 active:scale-95",
-              loading && "opacity-50 cursor-not-allowed"
-            )}
-            title="Sync Analytics Data"
-          >
-            <RefreshCw size={14} className={clsx(loading && "animate-spin")} />
-            <span className="hidden sm:inline ml-1.5 uppercase tracking-wider">Sync</span>
-          </button>
-        )}
-
-        {/* Force Refresh Date Range Button (Red) */}
-        <ForceRefreshRangePopover
-          dateRange={dateRange}
+        {/* Sync + Force Sync combined dropdown */}
+        <SyncDropdown
+          refreshData={refreshData}
           forceRefreshRange={forceRefreshRange}
+          dateRange={dateRange}
           loading={loading}
         />
 
