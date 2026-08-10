@@ -47,6 +47,7 @@ export default function Dashboard({
   releases,
   platform,
   setPlatform,
+  setPlatformAndProject,
   activeDimension,
   setActiveDimension,
   loading,
@@ -225,8 +226,12 @@ export default function Dashboard({
                   <button
                     key={tab.id}
                     onClick={() => {
-                      if (setPlatform) setPlatform(tab.id);
-                      if (tab.id === 'all' && setSelectedProjectIndex) setSelectedProjectIndex('all');
+                      if (setPlatformAndProject) {
+                        setPlatformAndProject(tab.id, 'all');
+                      } else {
+                        if (setPlatform) setPlatform(tab.id);
+                        if (tab.id === 'all' && setSelectedProjectIndex) setSelectedProjectIndex('all');
+                      }
                     }}
                     className={clsx(
                       "flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer border select-none",
@@ -267,6 +272,7 @@ export default function Dashboard({
           platform={platform}
           setSelectedProjectIndex={setSelectedProjectIndex}
           setPlatform={setPlatform}
+          setPlatformAndProject={setPlatformAndProject}
         />
 
         {/* Combined Portfolio Installs & Dimension Analysis */}

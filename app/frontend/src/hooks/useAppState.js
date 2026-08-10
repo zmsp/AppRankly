@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { apiFetch } from '../lib/api';
 import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
@@ -47,6 +48,28 @@ export function useAppState() {
     const stored = localStorage.getItem('apprankly_token');
     return (stored && stored !== 'null' && stored !== 'undefined') ? stored : null;
   });
+
+  const [starredApps, setStarredApps] = useState(() => {
+    try {
+      const stored = localStorage.getItem('apprankly_starred_apps');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const toggleStarApp = useCallback((appKey) => {
+    setStarredApps(prev => {
+      const next = prev.includes(appKey) ? prev.filter(k => k !== appKey) : [...prev, appKey];
+      localStorage.setItem('apprankly_starred_apps', JSON.stringify(next));
+      if (next.includes(appKey)) {
+        toast.success('App starred');
+      } else {
+        toast('App unstarred', { icon: '⭐' });
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (platform) localStorage.setItem('apprankly_platform', platform);
@@ -183,7 +206,16 @@ export function useAppState() {
     if (location.pathname + location.search !== newPath) {
       navigate(newPath, { replace: true });
     }
-  }, [location.pathname, location.search, navigate, isDemoMode, projects, dateRange]);
+  }, [location.pathname, location.search, navigate, isDemoMode, projects, dateRange, platform]);
+
+  const setPlatformAndProject = useCallback((newPlatform, newProject, newRangePreset, customStart, customEnd) => {
+    const targetProj = findProject(projects, newProject, newPlatform);
+    const projSeg = targetProj ? getProjectUrlSegment(targetProj) : newProject;
+
+    if (newPlatform) setPlatform(newPlatform);
+    if (projSeg) setSelectedProjectIndex(projSeg);
+    updateUrl(newPlatform || platform, projSeg, newRangePreset, customStart, customEnd);
+  }, [projects, platform, updateUrl]);
 
   // Sync state from location pathname if URL segments change
   useEffect(() => {
@@ -211,57 +243,71 @@ export function useAppState() {
     }
   }, [location.pathname, isDemoMode, platform, selectedProjectIndex]);
 
-  const handleSetPlatform = (p) => {
-    setPlatform(p);
+  // Sync dateRange state from location search params if query changes
+  useEffect(() => {
+    if (isDemoMode) return;
+    const params = new URLSearchParams(location.search);
+    const s = params.get('start');
+    const e = params.get('end');
+    const r = params.get('range')?.toLowerCase();
+
+    if (s && e) {
+      const parsedStart = parseDateExpression(s);
+      const parsedEnd = parseDateExpression(e);
+      if (parsedStart && parsedEnd) {
+        setDateRange(prev => {
+          if (prev?.start === parsedStart && prev?.end === parsedEnd && !prev?.preset) return prev;
+          return { start: parsedStart, end: parsedEnd, label: 'Custom' };
+        });
+      }
+    } else if (r) {
+      const presetRange = getPresetDateRange(r);
+      setDateRange(prev => {
+        if (prev?.preset?.toLowerCase() === r) return prev;
+        return presetRange;
+      });
+    }
+  }, [location.search, isDemoMode]);
+
+  const handleSetPlatform = useCallback((p) => {
     let nextProj = selectedProjectIndex;
-    if (p === 'all' || selectedProjectIndex === 'all') {
+    if (p === 'all') {
       nextProj = 'all';
-      setSelectedProjectIndex('all');
-    } else if (p !== 'all') {
+    } else if (selectedProjectIndex !== 'all' && selectedProjectIndex !== 'manual') {
       const activeProj = findProject(projects, selectedProjectIndex, p);
       if (activeProj && activeProj.platform && activeProj.platform !== p) {
         const filtered = projects.filter(proj => proj.platform === p);
         if (filtered.length > 0) {
           nextProj = getProjectUrlSegment(filtered[0]);
-          setSelectedProjectIndex(nextProj);
         } else {
           nextProj = 'all';
-          setSelectedProjectIndex('all');
         }
       }
     }
-    const targetProj = findProject(projects, nextProj, p);
-    const projSeg = targetProj ? getProjectUrlSegment(targetProj) : nextProj;
-    updateUrl(p, projSeg, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
-  };
+    setPlatformAndProject(p, nextProj);
+  }, [selectedProjectIndex, projects, setPlatformAndProject]);
 
-  const handleSetSelectedProjectIndex = (pIndex) => {
+  const handleSetSelectedProjectIndex = useCallback((pIndex) => {
     let nextPlatform = platform;
     const targetProj = findProject(projects, pIndex, platform);
     if (pIndex === 'all') {
-      nextPlatform = 'all';
+      if (!nextPlatform) nextPlatform = 'all';
     } else if (targetProj && targetProj.platform) {
       nextPlatform = targetProj.platform;
     } else if (platform === 'all' && pIndex !== 'manual') {
       nextPlatform = 'google';
     }
+    setPlatformAndProject(nextPlatform, pIndex);
+  }, [platform, projects, setPlatformAndProject]);
 
-    if (nextPlatform !== platform) {
-      setPlatform(nextPlatform);
-    }
-    const newProjSegment = targetProj ? getProjectUrlSegment(targetProj) : pIndex;
-    setSelectedProjectIndex(newProjSegment);
-    updateUrl(nextPlatform, newProjSegment, dateRange.preset ? dateRange.preset.toLowerCase() : null, dateRange.start, dateRange.end);
-  };
-
-  const handleSetDateRange = (rangeObj, presetName) => {
+  const handleSetDateRange = useCallback((rangeObj, presetName) => {
     setDateRange(rangeObj);
     if (presetName) {
       updateUrl(platform, selectedProjectIndex, presetName.toLowerCase());
     } else {
       updateUrl(platform, selectedProjectIndex, null, rangeObj.start, rangeObj.end);
     }
-  };
+  }, [platform, selectedProjectIndex, updateUrl]);
 
   const fetchProjects = useCallback(async (token) => {
     if (isDemoMode) {
@@ -602,12 +648,15 @@ export function useAppState() {
   const forceRefresh = useCallback(async () => {
     setLoading(true);
     setDimensionLoading(true);
+    const toastId = toast.loading('Refreshing data...');
     try {
       if (!isDemoMode) {
         await apiFetch('/api/refresh', { method: 'POST' }, authToken, isStaticMode);
       }
+      toast.success('Data refreshed successfully', { id: toastId });
     } catch (err) {
       console.warn('Backend stats refresh error:', err);
+      toast.error('Failed to refresh data', { id: toastId });
     } finally {
       clearCache();
       await Promise.all([
@@ -623,6 +672,7 @@ export function useAppState() {
     const end = customEnd || dateRange?.end;
     setLoading(true);
     setDimensionLoading(true);
+    const toastId = toast.loading(`Refreshing date range (${start} - ${end})...`);
     try {
       if (!isDemoMode) {
         console.log(`[Frontend] Calling /api/force-refresh-range for ${start} to ${end}`);
@@ -636,8 +686,10 @@ export function useAppState() {
           })
         }, authToken, isStaticMode);
       }
+      toast.success(`Refreshed data for ${start} to ${end}`, { id: toastId });
     } catch (err) {
       console.warn('Backend force refresh date range error:', err);
+      toast.error('Failed to refresh range', { id: toastId });
     } finally {
       clearCache();
       await Promise.all([
@@ -651,13 +703,14 @@ export function useAppState() {
   return {
     isDemoMode, setIsDemoMode,
     isStaticMode, noPass,
-    platform, setPlatform: handleSetPlatform, setRawPlatform: setPlatform,
+    platform, setPlatform: handleSetPlatform, setRawPlatform: setPlatform, setPlatformAndProject,
     activeDimension, setActiveDimension,
     comparisonMode, setComparisonMode,
     granularity, setGranularity,
     projects, setProjects,
     selectedProjectIndex, setSelectedProjectIndex: handleSetSelectedProjectIndex,
     authToken, setAuthToken,
+    starredApps, toggleStarApp,
     dateRange, setDateRange: handleSetDateRange,
     stats, dimensionStats, deviceStats,
     releases, setReleases,

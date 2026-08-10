@@ -1,6 +1,8 @@
 import React from 'react';
-import { Clock, Calendar, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, AlertCircle, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { formatDataFreshness } from '../lib/format';
+import { exportToCSV } from '../lib/exportUtils';
 import AppDropdownSelector from './AppDropdownSelector';
 import clsx from 'clsx';
 
@@ -11,9 +13,11 @@ export default function ContextBar({
   setSelectedProjectIndex,
   platform,
   setPlatform,
+  setPlatformAndProject,
   dateRange,
   comparisonMode,
-  lastDataDate
+  lastDataDate,
+  stats
 }) {
   const freshness = formatDataFreshness(lastDataDate);
 
@@ -48,6 +52,20 @@ export default function ContextBar({
 
   const statusChipText = `${rangeText} ${compSuffix}`.trim();
 
+  const handleExport = () => {
+    if (!stats || (!stats.dailyTrends?.length && !stats.overview)) {
+      toast.error('No trend data available to export');
+      return;
+    }
+    const dataToExport = stats.dailyTrends && stats.dailyTrends.length > 0 ? stats.dailyTrends : [stats];
+    const projName = activeProject?.name ? activeProject.name.toLowerCase().replace(/[^a-z0-9]/g, '_') : 'dashboard';
+    const filename = `${projName}_trends_${new Date().toISOString().slice(0, 10)}.csv`;
+    const ok = exportToCSV(dataToExport, filename);
+    if (ok) {
+      toast.success(`Exported ${dataToExport.length} rows to ${filename}`);
+    }
+  };
+
   return (
     <div className="bg-slate-900/80 backdrop-blur-md border-b border-white/5 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between text-xs text-slate-300 gap-3 sticky top-16 z-20">
       <div className="flex flex-wrap items-center gap-3">
@@ -58,6 +76,7 @@ export default function ContextBar({
           onSelectProject={setSelectedProjectIndex}
           platform={platform}
           setPlatform={setPlatform}
+          setPlatformAndProject={setPlatformAndProject}
         />
 
         {/* Single Source of Truth Status Chip */}
@@ -67,6 +86,16 @@ export default function ContextBar({
             {statusChipText}
           </span>
         </div>
+
+        {/* CSV Export Button */}
+        <button
+          onClick={handleExport}
+          title="Export trends to CSV"
+          className="flex items-center space-x-1.5 bg-white/5 hover:bg-white/10 border border-white/10 px-2.5 py-1.5 rounded-xl text-slate-300 hover:text-white transition-colors shadow-sm text-[11px] font-medium"
+        >
+          <Download size={13} className="text-accent-emerald shrink-0" />
+          <span>Export CSV</span>
+        </button>
       </div>
 
       {/* Freshness Badge */}

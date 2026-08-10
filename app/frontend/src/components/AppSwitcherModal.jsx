@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Command, X, Check } from 'lucide-react';
+import { Search, Command, X, Check, Star } from 'lucide-react';
 import AppIcon from './AppIcon';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import clsx from 'clsx';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
-export default function AppSwitcherModal({ projects = [], selectedProjectIndex, onSelectProject, setPlatform, platform }) {
+export default function AppSwitcherModal({
+  projects = [],
+  selectedProjectIndex,
+  onSelectProject,
+  setPlatform,
+  setPlatformAndProject,
+  platform,
+  starredApps = [],
+  toggleStarApp
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -27,16 +36,36 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
   if (!open) return null;
 
   const activeProject = findProject(projects, selectedProjectIndex, platform);
-  const filtered = projects.filter(p => p.name?.toLowerCase().includes(query.toLowerCase()) || p.packageName?.toLowerCase().includes(query.toLowerCase()));
+
+  // Filter & sort starred apps first
+  const filtered = projects
+    .filter(p => p.name?.toLowerCase().includes(query.toLowerCase()) || p.packageName?.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => {
+      const keyA = a.packageName || a.index;
+      const keyB = b.packageName || b.index;
+      const isStarredA = starredApps.includes(keyA);
+      const isStarredB = starredApps.includes(keyB);
+      if (isStarredA && !isStarredB) return -1;
+      if (!isStarredA && isStarredB) return 1;
+      return 0;
+    });
 
   const handleSelect = (proj, projPlatform) => {
     if (proj === 'all') {
-      onSelectProject('all');
-      if (setPlatform) setPlatform('all');
+      if (setPlatformAndProject) {
+        setPlatformAndProject('all', 'all');
+      } else {
+        onSelectProject('all');
+        if (setPlatform) setPlatform('all');
+      }
     } else {
       const seg = getProjectUrlSegment(proj);
-      onSelectProject(seg);
-      if (setPlatform && projPlatform) setPlatform(projPlatform);
+      if (setPlatformAndProject) {
+        setPlatformAndProject(projPlatform || platform, seg);
+      } else {
+        onSelectProject(seg);
+        if (setPlatform && projPlatform) setPlatform(projPlatform);
+      }
     }
     setOpen(false);
     setQuery('');
@@ -85,16 +114,19 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
 
           {filtered.map((proj) => {
             const isSelected = activeProject?.packageName === proj.packageName || activeProject?.index === proj.index;
+            const appKey = proj.packageName || proj.index;
+            const isStarred = starredApps.includes(appKey);
+
             return (
               <div
                 key={proj.index || proj.packageName}
                 onClick={() => handleSelect(proj, proj.platform)}
                 className={clsx(
-                  "flex items-center justify-between p-3 rounded-xl cursor-pointer text-xs transition-colors",
+                  "flex items-center justify-between p-3 rounded-xl cursor-pointer text-xs transition-colors group",
                   isSelected ? "bg-accent-blue/15 text-white" : "hover:bg-white/5 text-slate-300"
                 )}
               >
-                <div className="flex items-center space-x-3 min-w-0">
+                <div className="flex items-center space-x-3 min-w-0 flex-1">
                   <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-8 h-8 rounded-lg shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center space-x-1.5">
@@ -108,7 +140,25 @@ export default function AppSwitcherModal({ projects = [], selectedProjectIndex, 
                     <p className="text-[10px] text-slate-400 truncate">{proj.packageName}</p>
                   </div>
                 </div>
-                {isSelected && <Check size={16} className="text-accent-blue shrink-0" />}
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  {toggleStarApp && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleStarApp(appKey);
+                      }}
+                      className={clsx(
+                        "p-1 rounded-lg hover:bg-white/10 transition-colors",
+                        isStarred ? "text-amber-400" : "text-slate-500 opacity-40 group-hover:opacity-100"
+                      )}
+                      title={isStarred ? "Unstar app" : "Star app"}
+                    >
+                      <Star size={15} fill={isStarred ? "currentColor" : "none"} />
+                    </button>
+                  )}
+                  {isSelected && <Check size={16} className="text-accent-blue shrink-0" />}
+                </div>
               </div>
             );
           })}

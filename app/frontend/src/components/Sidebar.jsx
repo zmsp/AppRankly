@@ -58,11 +58,22 @@ export default function Sidebar({
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
+          const platSegment = platform === 'google' ? 'android' : platform === 'apple' ? 'apple' : 'all';
+          const projSegment = selectedProjectIndex || 'all';
+          const searchStr = location.search;
+
+          let targetPath = `/${platSegment}/all${searchStr}`;
+          if (item.id !== 'overview') {
+            const actualProj = (item.id === 'details' && (projSegment === 'all' || !projSegment) && projects.length > 0)
+              ? getProjectUrlSegment(projects[0])
+              : projSegment;
+            targetPath = `/${item.id}/${platSegment}/${actualProj}${searchStr}`;
+          }
+
           return (
             <NavLink
               key={item.id}
-              to={item.path}
-              end={item.path === '/'}
+              to={targetPath}
               onClick={() => {
                 if (window.innerWidth < 768) setCollapsed(true);
                 if (item.id === 'overview') {

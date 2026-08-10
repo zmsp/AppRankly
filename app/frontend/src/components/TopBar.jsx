@@ -26,6 +26,7 @@ export default function TopBar({
   onMenuClick,
   platform,
   setPlatform,
+  setPlatformAndProject,
   dateRange,
   setDateRange,
   projects = [],
@@ -178,8 +179,12 @@ export default function TopBar({
             {/* 1. All App */}
             <button
               onClick={() => {
-                setSelectedProjectIndex('all');
-                if (setPlatform) setPlatform('all');
+                if (setPlatformAndProject) {
+                  setPlatformAndProject('all', 'all');
+                } else {
+                  setSelectedProjectIndex('all');
+                  if (setPlatform) setPlatform('all');
+                }
               }}
               className={clsx(
                 "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
@@ -197,8 +202,12 @@ export default function TopBar({
             {/* 2. Apple Store */}
             <button
               onClick={() => {
-                setSelectedProjectIndex('all');
-                if (setPlatform) setPlatform('apple');
+                if (setPlatformAndProject) {
+                  setPlatformAndProject('apple', 'all');
+                } else {
+                  setSelectedProjectIndex('all');
+                  if (setPlatform) setPlatform('apple');
+                }
               }}
               className={clsx(
                 "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",
@@ -216,8 +225,12 @@ export default function TopBar({
             {/* 3. Play Store */}
             <button
               onClick={() => {
-                setSelectedProjectIndex('all');
-                if (setPlatform) setPlatform('google');
+                if (setPlatformAndProject) {
+                  setPlatformAndProject('google', 'all');
+                } else {
+                  setSelectedProjectIndex('all');
+                  if (setPlatform) setPlatform('google');
+                }
               }}
               className={clsx(
                 "relative w-8 h-8 sm:w-10 sm:h-10 rounded-[10px] sm:rounded-xl flex items-center justify-center transition-all overflow-hidden border",

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 import ContextBar from './components/ContextBar';
@@ -75,6 +76,7 @@ function App() {
           dateRange={state.dateRange}
           comparisonMode={state.comparisonMode}
           lastDataDate={lastDataDate}
+          stats={state.stats}
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -104,9 +106,27 @@ function App() {
           selectedProjectIndex={state.selectedProjectIndex}
           onSelectProject={state.setSelectedProjectIndex}
           setPlatform={state.setPlatform}
+          setPlatformAndProject={state.setPlatformAndProject}
+          platform={state.platform}
+          starredApps={state.starredApps}
+          toggleStarApp={state.toggleStarApp}
         />
 
         <DemoPopup isDemoMode={state.isDemoMode} />
+
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: '#0f172a',
+              color: '#f8fafc',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '0.75rem',
+              fontSize: '0.875rem',
+            },
+          }}
+        />
 
         {/* Bottom Circular Loader */}
         {isWorking && (

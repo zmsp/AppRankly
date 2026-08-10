@@ -11,7 +11,8 @@ export default function AppDropdownSelector({
   selectedProjectIndex,
   onSelectProject,
   platform = 'all',
-  setPlatform
+  setPlatform,
+  setPlatformAndProject
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,26 +51,43 @@ export default function AppDropdownSelector({
   const isAllAppsSelected = isAllApps && (platform === 'all' || !platform);
 
   const handleSelectAll = () => {
-    onSelectProject('all');
-    if (setPlatform) setPlatform('all');
+    if (setPlatformAndProject) {
+      setPlatformAndProject('all', 'all');
+    } else {
+      onSelectProject('all');
+      if (setPlatform) setPlatform('all');
+    }
     setIsOpen(false);
   };
 
   const handleSelectAppleStore = () => {
-    onSelectProject('all');
-    if (setPlatform) setPlatform('apple');
+    if (setPlatformAndProject) {
+      setPlatformAndProject('apple', 'all');
+    } else {
+      onSelectProject('all');
+      if (setPlatform) setPlatform('apple');
+    }
     setIsOpen(false);
   };
 
   const handleSelectPlayStore = () => {
-    onSelectProject('all');
-    if (setPlatform) setPlatform('google');
+    if (setPlatformAndProject) {
+      setPlatformAndProject('google', 'all');
+    } else {
+      onSelectProject('all');
+      if (setPlatform) setPlatform('google');
+    }
     setIsOpen(false);
   };
 
   const handleSelectProject = (proj) => {
-    onSelectProject(getProjectUrlSegment(proj));
-    if (setPlatform && proj.platform) setPlatform(proj.platform);
+    const seg = getProjectUrlSegment(proj);
+    if (setPlatformAndProject) {
+      setPlatformAndProject(proj.platform || platform, seg);
+    } else {
+      onSelectProject(seg);
+      if (setPlatform && proj.platform) setPlatform(proj.platform);
+    }
     setIsOpen(false);
   };
 
