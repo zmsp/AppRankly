@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { sendNtfyNotification, sendWebhookNotification, broadcastAlert } = require('./notifier');
+const { calculateAppHealthScore } = require('./healthScore');
 
 let schedulerIntervalHandle = null;
 let lastSchedulerRun = null;
@@ -216,6 +217,10 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           }
         }
 
+        // Calculate App Health Score & Smart Alerts
+        const metadata = baseConfig.appMetadata?.[pkgId] || {};
+        const { score: healthScore, alerts: smartAlerts } = calculateAppHealthScore(stats, metadata);
+
         return {
           appKey,
           displayName,
@@ -225,7 +230,9 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           uninstalls: currentDailyUninstalls,
           totalInstalls,
           isNewData,
-          lastAnomalyDate: stats.retentionBenchmarks?.churnAnomalies?.find(a => a.severity === 'high')?.date || null
+          lastAnomalyDate: stats.retentionBenchmarks?.churnAnomalies?.find(a => a.severity === 'high')?.date || null,
+          healthScore,
+          smartAlerts
         };
       } catch (err) {
         console.error(`[Scheduler] Error checking stats for ${displayName} (${platform}):`, err.message);
@@ -261,15 +268,36 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
     // Send single consolidated notification after checking all apps per period
     if (updatedApps.length > 0) {
       console.log(`[Scheduler] Discovered new stats for ${updatedApps.length} app(s). Broadcasting consolidated notification...`);
-      const lines = updatedApps.map(app =>
-        `📱 ${app.displayName} (${app.platform}): +${app.installs} installs, -${app.uninstalls} uninstalls (Total: ${app.totalInstalls})`
-      );
+      const appleApps = updatedApps.filter(a => a.platform === 'APPLE');
+      const androidApps = updatedApps.filter(a => a.platform === 'GOOGLE' || a.platform === 'ANDROID');
+
+      const formatApp = (app) => {
+        let line = `* ${app.displayName}`;
+        line += `\n  - Installs: +${app.installs}`;
+        if (app.uninstalls > 0 || app.platform === 'GOOGLE' || app.platform === 'ANDROID') {
+          line += `\n  - Uninstalls: -${app.uninstalls}`;
+        }
+        line += `\n  - Total: ${app.totalInstalls}`;
+        line += `\n  - Health: ${app.healthScore}/100`;
+        if (app.smartAlerts && app.smartAlerts.length > 0) {
+          line += `\n  - Alert: ${app.smartAlerts.join('\n  - Alert: ')}`;
+        }
+        return line;
+      };
+
+      const parts = [];
+      if (appleApps.length > 0) {
+        parts.push(`[Apple]\n${appleApps.map(formatApp).join('\n')}`);
+      }
+      if (androidApps.length > 0) {
+        parts.push(`[Android]\n${androidApps.map(formatApp).join('\n')}`);
+      }
 
       const title = updatedApps.length === 1
-        ? `🚀 New Stats: ${updatedApps[0].displayName}`
-        : `🚀 App Stats Update (${updatedApps.length} Apps)`;
+        ? `App Health & Stats: ${updatedApps[0].displayName}`
+        : `App Health & Stats (${updatedApps.length} Apps)`;
 
-      const message = `${lines.join('\n')}\n\n📊 Combined Total: +${totalCombinedInstalls} installs, -${totalCombinedUninstalls} uninstalls across ${updatedApps.length} app(s)`;
+      const message = `${parts.join('\n\n')}\n\nCombined Total: +${totalCombinedInstalls} installs, -${totalCombinedUninstalls} uninstalls across ${updatedApps.length} app(s)`;
 
       const res = await broadcastAlert({
         title,

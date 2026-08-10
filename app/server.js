@@ -17,6 +17,7 @@ const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
+const { calculateAppHealthScore } = require("./lib/healthScore");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -884,6 +885,11 @@ app.post("/api/stats", authenticate, async (req, res) => {
           aggregated.releaseCorrelations = [];
           aggregated.weekdayAverages = weekdayAverages(aggregated.dailyTrends, 'dailyInstalls');
           aggregated.linearForecast = linearForecast(aggregated.dailyTrends.map(t => t.dailyInstalls || 0), 14);
+          
+          const { score, alerts, metrics } = calculateAppHealthScore(aggregated, {});
+          aggregated.appHealthScore = score;
+          aggregated.appHealthAlerts = alerts;
+          aggregated.appHealthMetrics = metrics;
         }
 
         return aggregated;
@@ -918,6 +924,12 @@ app.post("/api/stats", authenticate, async (req, res) => {
           stats.releaseCorrelations = correlateReleases(stats.dailyTrends, releases, packageName, platform);
           stats.weekdayAverages = weekdayAverages(stats.dailyTrends, 'dailyInstalls');
           stats.linearForecast = linearForecast(stats.dailyTrends.map(t => t.dailyInstalls || 0), 14);
+
+          const metadata = baseConfig.appMetadata?.[packageName] || {};
+          const { score, alerts, metrics } = calculateAppHealthScore(stats, metadata);
+          stats.appHealthScore = score;
+          stats.appHealthAlerts = alerts;
+          stats.appHealthMetrics = metrics;
         }
 
         console.log(`Stats fetched for ${packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
