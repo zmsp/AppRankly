@@ -7,15 +7,15 @@ import { formatNumber } from '../lib/format';
 import { groupProjectsByPair } from '../lib/projectUtils';
 import { clsx } from 'clsx';
 
-export default function AllPlatformDashboard({ projects = [], filteredProjects, stats, platform = 'all', setSelectedProjectIndex, setPlatform, setPlatformAndProject }) {
+export default function AllPlatformDashboard({ projects = [], filteredProjects, stats, platform = 'all', setSelectedProjectIndex, setPlatform, setPlatformAndProject, pairings }) {
   const displayProjects = useMemo(() => {
     if (platform === 'all') {
-      return groupProjectsByPair(projects);
+      return groupProjectsByPair(projects, pairings?.paired || pairings);
     }
     return filteredProjects && filteredProjects.length > 0
       ? filteredProjects
       : projects.filter(p => p.platform === platform);
-  }, [projects, filteredProjects, platform]);
+  }, [projects, filteredProjects, platform, pairings]);
 
   const { appleTotal, googleTotal, combinedTotal, appleCount, googleCount } = useMemo(() => {
     let appleC = 0, googleC = 0;

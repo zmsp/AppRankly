@@ -24,35 +24,66 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
   // Enhance each project with momentum & quiet stats
   const enhancedProjects = projects.map((proj) => {
     let points = [];
+    let googlePoints = [];
+    let applePoints = [];
     let googleInstalls = 0;
     let appleInstalls = 0;
 
+    const getTrendArray = (...keys) => {
+      for (const k of keys) {
+        if (k && appTrends[k]) {
+          const entry = appTrends[k];
+          return entry.trends || (Array.isArray(entry) ? entry : []);
+        }
+      }
+      return [];
+    };
+
+    let gEntry = [];
+    let aEntry = [];
+
     if (proj.isMerged && (proj.googleApp || proj.appleApp)) {
-      const gKey = proj.googlePackageName || proj.googleApp?.name;
-      const aKey = proj.appleBundleId || proj.appleApp?.packageName || proj.appleApp?.name;
+      gEntry = getTrendArray(proj.googlePackageName, proj.googleApp?.packageName, proj.googleApp?.name);
+      aEntry = getTrendArray(proj.appleBundleId, proj.appleApp?.bundleId, proj.appleApp?.packageName, proj.appleApp?.name);
+    } else {
+      const trendData = getTrendArray(proj.packageName, proj.bundleId, proj.name);
+      if (proj.platform === 'apple') {
+        aEntry = trendData;
+      } else {
+        gEntry = trendData;
+      }
+    }
 
-      const gEntry = gKey ? (appTrends[gKey]?.trends || appTrends[gKey] || []) : [];
-      const aEntry = aKey ? (appTrends[aKey]?.trends || appTrends[aKey] || []) : [];
+    googleInstalls = gEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
+    appleInstalls = aEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
 
-      googleInstalls = gEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
-      appleInstalls = aEntry.reduce((sum, d) => sum + (d.dailyUserInstalls || d.dailyInstalls || 0), 0);
+    const allDates = Array.from(new Set([
+      ...gEntry.map(d => d.date),
+      ...aEntry.map(d => d.date)
+    ])).filter(Boolean).sort();
 
+    if (allDates.length > 0) {
+      const gMap = new Map(gEntry.map(d => [d.date, d.dailyUserInstalls || d.dailyInstalls || 0]));
+      const aMap = new Map(aEntry.map(d => [d.date, d.dailyUserInstalls || d.dailyInstalls || 0]));
+
+      allDates.forEach(date => {
+        const gVal = gMap.get(date) || 0;
+        const aVal = aMap.get(date) || 0;
+        googlePoints.push(gVal);
+        applePoints.push(aVal);
+        points.push(gVal + aVal);
+      });
+    } else {
       const maxLen = Math.max(gEntry.length, aEntry.length);
       points = new Array(maxLen).fill(0);
+      googlePoints = new Array(maxLen).fill(0);
+      applePoints = new Array(maxLen).fill(0);
       for (let i = 0; i < maxLen; i++) {
         const gVal = gEntry[i]?.dailyUserInstalls || gEntry[i]?.dailyInstalls || 0;
         const aVal = aEntry[i]?.dailyUserInstalls || aEntry[i]?.dailyInstalls || 0;
+        googlePoints[i] = gVal;
+        applePoints[i] = aVal;
         points[i] = gVal + aVal;
-      }
-    } else {
-      const appTrendEntry = appTrends[proj.packageName] || appTrends[proj.name];
-      const trendData = appTrendEntry?.trends || appTrendEntry || [];
-      points = trendData.map(d => d.dailyUserInstalls || d.dailyInstalls || 0);
-      const total = points.reduce((sum, v) => sum + v, 0);
-      if (proj.platform === 'apple') {
-        appleInstalls = total;
-      } else {
-        googleInstalls = total;
       }
     }
 
@@ -115,6 +146,8 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
       googleInstalls,
       appleInstalls,
       points,
+      googlePoints,
+      applePoints,
       momentumPct,
       momentumStr,
       momentumType,
@@ -135,69 +168,112 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
   });
 
   return (
-    <div className="glass-card p-4 sm:p-6 border border-white/10 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/5">
-        <div className="flex items-center space-x-2">
-          <Layers size={16} className="text-accent-blue" />
-          <h3 className="text-xs font-bold text-slate-200">Portfolio Performance Grid</h3>
+    <div className="glass-card p-5 sm:p-6 border border-white/10 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center space-x-2">
+            <Layers size={18} className="text-accent-blue" />
+            <h3 className="text-sm font-bold text-slate-200">Portfolio Performance Grid</h3>
+            <span className="text-xs text-slate-400 font-semibold bg-white/5 px-2 py-0.5 rounded-full border border-white/10">
+              {projects.length} {projects.length === 1 ? 'App' : 'Apps'}
+            </span>
+          </div>
+          
+          {/* 3-Line Legend */}
+          <div className="flex items-center space-x-3 text-xs font-semibold text-slate-300 bg-slate-950/40 px-3 py-1 rounded-xl border border-white/10">
+            <span className="flex items-center gap-1.5" title="Combined Multi-Platform Installs">
+              <span className="w-3 h-1 bg-[#00d2ff] rounded-full inline-block shadow-sm shadow-[#00d2ff]/50" />
+              Combined
+            </span>
+            <span className="flex items-center gap-1.5" title="Google Play Store Installs">
+              <span className="w-3 h-1 bg-[#34d399] rounded-full inline-block shadow-sm shadow-[#34d399]/50" />
+              Android
+            </span>
+            <span className="flex items-center gap-1.5" title="Apple App Store Installs">
+              <span className="w-3 h-1 bg-[#38bdf8] rounded-full inline-block shadow-sm shadow-[#38bdf8]/50" />
+              Apple
+            </span>
+          </div>
         </div>
+
         <div className="flex items-center space-x-3">
           {/* Sorting Toggle */}
-          <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-lg border border-white/10 text-[10px]">
-            <ArrowUpDown size={12} className="text-slate-400 ml-1" />
+          <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
+            <ArrowUpDown size={13} className="text-slate-400 ml-1.5 mr-0.5" />
             <button
               onClick={() => setSortMode('installs')}
-              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'installs' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
+              className={clsx(
+                "px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer",
+                sortMode === 'installs' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              )}
             >
               Top Installs
             </button>
             <button
               onClick={() => setSortMode('decliners')}
-              className={clsx("px-2 py-0.5 rounded font-medium transition-colors", sortMode === 'decliners' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white')}
+              className={clsx(
+                "px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer",
+                sortMode === 'decliners' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              )}
             >
               Decliners First
             </button>
           </div>
-          <span className="text-xs text-slate-400 font-medium">{projects.length} Apps</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {sorted.map(({ proj, totalInstalls, googleInstalls, appleInstalls, points, momentumStr, momentumType, asoScore }) => {
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {sorted.map(({ proj, totalInstalls, googleInstalls, appleInstalls, points, googlePoints, applePoints, momentumStr, momentumType, asoScore }) => {
           const hasTrends = points.length > 1 && points.some(v => v > 0);
           const isPairedMerged = proj.isMerged && proj.googleApp && proj.appleApp;
+
+          const sparklineLines = hasTrends ? [
+            { data: points, color: '#00d2ff', strokeWidth: 2.4, showFill: true, fillGradientId: 'combine-gradient' },
+            { data: applePoints, color: '#38bdf8', strokeWidth: 1.8 },
+            { data: googlePoints, color: '#34d399', strokeWidth: 1.8 }
+          ] : [
+            { data: points.length >= 2 ? points : [0, 0], color: 'rgba(255, 255, 255, 0.35)', strokeWidth: 1.6, isDashed: true },
+            { data: applePoints.length >= 2 ? applePoints : [0, 0], color: 'rgba(56, 189, 248, 0.3)', strokeWidth: 1.2, isDashed: true },
+            { data: googlePoints.length >= 2 ? googlePoints : [0, 0], color: 'rgba(52, 211, 153, 0.3)', strokeWidth: 1.2, isDashed: true }
+          ];
 
           return (
             <div
               key={proj.index || proj.packageName}
               onClick={() => onSelectProject && onSelectProject(getProjectUrlSegment(proj))}
-              className="bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 p-3 sm:p-3.5 rounded-xl transition-all cursor-pointer flex flex-col justify-between space-y-2.5 group min-h-[135px]"
+              className={clsx(
+                "bg-slate-900/60 hover:bg-slate-900/90 border border-white/10 hover:border-white/25 p-4 sm:p-5 rounded-2xl transition-all cursor-pointer flex flex-col justify-between space-y-4 group min-h-[175px] shadow-lg hover:shadow-xl hover:-translate-y-0.5",
+                momentumType === 'quiet' && "opacity-75 hover:opacity-100"
+              )}
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-1.5 min-w-0">
-                  <div className="flex items-center space-x-1.5 min-w-0 flex-1">
-                    <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-5 h-5 rounded shrink-0" />
-                    {isPairedMerged ? (
-                      <div className="flex items-center space-x-0.5 shrink-0" title="Available on Apple App Store & Google Play Store">
-                        <AppleStoreIcon size={11} className="text-sky-300 shrink-0" />
-                        <PlayStoreIcon size={11} className="text-emerald-400 shrink-0" />
-                      </div>
-                    ) : proj.platform === 'apple' ? (
-                      <AppleStoreIcon size={11} className="text-white/50 shrink-0" />
-                    ) : (
-                      <PlayStoreIcon size={11} className="text-white/50 shrink-0" />
-                    )}
-                    <span
-                      className="text-[11px] font-bold text-white truncate group-hover:text-accent-blue transition-colors leading-tight"
-                      title={proj.name}
-                    >
-                      {proj.name}
-                    </span>
+              <div className="space-y-3">
+                {/* Header: Icon, Platform Store Icons, App Title, ASO Score */}
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                    <AppIcon iconUrl={proj.iconUrl} name={proj.name} platform={proj.platform} className="w-7 h-7 rounded-xl shadow-md shrink-0 border border-white/10" />
+                    <div className="flex items-center space-x-1.5 min-w-0 flex-1">
+                      {isPairedMerged ? (
+                        <div className="flex items-center space-x-0.5 shrink-0 bg-white/5 px-1 py-0.5 rounded border border-white/10" title="Available on Apple App Store & Google Play Store">
+                          <AppleStoreIcon size={12} className="text-sky-300 shrink-0" />
+                          <PlayStoreIcon size={12} className="text-emerald-400 shrink-0" />
+                        </div>
+                      ) : proj.platform === 'apple' ? (
+                        <AppleStoreIcon size={12} className="text-sky-300/80 shrink-0" />
+                      ) : (
+                        <PlayStoreIcon size={12} className="text-emerald-400/80 shrink-0" />
+                      )}
+                      <span
+                        className="text-xs sm:text-sm font-extrabold text-white truncate group-hover:text-accent-blue transition-colors leading-tight"
+                        title={proj.name}
+                      >
+                        {proj.name}
+                      </span>
+                    </div>
                   </div>
 
                   {asoScore != null && asoScore > 0 && (
                     <span
-                      className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 font-mono shrink-0"
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-mono shrink-0"
                       title={`ASO Score: ${asoScore}`}
                     >
                       ASO {asoScore}
@@ -205,14 +281,15 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                   )}
                 </div>
 
-                <div className="flex items-end justify-between gap-1">
+                {/* Period Installs & Platform Breakdown Pill */}
+                <div className="flex items-end justify-between gap-2 pt-1">
                   <div>
-                    <span className="text-[10px] font-medium text-slate-400 uppercase">Period Installs</span>
-                    <div className="flex items-center space-x-1.5 mt-0.5">
-                      <p className="text-base sm:text-lg font-extrabold text-white">{formatNumber(totalInstalls)}</p>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Period Installs</span>
+                    <div className="flex items-center space-x-2 mt-0.5">
+                      <p className="text-xl sm:text-2xl font-black text-white tracking-tight">{formatNumber(totalInstalls)}</p>
                       <span
                         className={clsx(
-                          "text-[9px] font-bold px-1.5 py-0.5 rounded font-mono border whitespace-nowrap",
+                          "text-[10px] font-extrabold px-2 py-0.5 rounded-md font-mono border whitespace-nowrap shadow-sm",
                           momentumType === 'positive'
                             ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
                             : momentumType === 'negative'
@@ -228,27 +305,33 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                     </div>
                   </div>
 
-                  {isPairedMerged && (appleInstalls > 0 || googleInstalls > 0) && (
-                    <div className="flex items-center space-x-1 text-[9px] font-mono text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10 shrink-0 mb-0.5" title="Platform breakdown">
-                      <span className="text-sky-300 flex items-center gap-0.5">
-                        <AppleStoreIcon size={8} /> {formatNumber(appleInstalls)}
+                  {/* Store Platform Breakdown Pill */}
+                  <div className="flex items-center space-x-1.5 text-[10px] font-semibold bg-slate-950/60 px-2.5 py-1 rounded-xl border border-white/10 shrink-0 font-mono shadow-inner">
+                    {appleInstalls > 0 || proj.platform === 'apple' ? (
+                      <span className="text-sky-300 flex items-center gap-1">
+                        <AppleStoreIcon size={10} /> {formatNumber(appleInstalls)}
                       </span>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-emerald-400 flex items-center gap-0.5">
-                        <PlayStoreIcon size={8} /> {formatNumber(googleInstalls)}
+                    ) : null}
+
+                    {((appleInstalls > 0 || proj.platform === 'apple') && (googleInstalls > 0 || proj.platform === 'google')) && (
+                      <span className="text-slate-600 font-bold">•</span>
+                    )}
+
+                    {googleInstalls > 0 || proj.platform === 'google' ? (
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <PlayStoreIcon size={10} /> {formatNumber(googleInstalls)}
                       </span>
-                    </div>
-                  )}
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
-              {/* Sparkline Container */}
-              <div className="h-9 w-full pt-1 flex items-center">
-                {hasTrends ? (
-                  <Sparkline data={points} color="#00d2ff" height={28} />
-                ) : (
-                  <Sparkline data={points.length >= 2 ? points : [0, 0]} color="rgba(255, 255, 255, 0.2)" height={28} isDashed={true} />
-                )}
+              {/* Sparkline Multi-Line Container */}
+              <div
+                className="h-14 w-full pt-1.5 pb-0.5 flex items-center bg-slate-950/40 rounded-xl px-2 border border-white/5 group-hover:border-white/15 transition-all"
+                title={`Mini Graph for ${proj.name}: Combined (Cyan #00d2ff), Android (Emerald #34d399), Apple (Sky Blue #38bdf8)`}
+              >
+                <Sparkline lines={sparklineLines} height={52} showGridLines={true} />
               </div>
             </div>
           );

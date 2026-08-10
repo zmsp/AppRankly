@@ -22,6 +22,13 @@
       "consoleAppId": "YOUR_CONSOLE_APP_ID_2 (Found in Play Console URL: .../app/YOUR_CONSOLE_APP_ID/app-dashboard)"
     }
   },
+  "combinedApps": [
+    {
+      "name": "My Cross-Platform App",
+      "android": "com.example.app1",
+      "ios": "com.example.app1.ios"
+    }
+  ],
   "ignoredPackages": [
     "com.example.internaltest",
     "com.example.deprecatedapp"

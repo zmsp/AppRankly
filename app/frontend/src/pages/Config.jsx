@@ -3,10 +3,13 @@ import {
   Settings, Save, CheckCircle2, XCircle, AlertCircle,
   Zap, Code2, Sliders, Eye, EyeOff,
   Folder, Key, Database, Globe, Copy, RotateCcw, Bot, Coffee,
-  Bell, Clock, BookOpen, HelpCircle, ChevronDown, ChevronRight, Search, FileText
+  Bell, Clock, BookOpen, HelpCircle, ChevronDown, ChevronRight, Search, FileText,
+  Layers, Plus, Trash2
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { TOP_10_TIMEZONES } from '../lib/constants';
+import { getNormalizedPairings } from '../lib/projectUtils';
+import PageControlHeader from '../components/PageControlHeader';
 
 
 function clsx(...classes) {
@@ -423,6 +426,14 @@ const CONFIG_DOCS_GROUPS = [
         example: '["com.example.internaltest", "com.example.deprecated"]'
       },
       {
+        name: 'combinedApps',
+        platform: 'Both',
+        required: false,
+        summary: 'Combines stats for multi-platform apps (Android package + iOS bundle ID).',
+        description: 'Array of custom app pairings allowing Android and iOS packages to be merged into a single multi-platform app view. Supports array format [{ name, android, ios }], dictionary format, or tuple format ["android_pkg", "ios_bundle"]. Also supports aliases: crossPlatformApps, pairedApps, appPairings, pairs.',
+        example: '[\n  {\n    "name": "CardTrack",\n    "android": "io.github.zmsp.cardtrack",\n    "ios": "io.github.zmsp.cardtrack.ios"\n  }\n]'
+      },
+      {
         name: 'appMetadata.[packageId].consoleAppId',
         platform: 'Google',
         required: false,
@@ -655,8 +666,29 @@ function ConfigDocsSection() {
     </div>
   );
 }
-
-export default function Config({ authToken, isStaticMode, isDemoMode }) {
+export default function Config({
+  authToken,
+  isStaticMode,
+  isDemoMode,
+  projects = [],
+  selectedProjectIndex,
+  setSelectedProjectIndex,
+  platform,
+  setPlatform,
+  setPlatformAndProject,
+  dateRange,
+  setDateRange,
+  comparisonMode,
+  setComparisonMode,
+  granularity,
+  setGranularity,
+  stats,
+  refreshData,
+  forceRefreshRange,
+  lastDataDate,
+  starredApps = [],
+  toggleStarApp
+}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -854,6 +886,28 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
 
   return (
     <div className="space-y-6 pb-20 max-w-4xl">
+      <PageControlHeader
+        projects={projects}
+        selectedProjectIndex={selectedProjectIndex}
+        setSelectedProjectIndex={setSelectedProjectIndex}
+        platform={platform}
+        setPlatform={setPlatform}
+        setPlatformAndProject={setPlatformAndProject}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        comparisonMode={comparisonMode}
+        setComparisonMode={setComparisonMode}
+        granularity={granularity}
+        setGranularity={setGranularity}
+        stats={stats}
+        refreshData={refreshData}
+        forceRefreshRange={forceRefreshRange}
+        loading={loading}
+        lastDataDate={lastDataDate}
+        starredApps={starredApps}
+        toggleStarApp={toggleStarApp}
+      />
+
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
@@ -1421,6 +1475,119 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
               </div>
 
             </div>
+          </div>
+
+          {/* Combined Multi-Platform Apps Section */}
+          <div className="glass-card p-6 space-y-4">
+            <SectionHeader
+              icon={Layers}
+              title="Combined Multi-Platform Apps (combinedApps)"
+              subtitle="Combine Android & iOS packages into unified multi-platform app entries"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const currentPairs = getNormalizedPairings(entry);
+                  const newPair = { name: '', android: '', ios: '' };
+                  const updated = [...currentPairs.map(p => ({ name: p.name, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId })), newPair];
+                  updateEntry('combinedApps', updated);
+                }}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-accent-blue/10 hover:bg-accent-blue/20 border border-accent-blue/30 text-accent-blue rounded-xl text-xs font-bold transition-all"
+              >
+                <Plus size={14} />
+                <span>Add Combined App</span>
+              </button>
+            </SectionHeader>
+
+            <p className="text-xs text-white/60">
+              AppRankly automatically pairs store apps with identical or similar titles. Use <code className="text-emerald-400 font-mono">combinedApps</code> below to set explicit pairings or custom display names for cross-platform apps.
+            </p>
+
+            {(() => {
+              const currentPairs = getNormalizedPairings(entry);
+              if (currentPairs.length === 0) {
+                return (
+                  <div className="p-4 rounded-xl bg-white/3 border border-white/5 text-center text-xs text-white/40 italic">
+                    No custom app pairings configured yet. Automated title matching is active. Click "Add Combined App" to create explicit pairings.
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {currentPairs.map((pair, index) => (
+                    <div key={index} className="p-4 rounded-xl bg-white/3 border border-white/10 space-y-3 relative group">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 text-xs font-bold text-white/80">
+                          <Layers size={14} className="text-accent-blue" />
+                          <span>App Pair #{index + 1}: {pair.name || 'Unnamed Pair'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = currentPairs
+                              .filter((_, i) => i !== index)
+                              .map(p => ({ name: p.name, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId }));
+                            updateEntry('combinedApps', updated);
+                          }}
+                          className="text-white/30 hover:text-rose-400 p-1 rounded-lg hover:bg-white/5 transition-colors"
+                          title="Remove pairing"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <Field label="App Display Name">
+                          <Input
+                            value={pair.name}
+                            onChange={v => {
+                              const updated = currentPairs.map((p, i) =>
+                                i === index
+                                  ? { name: v, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId }
+                                  : { name: p.name, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId }
+                              );
+                              updateEntry('combinedApps', updated);
+                            }}
+                            placeholder="e.g. CardTrack"
+                          />
+                        </Field>
+
+                        <Field label="Android Package ID (google)" hint="e.g. io.github.zmsp.cardtrack">
+                          <Input
+                            value={pair.android || pair.googlePackageName || ''}
+                            onChange={v => {
+                              const updated = currentPairs.map((p, i) =>
+                                i === index
+                                  ? { name: p.name, android: v, ios: p.ios || p.appleBundleId }
+                                  : { name: p.name, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId }
+                              );
+                              updateEntry('combinedApps', updated);
+                            }}
+                            placeholder="com.example.app"
+                          />
+                        </Field>
+
+                        <Field label="iOS Bundle ID (apple)" hint="e.g. io.github.zmsp.cardtrack.ios">
+                          <Input
+                            value={pair.ios || pair.appleBundleId || ''}
+                            onChange={v => {
+                              const updated = currentPairs.map((p, i) =>
+                                i === index
+                                  ? { name: p.name, android: p.android || p.googlePackageName, ios: v }
+                                  : { name: p.name, android: p.android || p.googlePackageName, ios: p.ios || p.appleBundleId }
+                              );
+                              updateEntry('combinedApps', updated);
+                            }}
+                            placeholder="com.example.app.ios"
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="glass-card p-6 space-y-4">

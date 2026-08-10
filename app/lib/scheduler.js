@@ -305,6 +305,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
         priority: 'high',
         tags: 'chart_with_upwards_trend,package',
         topic: ntfyTopic,
+        dataDir: DATA_DIR,
         webhookUrl
       });
 

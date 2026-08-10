@@ -406,16 +406,90 @@ function normalizePackageOrBundle(id = '') {
   return String(id).toLowerCase().trim();
 }
 
+/**
+ * Normalizes custom pairing definitions from config.json into a standard array of pairing objects.
+ * Supports: combinedApps, crossPlatformApps, pairedApps, multiPlatformApps, appPairings, pairs.
+ * Accepts: Array of objects, Object map, or 2-element tuple arrays [android_pkg, ios_bundle].
+ */
+function getNormalizedPairings(input) {
+  if (!input) return [];
+
+  let raw = input;
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    if (input.combinedApps || input.crossPlatformApps || input.pairedApps || input.multiPlatformApps || input.appPairings || input.pairs) {
+      raw = input.combinedApps || input.crossPlatformApps || input.pairedApps || input.multiPlatformApps || input.appPairings || input.pairs;
+    }
+  }
+
+  if (!raw) return [];
+
+  const result = [];
+
+  const extractItem = (item, defaultName = '') => {
+    if (!item) return null;
+
+    if (Array.isArray(item)) {
+      const [id1 = '', id2 = ''] = item;
+      return {
+        id: `pair-${id1 || id2}`,
+        name: defaultName || id1 || id2,
+        googlePackageName: id1,
+        appleBundleId: id2,
+        android: id1,
+        ios: id2
+      };
+    }
+
+    if (typeof item === 'object') {
+      const name = item.name || item.displayName || item.title || item.appName || defaultName || 'Combined App';
+      const googlePackageName = item.android || item.google || item.googlePackageName || item.playStore || item.packageName || item.androidPackage || '';
+      const appleBundleId = item.ios || item.apple || item.appleBundleId || item.appStore || item.bundleId || item.iosBundle || '';
+      const ignore = Boolean(item.ignore || item.ignored);
+      const consoleAppId = item.consoleAppId || item.playConsoleAppId || null;
+
+      if (googlePackageName || appleBundleId) {
+        return {
+          id: item.id || `pair-${googlePackageName || appleBundleId}`,
+          name,
+          googlePackageName,
+          appleBundleId,
+          android: googlePackageName,
+          ios: appleBundleId,
+          ignore,
+          consoleAppId
+        };
+      }
+    }
+    return null;
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach((item, index) => {
+      const parsed = extractItem(item, `Combined App ${index + 1}`);
+      if (parsed) result.push(parsed);
+    });
+  } else if (typeof raw === 'object') {
+    Object.entries(raw).forEach(([keyName, item]) => {
+      const parsed = extractItem(item, keyName);
+      if (parsed) result.push(parsed);
+    });
+  }
+
+  return result;
+}
+
 function matchAndPairApps(googleApps = [], appleApps = [], manualPairings = []) {
   const paired = [];
   const usedGooglePackages = new Set();
   const usedAppleBundles = new Set();
 
+  const normalizedPairs = getNormalizedPairings(manualPairings);
+
   // 1. Process explicit manual pairings first
-  if (Array.isArray(manualPairings) && manualPairings.length > 0) {
-    manualPairings.forEach(pair => {
-      const gApp = googleApps.find(g => normalizePackageOrBundle(g.packageName) === normalizePackageOrBundle(pair.googlePackageName));
-      const aApp = appleApps.find(a => normalizePackageOrBundle(a.bundleId || a.packageName) === normalizePackageOrBundle(pair.appleBundleId));
+  if (normalizedPairs.length > 0) {
+    normalizedPairs.forEach(pair => {
+      const gApp = googleApps.find(g => pair.googlePackageName && normalizePackageOrBundle(g.packageName) === normalizePackageOrBundle(pair.googlePackageName));
+      const aApp = appleApps.find(a => pair.appleBundleId && normalizePackageOrBundle(a.bundleId || a.packageName) === normalizePackageOrBundle(pair.appleBundleId));
 
       if (gApp || aApp) {
         if (gApp) usedGooglePackages.add(gApp.packageName);
@@ -425,7 +499,8 @@ function matchAndPairApps(googleApps = [], appleApps = [], manualPairings = []) 
           name: pair.name || (gApp ? gApp.name : aApp.name),
           googleApp: gApp || null,
           appleApp: aApp || null,
-          isManual: true
+          isManual: true,
+          consoleAppId: pair.consoleAppId || gApp?.consoleAppId || null
         });
       }
     });
@@ -623,6 +698,7 @@ module.exports = {
   concentrationIndex,
   linearForecast,
   aggregateOverviews,
+  getNormalizedPairings,
   matchAndPairApps,
   correlateReleases,
   calculateRetentionBenchmarks,

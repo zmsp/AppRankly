@@ -43,6 +43,7 @@ export function useAppState() {
   const [comparisonMode, setComparisonMode] = useState('prev_period'); // 'prev_period' | 'prev_year' | 'none'
   const [granularity, setGranularity] = useState('day'); // 'day' | 'week' | 'month'
   const [projects, setProjects] = useState([]);
+  const [pairings, setPairings] = useState(null);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(() => localStorage.getItem('apprankly_project') || initialProject);
   const [authToken, setAuthToken] = useState(() => {
     const stored = localStorage.getItem('apprankly_token');
@@ -152,12 +153,6 @@ export function useAppState() {
 
   // Sync URL when platform, selectedProjectIndex, or dateRange changes
   const updateUrl = useCallback((newPlatform, newProject, newRangePreset, customStart, customEnd) => {
-    if (isDemoMode) {
-      if (!window.location.hash.includes('#/demo') && !location.pathname.startsWith('/demo')) {
-        navigate('/demo', { replace: true });
-      }
-      return;
-    }
     const targetProj = findProject(projects, newProject, newPlatform || platform);
     const platSegment = newPlatform === 'google' ? 'android' : newPlatform === 'apple' ? 'apple' : 'all';
     const projSegment = targetProj ? getProjectUrlSegment(targetProj) : (newProject || 'all');
@@ -204,9 +199,9 @@ export function useAppState() {
     }
 
     if (location.pathname + location.search !== newPath) {
-      navigate(newPath, { replace: true });
+      navigate(newPath);
     }
-  }, [location.pathname, location.search, navigate, isDemoMode, projects, dateRange, platform]);
+  }, [location.pathname, location.search, navigate, projects, dateRange, platform]);
 
   const setPlatformAndProject = useCallback((newPlatform, newProject, newRangePreset, customStart, customEnd) => {
     const targetProj = findProject(projects, newProject, newPlatform);
@@ -219,7 +214,6 @@ export function useAppState() {
 
   // Sync state from location pathname if URL segments change
   useEffect(() => {
-    if (isDemoMode) return;
     const currentParts = location.pathname.split('/').filter(Boolean);
     const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary'];
     const hasSubRoute = knownSubRoutes.includes(currentParts[0]);
@@ -241,11 +235,10 @@ export function useAppState() {
     if (urlProject && urlProject !== selectedProjectIndex) {
       setSelectedProjectIndex(urlProject);
     }
-  }, [location.pathname, isDemoMode, platform, selectedProjectIndex]);
+  }, [location.pathname, platform, selectedProjectIndex]);
 
   // Sync dateRange state from location search params if query changes
   useEffect(() => {
-    if (isDemoMode) return;
     const params = new URLSearchParams(location.search);
     const s = params.get('start');
     const e = params.get('end');
@@ -312,14 +305,19 @@ export function useAppState() {
   const fetchProjects = useCallback(async (token) => {
     if (isDemoMode) {
       setProjects(MOCK_PROJECTS);
+      setPairings(null);
       return;
     }
     const tokenToUse = token || authToken;
     try {
-      const res = await apiFetch('/api/projects', {}, tokenToUse, isStaticMode);
+      const res = await apiFetch('/api/projects?format=object', {}, tokenToUse, isStaticMode);
       if (res.ok) {
         const data = await res.json();
-        const sortedData = sortProjectsByPlatformAndName(data);
+        const rawProjects = Array.isArray(data) ? data : (data.projects || []);
+        if (data.pairings) {
+          setPairings(data.pairings);
+        }
+        const sortedData = sortProjectsByPlatformAndName(rawProjects);
         if (sortedData && sortedData.length > 0) {
           setProjects(sortedData);
           if (!window.location.hash.includes('#/demo') && !location.pathname.startsWith('/demo')) {
@@ -708,6 +706,7 @@ export function useAppState() {
     comparisonMode, setComparisonMode,
     granularity, setGranularity,
     projects, setProjects,
+    pairings, setPairings,
     selectedProjectIndex, setSelectedProjectIndex: handleSetSelectedProjectIndex,
     authToken, setAuthToken,
     starredApps, toggleStarApp,

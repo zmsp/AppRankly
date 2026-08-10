@@ -106,6 +106,77 @@ export function isSimilarAppName(appleName = '', googleName = '', appleBundleId 
 }
 
 /**
+ * Normalizes custom pairing definitions from config.json into a standard array of pairing objects.
+ * Supports: combinedApps, crossPlatformApps, pairedApps, multiPlatformApps, appPairings, pairs.
+ */
+export function getNormalizedPairings(input) {
+  if (!input) return [];
+
+  let raw = input;
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    if (input.combinedApps || input.crossPlatformApps || input.pairedApps || input.multiPlatformApps || input.appPairings || input.pairs) {
+      raw = input.combinedApps || input.crossPlatformApps || input.pairedApps || input.multiPlatformApps || input.appPairings || input.pairs;
+    }
+  }
+
+  if (!raw) return [];
+
+  const result = [];
+
+  const extractItem = (item, defaultName = '') => {
+    if (!item) return null;
+
+    if (Array.isArray(item)) {
+      const [id1 = '', id2 = ''] = item;
+      return {
+        id: `pair-${id1 || id2}`,
+        name: defaultName || id1 || id2,
+        googlePackageName: id1,
+        appleBundleId: id2,
+        android: id1,
+        ios: id2
+      };
+    }
+
+    if (typeof item === 'object') {
+      const name = item.name || item.displayName || item.title || item.appName || defaultName || 'Combined App';
+      const googlePackageName = item.android || item.google || item.googlePackageName || item.playStore || item.packageName || item.androidPackage || '';
+      const appleBundleId = item.ios || item.apple || item.appleBundleId || item.appStore || item.bundleId || item.iosBundle || '';
+      const ignore = Boolean(item.ignore || item.ignored);
+      const consoleAppId = item.consoleAppId || item.playConsoleAppId || null;
+
+      if (googlePackageName || appleBundleId) {
+        return {
+          id: item.id || `pair-${googlePackageName || appleBundleId}`,
+          name,
+          googlePackageName,
+          appleBundleId,
+          android: googlePackageName,
+          ios: appleBundleId,
+          ignore,
+          consoleAppId
+        };
+      }
+    }
+    return null;
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach((item, index) => {
+      const parsed = extractItem(item, `Combined App ${index + 1}`);
+      if (parsed) result.push(parsed);
+    });
+  } else if (typeof raw === 'object') {
+    Object.entries(raw).forEach(([keyName, item]) => {
+      const parsed = extractItem(item, keyName);
+      if (parsed) result.push(parsed);
+    });
+  }
+
+  return result;
+}
+
+/**
  * Groups projects by pairing matching Apple and Google apps together.
  * Returns an array of merged project objects (when paired) and single project objects (when unpaired).
  */
@@ -119,10 +190,12 @@ export function groupProjectsByPair(projectList = [], explicitPairings = []) {
   const usedAppleKeys = new Set();
   const usedGoogleKeys = new Set();
 
-  if (Array.isArray(explicitPairings) && explicitPairings.length > 0) {
-    explicitPairings.forEach(pair => {
-      const gApp = googleApps.find(g => getProjectUrlSegment(g) === pair.googlePackageName);
-      const aApp = appleApps.find(a => getProjectUrlSegment(a) === pair.appleBundleId);
+  const normalizedPairs = getNormalizedPairings(explicitPairings);
+
+  if (normalizedPairs.length > 0) {
+    normalizedPairs.forEach(pair => {
+      const gApp = googleApps.find(g => pair.googlePackageName && getProjectUrlSegment(g) === pair.googlePackageName);
+      const aApp = appleApps.find(a => pair.appleBundleId && getProjectUrlSegment(a) === pair.appleBundleId);
 
       if (gApp || aApp) {
         if (gApp) usedGoogleKeys.add(getProjectUrlSegment(gApp));

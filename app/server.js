@@ -12,10 +12,10 @@ const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
-const { aggregateOverviews, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex, fillContinuousDailyTrends } = require("./lib/metrics");
+const { aggregateOverviews, getNormalizedPairings, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex, fillContinuousDailyTrends } = require("./lib/metrics");
 const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
-const { sendNtfyNotification } = require("./lib/notifier");
+const { sendNtfyNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
 
@@ -217,7 +217,14 @@ const getBaseConfig = () => {
 };
 
 const getIgnoredSet = (baseConfig) => {
-  const list = baseConfig?.ignoredPackages || [];
+  const list = [...(baseConfig?.ignoredPackages || [])];
+  const normalizedPairs = getNormalizedPairings(baseConfig);
+  normalizedPairs.forEach(pair => {
+    if (pair.ignore) {
+      if (pair.googlePackageName) list.push(pair.googlePackageName);
+      if (pair.appleBundleId) list.push(pair.appleBundleId);
+    }
+  });
   return new Set(list.map(p => String(p).trim().toLowerCase()).filter(Boolean));
 };
 
@@ -782,7 +789,7 @@ app.get("/api/projects", authenticate, async (req, res) => {
   if (req.query.format === 'object') {
     const googleList = (projects || []).filter(p => p.platform === 'google');
     const appleList = (projects || []).filter(p => p.platform === 'apple');
-    const pairings = matchAndPairApps(googleList, appleList, baseConfig.appPairings || []);
+    const pairings = matchAndPairApps(googleList, appleList, baseConfig);
     return res.json({ projects: projects || [], pairings });
   }
 
@@ -797,7 +804,7 @@ app.get("/api/pairings", authenticate, async (req, res) => {
   const rawProjects = await fetchPackagesByPlatform('all', baseConfig);
   const googleList = rawProjects.filter(p => p.platform === 'google');
   const appleList = rawProjects.filter(p => p.platform === 'apple');
-  const pairings = matchAndPairApps(googleList, appleList, baseConfig.appPairings || []);
+  const pairings = matchAndPairApps(googleList, appleList, baseConfig);
 
   res.json(pairings);
 });
@@ -1327,20 +1334,55 @@ app.post("/api/releases/auto-detect", authenticate, async (req, res) => {
 
 // --- Notifications & Auto-Refresh Scheduler ---
 
+// Fetch notifications list & sync with ntfy topic
+app.get("/api/notifications", authenticate, async (req, res) => {
+  try {
+    const baseConfig = getBaseConfig() || {};
+    const topic = baseConfig.ntfyTopic || process.env.NTFY_TOPIC || '';
+    const data = await syncNtfyTopicMessages(DATA_DIR, topic);
+    res.json(data);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ error: "Failed to fetch notifications", details: error.message });
+  }
+});
+
+// Clear all or specific notification
+app.post("/api/notifications/clear", authenticate, (req, res) => {
+  try {
+    const { id } = req.body || {};
+    const result = clearNotifications(DATA_DIR, id);
+    res.json(result);
+  } catch (error) {
+    console.error("Error clearing notifications:", error);
+    res.status(500).json({ error: "Failed to clear notifications", details: error.message });
+  }
+});
+
+// Mark notifications as read
+app.post("/api/notifications/mark-read", authenticate, (req, res) => {
+  try {
+    const { id } = req.body || {};
+    const result = markNotificationsRead(DATA_DIR, id);
+    res.json(result);
+  } catch (error) {
+    console.error("Error marking notifications read:", error);
+    res.status(500).json({ error: "Failed to mark notifications read", details: error.message });
+  }
+});
+
 // Test notification endpoint
 app.post("/api/notifications/test", authenticate, async (req, res) => {
-  const { title, message, priority, tags, topic } = req.body;
+  const { title, message, priority, tags, topic } = req.body || {};
   const baseConfig = getBaseConfig() || {};
   const targetTopic = topic || baseConfig.ntfyTopic || process.env.NTFY_TOPIC;
-  if (!targetTopic || !targetTopic.trim()) {
-    return res.status(400).json({ success: false, error: "Ntfy alert is off: No topic configured." });
-  }
   const result = await sendNtfyNotification({
     title: title || 'Test Notification',
     message: message || 'Hi from App Store & Play Store Stats Dashboard! ntfy setup working.',
     priority: priority || 'high',
-    tags: tags || 'warning,database',
-    topic: targetTopic
+    tags: tags || 'chart_with_upwards_trend,package',
+    topic: targetTopic || '',
+    dataDir: DATA_DIR
   });
   res.json(result);
 });
