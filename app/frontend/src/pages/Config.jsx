@@ -9,7 +9,6 @@ import {
 import { apiFetch } from '../lib/api';
 import { TOP_10_TIMEZONES } from '../lib/constants';
 import { getNormalizedPairings } from '../lib/projectUtils';
-import PageControlHeader from '../components/PageControlHeader';
 
 
 function clsx(...classes) {
@@ -666,29 +665,8 @@ function ConfigDocsSection() {
     </div>
   );
 }
-export default function Config({
-  authToken,
-  isStaticMode,
-  isDemoMode,
-  projects = [],
-  selectedProjectIndex,
-  setSelectedProjectIndex,
-  platform,
-  setPlatform,
-  setPlatformAndProject,
-  dateRange,
-  setDateRange,
-  comparisonMode,
-  setComparisonMode,
-  granularity,
-  setGranularity,
-  stats,
-  refreshData,
-  forceRefreshRange,
-  lastDataDate,
-  starredApps = [],
-  toggleStarApp
-}) {
+
+export default function Config({ authToken, isStaticMode, isDemoMode }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -886,28 +864,6 @@ export default function Config({
 
   return (
     <div className="space-y-6 pb-20 max-w-4xl">
-      <PageControlHeader
-        projects={projects}
-        selectedProjectIndex={selectedProjectIndex}
-        setSelectedProjectIndex={setSelectedProjectIndex}
-        platform={platform}
-        setPlatform={setPlatform}
-        setPlatformAndProject={setPlatformAndProject}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        comparisonMode={comparisonMode}
-        setComparisonMode={setComparisonMode}
-        granularity={granularity}
-        setGranularity={setGranularity}
-        stats={stats}
-        refreshData={refreshData}
-        forceRefreshRange={forceRefreshRange}
-        loading={loading}
-        lastDataDate={lastDataDate}
-        starredApps={starredApps}
-        toggleStarApp={toggleStarApp}
-      />
-
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
