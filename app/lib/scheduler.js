@@ -171,7 +171,7 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           ? buildAppleViewer(baseConfig, pkgId)
           : buildGoogleViewer(baseConfig, pkgId);
 
-        const stats = await viewer.getAppStats(startDate, endDate);
+        const stats = await viewer.getAppStats(startDate, endDate, { force: Boolean(options.force), forceRefresh: Boolean(options.force) });
         const trends = stats?.dailyTrends || [];
 
         if (!trends || trends.length === 0) {

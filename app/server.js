@@ -1356,9 +1356,10 @@ app.post("/api/force-refresh-range", authenticate, async (req, res) => {
     const baseConfig = getBaseConfig();
     const targetPlatform = platform || "all";
     const packages = await fetchPackagesByPlatform(targetPlatform === 'all' ? 'all' : targetPlatform, baseConfig);
-    const applePackages = packages.filter(p => p.platform === 'apple' || targetPlatform === 'apple');
+    const applePackages = packages.filter(p => (p.platform === 'apple' || targetPlatform === 'apple') && (targetPlatform === 'all' || p.platform === 'apple'));
+    const googlePackages = packages.filter(p => (p.platform === 'google' || targetPlatform === 'google') && (targetPlatform === 'all' || p.platform === 'google'));
 
-    console.log(`[FORCE SYNC] Found ${applePackages.length} Apple app(s) to process for range ${startDate} to ${endDate}...`);
+    console.log(`[FORCE SYNC] Found ${applePackages.length} Apple app(s) and ${googlePackages.length} Google app(s) to process for range ${startDate} to ${endDate}...`);
 
     for (const pkg of applePackages) {
       try {
@@ -1370,6 +1371,18 @@ app.post("/api/force-refresh-range", authenticate, async (req, res) => {
         }
       } catch (err) {
         console.error(`[FORCE SYNC] Error force refreshing range for ${pkg.packageName}:`, err.message);
+      }
+    }
+
+    for (const pkg of googlePackages) {
+      try {
+        console.log(`[FORCE SYNC] Force pulling Google Play stats for ${pkg.packageName}...`);
+        const viewer = buildGoogleViewer(baseConfig, pkg.packageName);
+        if (startDate && endDate) {
+          await viewer.getAppStats(startDate, endDate, { force: true, forceRefresh: true });
+        }
+      } catch (err) {
+        console.error(`[FORCE SYNC] Error force refreshing range for Google app ${pkg.packageName}:`, err.message);
       }
     }
 

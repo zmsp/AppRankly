@@ -213,6 +213,21 @@ function getMetrics() {
 
 function clearCache(resource) {
   cache.invalidate(resource);
+  if (db) {
+    try {
+      if (!resource) {
+        db.exec('DELETE FROM gcs_file_cache');
+        db.exec('DELETE FROM agg_cache');
+        db.exec('DELETE FROM store_metadata');
+      } else if (resource === 'gcs:filelist') {
+        db.exec('DELETE FROM gcs_file_cache');
+      } else if (resource === 'agg_cache') {
+        db.exec('DELETE FROM agg_cache');
+      }
+    } catch (e) {
+      console.error('[resolver] DB clearCache error:', e.message);
+    }
+  }
   try {
     const cacheDir = path.join(dataDir, '.resolve_cache');
     if (fs.existsSync(cacheDir)) {

@@ -47,6 +47,19 @@ const argv = require("yargs")
     type: "string",
     describe: "Since date for backfill (YYYY-MM)"
   })
+  .option("start", {
+    type: "string",
+    describe: "Start date for stats (YYYY-MM-DD)"
+  })
+  .option("end", {
+    type: "string",
+    describe: "End date for stats (YYYY-MM-DD)"
+  })
+  .option("f", {
+    alias: "force",
+    type: "boolean",
+    describe: "Force re-downloading reports from GCS bypassing local cache"
+  })
   .help("h").argv;
 
 const command = argv._[0];
@@ -131,7 +144,7 @@ if (argv.project) {
 
   options = {
     projectID: proj.projectID,
-    packageName: proj.packageName,
+    packageName: proj.packageName || argv.packageName,
     bucketName: proj.bucketName,
     keyJson: proj.keyJson,
     keyFilePath: resolvedKeyPath
@@ -153,7 +166,7 @@ if (argv.project) {
 const statsViewer = new GooglePlayStoreStatsViewer(options);
 
 statsViewer
-  .getAppStats()
+  .getAppStats(argv.start, argv.end, argv.force)
   .then(obj => {
     console.log(JSON.stringify(obj, null, 2));
   })
@@ -161,3 +174,4 @@ statsViewer
     console.error("Error fetching Play Store stats:", err.message || err);
     process.exit(1);
   });
+

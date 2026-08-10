@@ -52,7 +52,12 @@ class GooglePlayStoreStatsViewer {
     });
   }
 
-  async getAppStats(startDate, endDate) {
+  async getAppStats(startDate, endDate, force = false) {
+    const isForce = typeof force === 'object' ? Boolean(force.force || force.forceRefresh) : Boolean(force);
+    if (isForce) {
+      resolver.clearCache('gcs:filelist');
+      resolver.clearCache('agg_cache');
+    }
     await this.initializeStorage();
 
     const [files] = await this.packageUtils.getCorrectFiles({
@@ -95,7 +100,8 @@ class GooglePlayStoreStatsViewer {
       dimension: 'overview',
       targetLocation: downloadDir,
       startDate,
-      endDate
+      endDate,
+      force: isForce
     });
 
     const cleanedRatingFiles = await this.packageUtils.downloadCsvFiles({
@@ -107,7 +113,8 @@ class GooglePlayStoreStatsViewer {
       type: 'ratings',
       targetLocation: downloadDir,
       startDate,
-      endDate
+      endDate,
+      force: isForce
     });
 
     const cleanedCrashFiles = await this.packageUtils.downloadCsvFiles({
@@ -119,7 +126,8 @@ class GooglePlayStoreStatsViewer {
       type: 'vitals_crashes',
       targetLocation: downloadDir,
       startDate,
-      endDate
+      endDate,
+      force: isForce
     });
 
     const cleanedAnrFiles = await this.packageUtils.downloadCsvFiles({
@@ -131,7 +139,8 @@ class GooglePlayStoreStatsViewer {
       type: 'vitals_anrs',
       targetLocation: downloadDir,
       startDate,
-      endDate
+      endDate,
+      force: isForce
     });
 
     console.log(`Downloaded ${cleanedFileNames.length} overview, ${cleanedRatingFiles.length} ratings, and ${cleanedCrashFiles.length + cleanedAnrFiles.length} vitals`);
@@ -341,7 +350,7 @@ class PackageUtils {
     return [fileList];
   }
 
-  async downloadCsvFiles({ storage, bucketName, packageName, files, dimension = "overview", type = "installs", targetLocation, startDate, endDate }) {
+  async downloadCsvFiles({ storage, bucketName, packageName, files, dimension = "overview", type = "installs", targetLocation, startDate, endDate, force = false }) {
     const cleanedFileNames = [];
     const now = Date.now();
     const nowDate = new Date(now);
@@ -387,7 +396,7 @@ class PackageUtils {
           const exists = fs.existsSync(dest);
           const isCurrentMonth = fileMonth === currentMonthStr;
 
-          let needsRefetch = !exists;
+          let needsRefetch = !exists || force;
           if (exists && isCurrentMonth) {
             const stat = fs.statSync(dest);
             const ageMs = now - stat.mtimeMs;
@@ -424,7 +433,17 @@ class PackageUtils {
                 INSERT OR REPLACE INTO coverage_index (app_id, resource, start_date, end_date, file_month, fetched_at)
                 VALUES (?, ?, ?, ?, ?, datetime('now'))
               `).run(appRow.id, dimension, monthStart, monthEnd, fileMonth);
-            } catch {}
+
+              if (dimension === 'overview' && fs.existsSync(dest)) {
+                const { ingestGoogleOverview, updateAppDates, getChecksum } = require('./db/ingest');
+                const stat = fs.statSync(dest);
+                const checksum = getChecksum(dest);
+                await ingestGoogleOverview(dest, fileMonth, appRow.id, stat, checksum);
+                await updateAppDates(appRow.id);
+              }
+            } catch (e) {
+              console.error(`[GooglePlay] DB ingestion error for ${fixedFileName}:`, e.message);
+            }
           }
         }
       }

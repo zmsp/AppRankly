@@ -187,5 +187,9 @@ async function clearCache(targetApp = null) {
 module.exports = {
   backfill,
   status,
-  clearCache
+  clearCache,
+  ingestGoogleOverview,
+  getOrCreateApp,
+  updateAppDates,
+  getChecksum
 };
