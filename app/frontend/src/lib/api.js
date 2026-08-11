@@ -26,6 +26,9 @@ export async function apiFetch(url, options = {}, authToken = null, isStaticMode
       }
       return fetch('data/releases.json');
     }
+    if (url.startsWith('/api/notifications')) {
+      return new Response(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }), { status: 200 });
+    }
   }
 
   const headers = {

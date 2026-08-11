@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { PlayStoreIcon, AppleStoreIcon } from '../components/icons/StoreIcons';
 import HeroKPI from '../components/HeroKPI';
@@ -37,7 +37,13 @@ import {
   RefreshCw,
   Play,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  Compass,
+  Eye,
+  Tag,
+  FileText,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 export default function Dashboard({
@@ -163,6 +169,168 @@ export default function Dashboard({
   const filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
   const activeProject = findProject(projects, selectedProjectIndex, platform);
   const lastDataDate = stats.lastDate || (stats.dailyTrends?.length > 0 ? stats.dailyTrends[stats.dailyTrends.length - 1].date : null);
+
+  const platSegment = platform === 'google' ? 'android' : platform === 'apple' ? 'apple' : 'all';
+  const projSegment = selectedProjectIndex || 'all';
+  const searchStr = location.search;
+
+  const getFeaturePath = (featureId) => {
+    const actualProj = (featureId === 'details' && (projSegment === 'all' || !projSegment) && projects.length > 0)
+      ? getProjectUrlSegment(projects[0])
+      : projSegment;
+    return `/${featureId}/${platSegment}/${actualProj}${searchStr}`;
+  };
+
+  const featureCards = [
+    {
+      id: 'details',
+      title: 'App Details & Breakdown',
+      tag: 'Granular Metrics',
+      description: 'Deep dive into single app statistics, version adoption, device hardware distribution, and country breakdowns.',
+      icon: Smartphone,
+      bgGradient: 'bg-gradient-to-br from-cyan-500/10 via-slate-900/40 to-slate-950/80',
+      borderColor: 'border-cyan-500/20 hover:border-cyan-500/50',
+      hoverGlow: 'hover:shadow-cyan-500/10',
+      iconBg: 'bg-cyan-500/10',
+      iconColor: 'text-cyan-400',
+      iconBorder: 'border-cyan-500/30',
+      badgeStyle: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
+    },
+    {
+      id: 'retention',
+      title: 'Retention & Engagement',
+      tag: 'User Cohorts',
+      description: 'Analyze active device survival curves, uninstalls, user cohort retention, and churn indicators over time.',
+      icon: Users,
+      bgGradient: 'bg-gradient-to-br from-purple-500/10 via-slate-900/40 to-slate-950/80',
+      borderColor: 'border-purple-500/20 hover:border-purple-500/50',
+      hoverGlow: 'hover:shadow-purple-500/10',
+      iconBg: 'bg-purple-500/10',
+      iconColor: 'text-purple-400',
+      iconBorder: 'border-purple-500/30',
+      badgeStyle: 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+    },
+    {
+      id: 'store',
+      title: 'Store Optimization (ASO)',
+      tag: 'App Store Presence',
+      description: 'Optimize search visibility, monitor keyword positions, preview assets, Custom Product Pages (CPP), and competitor store updates.',
+      icon: Eye,
+      bgGradient: 'bg-gradient-to-br from-amber-500/10 via-slate-900/40 to-slate-950/80',
+      borderColor: 'border-amber-500/20 hover:border-amber-500/50',
+      hoverGlow: 'hover:shadow-amber-500/10',
+      iconBg: 'bg-amber-500/10',
+      iconColor: 'text-amber-400',
+      iconBorder: 'border-amber-500/30',
+      badgeStyle: 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+    },
+    {
+      id: 'releases',
+      title: 'Releases & Build Health',
+      tag: 'Version Rollouts',
+      description: 'Track version release velocity, adoption rates across active users, build stability, and crash rates per version.',
+      icon: Tag,
+      bgGradient: 'bg-gradient-to-br from-emerald-500/10 via-slate-900/40 to-slate-950/80',
+      borderColor: 'border-emerald-500/20 hover:border-emerald-500/50',
+      hoverGlow: 'hover:shadow-emerald-500/10',
+      iconBg: 'bg-emerald-500/10',
+      iconColor: 'text-emerald-400',
+      iconBorder: 'border-emerald-500/30',
+      badgeStyle: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    },
+    {
+      id: 'reports',
+      title: 'Automated Reports',
+      tag: 'Exports & Digests',
+      description: 'Set up automated email reporting, custom metric alerts, scheduled data snapshots, and raw CSV/JSON exports.',
+      icon: FileText,
+      bgGradient: 'bg-gradient-to-br from-rose-500/10 via-slate-900/40 to-slate-950/80',
+      borderColor: 'border-rose-500/20 hover:border-rose-500/50',
+      hoverGlow: 'hover:shadow-rose-500/10',
+      iconBg: 'bg-rose-500/10',
+      iconColor: 'text-rose-400',
+      iconBorder: 'border-rose-500/30',
+      badgeStyle: 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+    }
+  ];
+
+  const renderFeatureDiscoverySection = () => (
+    <div className="glass-card p-6 sm:p-8 space-y-6 border border-white/10 relative overflow-hidden">
+      {/* Subtle background ambient gradients */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-accent-blue/10 via-purple-500/5 to-transparent pointer-events-none rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-accent-rose/10 via-amber-500/5 to-transparent pointer-events-none rounded-full blur-3xl" />
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 relative z-10">
+        <div className="space-y-1">
+          <div className="flex items-center space-x-2 text-accent-blue text-xs font-bold uppercase tracking-wider">
+            <Compass size={16} className="animate-pulse" />
+            <span>Explore AppRankly Workspace</span>
+          </div>
+          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Discover All Analytics & Management Features
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+            Overview provides high-level health trends. Explore dedicated modules designed to optimize store visibility, analyze user cohorts, track release velocity, and automate reports.
+          </p>
+        </div>
+        <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 shrink-0 self-start sm:self-auto shadow-sm">
+          <Sparkles size={15} className="text-amber-400" />
+          <span>5 Feature Modules</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+        {featureCards.map((card) => {
+          const Icon = card.icon;
+          const targetUrl = getFeaturePath(card.id);
+          return (
+            <Link
+              key={card.id}
+              to={targetUrl}
+              onClick={() => {
+                if (card.id === 'details' && (selectedProjectIndex === 'all' || !selectedProjectIndex) && projects.length > 0) {
+                  if (setSelectedProjectIndex) {
+                    setSelectedProjectIndex(getProjectUrlSegment(projects[0]));
+                  }
+                }
+              }}
+              className={clsx(
+                "group relative p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between space-y-4 hover:scale-[1.02] hover:shadow-2xl cursor-pointer",
+                card.bgGradient,
+                card.borderColor,
+                card.hoverGlow
+              )}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center border shadow-inner transition-transform group-hover:scale-110", card.iconBg, card.iconColor, card.iconBorder)}>
+                    <Icon size={20} />
+                  </div>
+                  <span className={clsx("text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-full border", card.badgeStyle)}>
+                    {card.tag}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-base font-bold text-white group-hover:text-accent-blue transition-colors flex items-center gap-1.5">
+                    <span>{card.title}</span>
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-1 line-clamp-2 leading-relaxed">
+                    {card.description}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-white/5 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
+                <span>Explore page</span>
+                <ArrowRight size={14} className="transform group-hover:translate-x-1 transition-transform text-accent-blue" />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   const hasUninstallData = stats.hasUninstallData !== false &&
     !['apple', 'appstore', 'ios'].includes(platform?.toLowerCase()) &&
@@ -362,6 +530,9 @@ export default function Dashboard({
             <ActiveDevicesChart data={stats.dailyTrends} />
           </ChartPanel>
         </div>
+
+        {/* Welcome & Feature Discovery Section */}
+        {renderFeatureDiscoverySection()}
 
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-300">
@@ -644,6 +815,9 @@ export default function Dashboard({
           loading={loading && activeDimension === 'device'}
         />
       </div>
+
+      {/* Welcome & Feature Discovery Section */}
+      {renderFeatureDiscoverySection()}
 
       {/* Segment Side Drilldown Panel */}
       <DrilldownPanel

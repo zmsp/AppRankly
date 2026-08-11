@@ -228,13 +228,13 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
           const isPairedMerged = proj.isMerged && proj.googleApp && proj.appleApp;
 
           const sparklineLines = hasTrends ? [
-            { data: points, color: '#00d2ff', strokeWidth: 2.4, showFill: true, fillGradientId: 'combine-gradient' },
-            { data: applePoints, color: '#38bdf8', strokeWidth: 1.8 },
-            { data: googlePoints, color: '#34d399', strokeWidth: 1.8 }
+            { data: points, color: '#00d2ff', strokeWidth: 1.5, showFill: true, fillGradientId: 'combine-gradient' },
+            { data: applePoints, color: '#38bdf8', strokeWidth: 1 },
+            { data: googlePoints, color: '#34d399', strokeWidth: 1 }
           ] : [
-            { data: points.length >= 2 ? points : [0, 0], color: 'rgba(255, 255, 255, 0.35)', strokeWidth: 1.6, isDashed: true },
-            { data: applePoints.length >= 2 ? applePoints : [0, 0], color: 'rgba(56, 189, 248, 0.3)', strokeWidth: 1.2, isDashed: true },
-            { data: googlePoints.length >= 2 ? googlePoints : [0, 0], color: 'rgba(52, 211, 153, 0.3)', strokeWidth: 1.2, isDashed: true }
+            { data: points.length >= 2 ? points : [0, 0], color: 'rgba(255, 255, 255, 0.35)', strokeWidth: 1, isDashed: true },
+            { data: applePoints.length >= 2 ? applePoints : [0, 0], color: 'rgba(56, 189, 248, 0.3)', strokeWidth: 1, isDashed: true },
+            { data: googlePoints.length >= 2 ? googlePoints : [0, 0], color: 'rgba(52, 211, 153, 0.3)', strokeWidth: 1, isDashed: true }
           ];
 
           return (

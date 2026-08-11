@@ -5,7 +5,7 @@ export default function Sparkline({
   lines,
   color = '#00d2ff',
   height = 48,
-  strokeWidth = 1.5,
+  strokeWidth = 1.2,
   isDashed = false,
   showGridLines = true
 }) {
@@ -47,9 +47,9 @@ export default function Sparkline({
 
       {/* Background Guidelines for visual depth */}
       {showGridLines && (
-        <g stroke="rgba(255, 255, 255, 0.06)" strokeWidth="0.6" strokeDasharray="3 3">
-          <line x1="0" y1={height * 0.25} x2={width} y2={height * 0.25} />
-          <line x1="0" y1={height * 0.75} x2={width} y2={height * 0.75} />
+        <g stroke="rgba(255, 255, 255, 0.06)" strokeWidth="1" strokeDasharray="3 3">
+          <line x1="0" y1={height * 0.25} x2={width} y2={height * 0.25} vectorEffect="non-scaling-stroke" />
+          <line x1="0" y1={height * 0.75} x2={width} y2={height * 0.75} vectorEffect="non-scaling-stroke" />
         </g>
       )}
 
@@ -93,6 +93,7 @@ export default function Sparkline({
             strokeOpacity={series.opacity ?? 1}
             strokeLinecap="round"
             strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
             points={pointsStr}
           />
         );

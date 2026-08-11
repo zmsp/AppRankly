@@ -115,28 +115,46 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const popoverRef = useRef(null);
-  const buttonRef = useRef(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  const getClearedIds = () => {
+    try {
+      const stored = localStorage.getItem('apprankly_cleared_notifications');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const saveClearedIds = (ids) => {
+    try {
+      localStorage.setItem('apprankly_cleared_notifications', JSON.stringify(ids));
+    } catch (e) {}
+  };
 
   const fetchNotifications = async (quiet = false) => {
+    const cleared = getClearedIds();
+
     if (isDemoMode) {
       const storedDemo = localStorage.getItem('apprankly_demo_notifications');
       let items = MOCK_NOTIFICATIONS;
       if (storedDemo) {
         try { items = JSON.parse(storedDemo); } catch (e) {}
       }
-      setNotifications(items);
-      setUnreadCount(items.filter(i => !i.read).length);
+      const active = items.filter(i => !cleared.includes(i.id));
+      setNotifications(active);
+      setUnreadCount(active.filter(i => !i.read).length);
       return;
     }
 
     if (!quiet) setLoading(true);
     try {
       const res = await apiFetch('/api/notifications', {}, authToken, isStaticMode);
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
+        const rawItems = data.notifications || [];
+        const active = rawItems.filter(i => !cleared.includes(i.id));
+        setNotifications(active);
+        setUnreadCount(active.filter(i => !i.read).length);
       }
     } catch (err) {
       console.warn('Failed to fetch notifications:', err);
@@ -151,27 +169,15 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
     return () => clearInterval(interval);
   }, [authToken, isDemoMode, isStaticMode]);
 
-  // Close on outside click
+  // Close on Escape key press
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target)) {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Compute position for popover
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const width = window.innerWidth < 640 ? 320 : 384; // sm:w-96 = 384px, w-80 = 320px
-      setCoords({
-        top: rect.bottom + 8,
-        left: Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16))
-      });
-    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
   const handleOpenPopover = () => {
@@ -198,44 +204,55 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
     }
   };
 
-  const handleClearAll = async () => {
-    if (notifications.length === 0) return;
-    if (isDemoMode) {
-      setNotifications([]);
-      setUnreadCount(0);
-      localStorage.setItem('apprankly_demo_notifications', JSON.stringify([]));
-      toast.success('Cleared all notifications');
-      return;
+  const handleClearAll = async (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
     }
-    try {
-      await apiFetch('/api/notifications/clear', { method: 'POST' }, authToken, isStaticMode);
-      setNotifications([]);
-      setUnreadCount(0);
-      toast.success('Cleared all notifications');
-    } catch (err) {
-      console.error('Failed to clear notifications:', err);
-      toast.error('Failed to clear notifications');
+    if (notifications.length === 0) return;
+
+    const currentIds = notifications.map(n => n.id);
+    const existingCleared = getClearedIds();
+    const updatedCleared = Array.from(new Set([...existingCleared, ...currentIds]));
+    saveClearedIds(updatedCleared);
+
+    setNotifications([]);
+    setUnreadCount(0);
+    localStorage.setItem('apprankly_demo_notifications', JSON.stringify([]));
+    toast.success('Cleared all notifications');
+
+    if (!isDemoMode && !isStaticMode) {
+      try {
+        await apiFetch('/api/notifications/clear', { method: 'POST' }, authToken, isStaticMode);
+      } catch (err) {
+        console.warn('Backend clear all failed, local clear retained:', err);
+      }
     }
   };
 
   const handleClearSingle = async (id, e) => {
-    e.stopPropagation();
-    if (isDemoMode) {
-      const updated = notifications.filter(n => n.id !== id);
-      setNotifications(updated);
-      setUnreadCount(updated.filter(i => !i.read).length);
-      localStorage.setItem('apprankly_demo_notifications', JSON.stringify(updated));
-      return;
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
     }
-    try {
-      await apiFetch('/api/notifications/clear', {
-        method: 'POST',
-        body: JSON.stringify({ id })
-      }, authToken, isStaticMode);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error('Failed to clear notification:', err);
+    const existingCleared = getClearedIds();
+    const updatedCleared = Array.from(new Set([...existingCleared, id]));
+    saveClearedIds(updatedCleared);
+
+    const updated = notifications.filter(n => n.id !== id);
+    setNotifications(updated);
+    setUnreadCount(updated.filter(i => !i.read).length);
+    localStorage.setItem('apprankly_demo_notifications', JSON.stringify(updated));
+
+    if (!isDemoMode && !isStaticMode) {
+      try {
+        await apiFetch('/api/notifications/clear', {
+          method: 'POST',
+          body: JSON.stringify({ id })
+        }, authToken, isStaticMode);
+      } catch (err) {
+        console.warn('Backend clear single failed, local clear retained:', err);
+      }
     }
   };
 
@@ -282,10 +299,9 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
   };
 
   return (
-    <div className="relative shrink-0" ref={popoverRef}>
+    <div className="relative shrink-0">
       {/* Bell Trigger Button */}
       <button
-        ref={buttonRef}
         id="notification-bell-btn"
         onClick={handleOpenPopover}
         className={clsx(
@@ -305,19 +321,20 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
         )}
       </button>
 
-      {/* Popover Dropdown Card */}
+      {/* Popover Dropdown Card (Centered Modal) */}
       {isOpen && createPortal(
-        <div className="fixed inset-0 z-[99999] pointer-events-auto">
+        <div className="fixed inset-0 z-[99999] pointer-events-auto flex items-center justify-center p-4 sm:p-6">
           <div
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-[2px] transition-opacity"
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
             onClick={() => setIsOpen(false)}
           />
           <div
-            style={{ top: `${coords.top}px`, left: `${coords.left}px`, maxHeight: 'calc(100vh - 80px)' }}
-            className="fixed w-[calc(100vw-32px)] sm:w-96 bg-slate-900/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-[100000] flex flex-col animate-in fade-in slide-in-from-top-2 duration-150"
+            ref={popoverRef}
+            style={{ maxHeight: 'calc(100vh - 64px)' }}
+            className="relative w-full max-w-md sm:w-96 bg-slate-900/98 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-[100000] flex flex-col animate-in fade-in zoom-in-95 duration-150"
           >
             {/* Header */}
-            <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+            <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-bold text-white">Notifications</h4>
                 <p className="text-[10px] text-slate-400">Ntfy & App Health Updates</p>
@@ -336,6 +353,13 @@ export default function NotificationPopover({ authToken, isDemoMode, isStaticMod
                     CLEAR ALL
                   </button>
                 )}
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors ml-0.5 cursor-pointer"
+                  aria-label="Close notifications"
+                >
+                  <X size={15} />
+                </button>
               </div>
             </div>
 
