@@ -18,18 +18,8 @@ import { useAppState } from './hooks/useAppState';
 import { findProject } from './lib/projectUtils';
 
 function App() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const state = useAppState();
-
-  React.useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setSidebarCollapsed(true);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const activeProject = findProject(state.projects, state.selectedProjectIndex, state.platform);
   const lastDataDate = state.stats?.lastDate || (state.stats?.dailyTrends?.length > 0 ? state.stats.dailyTrends[state.stats.dailyTrends.length - 1].date : null);
@@ -37,7 +27,7 @@ function App() {
   const isWorking = state.loading || state.dimensionLoading;
 
   return (
-    <div className="flex min-h-screen bg-background text-white overflow-hidden relative">
+    <div className="flex min-h-screen bg-background text-white relative">
       <Sidebar
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
@@ -45,14 +35,6 @@ function App() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
-        {/* Mobile Sidebar Overlay Backdrop */}
-        {!sidebarCollapsed && (
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
-            onClick={() => setSidebarCollapsed(true)}
-          />
-        )}
-
         {/* Top Loading Bar */}
         {isWorking && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-white/5 z-50 overflow-hidden">
@@ -62,6 +44,7 @@ function App() {
 
         <TopBar
           onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isSidebarOpen={!sidebarCollapsed}
           {...state}
         />
 

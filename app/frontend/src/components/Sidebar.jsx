@@ -10,8 +10,6 @@ import {
   FileText,
   Settings,
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   Coffee
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -42,21 +40,22 @@ export default function Sidebar({
 
   return (
     <aside className={clsx(
-      "glass-card transition-all duration-300 z-40 shadow-2xl flex flex-col",
-      collapsed
-        ? "w-0 md:w-20 -ml-20 md:ml-4 overflow-hidden hidden md:flex"
-        : "w-72 fixed left-0 top-0 bottom-0 z-50 rounded-none md:rounded-3xl md:m-4 md:mr-0 md:relative md:h-auto h-full"
+      "glass-card transition-all duration-300 z-30 shadow-2xl flex flex-col shrink-0 rounded-2xl md:rounded-3xl m-2 md:m-4 md:mr-0 h-[calc(100vh-1rem)] md:h-[calc(100vh-2rem)] sticky top-2 md:top-4 overflow-hidden",
+      collapsed ? "w-16 md:w-20" : "w-64 md:w-72"
     )}>
       {/* Brand */}
-      <div className="p-6 flex items-center space-x-3">
-        <img src={logoImg} alt="AppRankly" className="w-10 h-10 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
+      <div className={clsx(
+        "p-4 md:p-5 flex items-center space-x-3 border-b border-white/5",
+        collapsed && "justify-center px-0"
+      )}>
+        <img src={logoImg} alt="AppRankly" className="w-9 h-9 rounded-xl shadow-lg shadow-accent-blue/20 flex-shrink-0" />
         {!collapsed && (
-          <span className="font-extrabold text-xl tracking-tight text-white">AppRankly</span>
+          <span className="font-extrabold text-lg md:text-xl tracking-tight text-white whitespace-nowrap overflow-hidden text-ellipsis">AppRankly</span>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 px-2.5 md:px-3 py-4 space-y-1.5 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
           const platSegment = platform === 'google' ? 'android' : platform === 'apple' ? 'apple' : 'all';
           const projSegment = selectedProjectIndex || 'all';
@@ -75,7 +74,6 @@ export default function Sidebar({
               key={item.id}
               to={targetPath}
               onClick={() => {
-                if (window.innerWidth < 768) setCollapsed(true);
                 if (item.id === 'overview') {
                   if (setSelectedProjectIndex) setSelectedProjectIndex('all');
                 } else if (item.id === 'details') {
@@ -96,8 +94,8 @@ export default function Sidebar({
                   isReallyActive = firstSegment === item.id;
                 }
                 return clsx(
-                  "nav-link flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold",
-                  isReallyActive ? "bg-white/10 text-white shadow-lg border border-white/10" : "text-slate-400 hover:text-white hover:bg-white/5",
+                  "nav-link flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all cursor-pointer text-xs font-semibold whitespace-nowrap overflow-hidden",
+                  isReallyActive ? "bg-accent-blue/20 text-white shadow-lg border border-accent-blue/30" : "text-slate-400 hover:text-white hover:bg-white/5",
                   collapsed && "justify-center px-0"
                 );
               }}
@@ -111,13 +109,13 @@ export default function Sidebar({
       </nav>
 
       {/* My Apps & Support */}
-      <div className="p-3 border-t border-white/5 mt-auto space-y-2">
+      <div className="p-2.5 md:p-3 border-t border-white/5 mt-auto space-y-2">
         <a
           href="https://apps.shahadat.us/"
           target="_blank"
           rel="noopener noreferrer"
           className={clsx(
-            "flex items-center space-x-2.5 px-3 py-2 rounded-xl bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 border border-indigo-500/20 transition-all font-semibold text-xs",
+            "flex items-center space-x-2.5 px-3 py-2 rounded-xl bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 hover:text-indigo-200 border border-indigo-500/20 transition-all font-semibold text-xs whitespace-nowrap overflow-hidden",
             collapsed && "justify-center px-0"
           )}
           title={collapsed ? "My Apps" : ""}
@@ -131,7 +129,7 @@ export default function Sidebar({
           target="_blank"
           rel="noopener noreferrer"
           className={clsx(
-            "flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 border border-amber-500/20 transition-all font-semibold text-xs",
+            "flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 border border-amber-500/20 transition-all font-semibold text-xs whitespace-nowrap overflow-hidden",
             collapsed && "justify-center px-0"
           )}
           title={collapsed ? "Buy Me a Coffee" : ""}
@@ -140,14 +138,7 @@ export default function Sidebar({
           {!collapsed && <span>Buy Me a Coffee</span>}
         </a>
       </div>
-
-      {/* Collapse Toggle */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-slate-800 border border-white/10 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-      >
-        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-      </button>
     </aside>
   );
 }
+

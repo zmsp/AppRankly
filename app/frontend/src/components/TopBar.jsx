@@ -17,6 +17,7 @@ import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from
 
 export default function TopBar({
   onMenuClick,
+  isSidebarOpen,
   platform,
   setPlatform,
   setPlatformAndProject,
@@ -66,13 +67,19 @@ export default function TopBar({
       {/* Single unified row — wraps naturally, no separate scroll strip */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
 
-        {/* ── Left: hamburger + breadcrumb ── */}
+        {/* ── Left: hamburger ── */}
         <button
           onClick={onMenuClick}
-          className="p-1.5 hover:bg-white/5 rounded-lg transition-colors md:hidden text-white/80 shrink-0"
+          className={clsx(
+            "w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] flex items-center justify-center transition-all border shrink-0 active:scale-95",
+            isSidebarOpen
+              ? "border-accent-blue bg-accent-blue/20 text-accent-blue ring-2 ring-accent-blue/30"
+              : "border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/80"
+          )}
           aria-label="Toggle navigation menu"
+          title={isSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
         >
-          <Menu size={22} />
+          <Menu size={20} />
         </button>
         {/* ── AppRankly Overview ── */}
         <button
