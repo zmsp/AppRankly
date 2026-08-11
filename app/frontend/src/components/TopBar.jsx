@@ -4,7 +4,10 @@ import logoImg from '../assets/logo.png';
 import {
   Menu,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Search,
+  Star,
+  HelpCircle
 } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
 import { clsx } from 'clsx';
@@ -36,7 +39,10 @@ export default function TopBar({
   granularity,
   setGranularity,
   refreshData,
-  forceRefreshRange
+  forceRefreshRange,
+  starredApps = [],
+  onOpenCommandPalette,
+  onOpenShortcuts
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -46,6 +52,8 @@ export default function TopBar({
     const saved = localStorage.getItem('apprankly_apps_expanded');
     return saved !== null ? saved === 'true' : true;
   });
+
+  const [starredOnly, setStarredOnly] = useState(false);
 
   const toggleAppsExpanded = () => {
     setIsAppsExpanded(prev => {
@@ -60,11 +68,15 @@ export default function TopBar({
     localStorage.removeItem('apprankly_token');
   };
 
-  const filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
+  let filteredProjects = platform === 'all' ? projects : projects.filter(p => p.platform === platform);
+
+  if (starredOnly) {
+    filteredProjects = filteredProjects.filter(p => starredApps.includes(p.packageName || p.index));
+  }
 
   return (
     <header className="border-b border-white/5 bg-background/80 backdrop-blur-md sticky top-0 z-20 px-2 sm:px-6 md:px-8 py-3">
-      {/* Single unified row — wraps naturally, no separate scroll strip */}
+      {/* Single unified row — wraps naturally */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
 
         {/* ── Left: hamburger ── */}
@@ -93,6 +105,17 @@ export default function TopBar({
           title="AppRankly Overview"
         >
           <img src={logoImg} alt="AppRankly" className="w-5 h-5 sm:w-6 sm:h-6 rounded-md object-contain" />
+        </button>
+
+        {/* ── Command Palette Quick Launcher ── */}
+        <button
+          onClick={onOpenCommandPalette}
+          className="hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-[10px] bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 text-slate-400 hover:text-white text-xs transition-all shrink-0"
+          title="Search apps, pages, date ranges (Cmd+K)"
+        >
+          <Search size={14} className="text-accent-blue" />
+          <span>Search or jump to...</span>
+          <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-white/10 text-[10px] text-slate-300 font-mono">⌘K</kbd>
         </button>
 
         {/* ── Notification ── */}
@@ -142,6 +165,22 @@ export default function TopBar({
         {/* ── App / Project Selector (Shown when expanded) ── */}
         {projects.length > 0 && isAppsExpanded && (
           <div className="flex items-center gap-1.5 flex-wrap animate-in fade-in slide-in-from-left-1 duration-150">
+            {/* Starred Only Toggle */}
+            {starredApps.length > 0 && (
+              <button
+                onClick={() => setStarredOnly(!starredOnly)}
+                className={clsx(
+                  "w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] flex items-center justify-center transition-all border shrink-0",
+                  starredOnly
+                    ? "border-amber-400/50 bg-amber-400/20 text-amber-400 ring-2 ring-amber-400/30"
+                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"
+                )}
+                title={starredOnly ? "Show All Apps" : "Filter Starred Apps"}
+              >
+                <Star size={15} fill={starredOnly ? "currentColor" : "none"} />
+              </button>
+            )}
+
             {/* Apple */}
             <button
               onClick={() => setPlatformAndProject ? setPlatformAndProject('apple', 'all') : (setSelectedProjectIndex('all'), setPlatform?.('apple'))}
@@ -197,8 +236,16 @@ export default function TopBar({
           </div>
         )}
 
-        {/* ── Right: Logout ── */}
+        {/* ── Right Controls ── */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onOpenShortcuts}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] flex items-center justify-center transition-all overflow-hidden border border-white/10 bg-white/5 text-white/60 hover:text-white hover:bg-white/10 shrink-0"
+            title="Keyboard Shortcuts (?)"
+          >
+            <HelpCircle size={18} />
+          </button>
+
           {authToken && (
             <button
               onClick={handleLogout}
@@ -214,3 +261,4 @@ export default function TopBar({
     </header>
   );
 }
+

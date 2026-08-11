@@ -1,6 +1,8 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import InfoTooltip from './InfoTooltip';
+import { Copy, Download } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function MetricCard({ label, value, sublabel, trend, icon: Icon, color, progress, tooltipSubheader, tooltipText, contextRange }) {
   const colorMap = {
@@ -13,23 +15,64 @@ export default function MetricCard({ label, value, sublabel, trend, icon: Icon, 
   const isPositive = trend && (trend.startsWith('+') || trend.startsWith('▲'));
   const isNegative = trend && (trend.startsWith('-') || trend.startsWith('−') || trend.startsWith('▼'));
 
+  const handleCopy = (e) => {
+    e.stopPropagation();
+    const summaryStr = `${label}: ${value}${trend ? ` (${trend})` : ''}${sublabel ? ` - ${sublabel}` : ''}`;
+    navigator.clipboard.writeText(summaryStr);
+    toast.success(`Copied: "${summaryStr}"`);
+  };
+
+  const handleExportCsv = (e) => {
+    e.stopPropagation();
+    const csvContent = "data:text/csv;charset=utf-8," + ["Metric,Value,Trend,Sublabel", `"${label}","${value}","${trend || ''}","${sublabel || ''}"`].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${label.toLowerCase().replace(/\s+/g, '_')}_metric.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${label} CSV`);
+  };
+
   return (
     <div className="glass-card p-4 sm:p-6 group relative overflow-hidden transition-all duration-200 hover:border-white/20">
+      {/* Top action row */}
       <div className="flex items-center justify-between mb-4">
         <div className={clsx("p-2.5 sm:p-3 rounded-xl border transition-transform group-hover:scale-105 duration-300", colorMap[color] || colorMap.blue)}>
           <Icon size={22} className="sm:w-6 sm:h-6" />
         </div>
-        {trend && (
-          <div className={clsx(
-            "text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1",
-            isPositive ? "text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20" :
-            isNegative ? "text-accent-rose bg-accent-rose/10 border-accent-rose/20" :
-            "text-slate-300 bg-white/5 border-white/10"
-          )}>
-            <span>{isPositive ? '▲' : isNegative ? '▼' : ''}</span>
-            <span>{trend}</span>
+        <div className="flex items-center space-x-1.5">
+          {/* Quick action buttons visible on card hover */}
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 bg-slate-900/80 p-1 rounded-lg border border-white/10">
+            <button
+              onClick={handleCopy}
+              className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+              title="Copy Summary to Clipboard"
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="p-1 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+              title="Export CSV"
+            >
+              <Download size={13} />
+            </button>
           </div>
-        )}
+
+          {trend && (
+            <div className={clsx(
+              "text-xs font-bold px-2.5 py-1 rounded-lg border flex items-center gap-1",
+              isPositive ? "text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20" :
+              isNegative ? "text-accent-rose bg-accent-rose/10 border-accent-rose/20" :
+              "text-slate-300 bg-white/5 border-white/10"
+            )}>
+              <span>{isPositive ? '▲' : isNegative ? '▼' : ''}</span>
+              <span>{trend}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-1">
@@ -61,3 +104,4 @@ export default function MetricCard({ label, value, sublabel, trend, icon: Icon, 
     </div>
   );
 }
+

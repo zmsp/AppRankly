@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
@@ -13,18 +13,96 @@ import Config from './pages/Config';
 import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
 import DemoPopup from './components/DemoPopup';
-import AppSwitcherModal from './components/AppSwitcherModal';
+import CommandPaletteModal from './components/CommandPaletteModal';
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import { useAppState } from './hooks/useAppState';
-import { findProject } from './lib/projectUtils';
+import { findProject, getProjectUrlSegment } from './lib/projectUtils';
 
 function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  const navigate = useNavigate();
   const state = useAppState();
 
   const activeProject = findProject(state.projects, state.selectedProjectIndex, state.platform);
   const lastDataDate = state.stats?.lastDate || (state.stats?.dailyTrends?.length > 0 ? state.stats.dailyTrends[state.stats.dailyTrends.length - 1].date : null);
   
   const isWorking = state.loading || state.dimensionLoading;
+
+  // Global hotkeys listener
+  useEffect(() => {
+    let lastKeyG = false;
+    let timerG = null;
+
+    const handleKeyDown = (e) => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || document.activeElement?.isContentEditable;
+
+      // Cmd+K / Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+        return;
+      }
+
+      if (isInput) return;
+
+      // ? for shortcuts cheat sheet
+      if (e.key === '?') {
+        e.preventDefault();
+        setIsShortcutsOpen(prev => !prev);
+        return;
+      }
+
+      // R for Refresh
+      if (e.key.toLowerCase() === 'r' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        state.refreshData?.();
+        return;
+      }
+
+      // [ / ] for previous/next app
+      if ((e.key === '[' || e.key === ']') && state.projects?.length > 0) {
+        e.preventDefault();
+        const currentIdx = state.projects.findIndex(p => p.packageName === activeProject?.packageName || p.index === activeProject?.index);
+        let nextIdx = 0;
+        if (e.key === ']') {
+          nextIdx = currentIdx < state.projects.length - 1 ? currentIdx + 1 : 0;
+        } else {
+          nextIdx = currentIdx > 0 ? currentIdx - 1 : state.projects.length - 1;
+        }
+        const targetProj = state.projects[nextIdx];
+        if (targetProj) {
+          state.setPlatformAndProject?.(targetProj.platform, getProjectUrlSegment(targetProj));
+        }
+        return;
+      }
+
+      // G key chords (G then D/S/A/R/C)
+      if (e.key.toLowerCase() === 'g' && !lastKeyG) {
+        lastKeyG = true;
+        clearTimeout(timerG);
+        timerG = setTimeout(() => { lastKeyG = false; }, 1000);
+        return;
+      }
+
+      if (lastKeyG) {
+        lastKeyG = false;
+        clearTimeout(timerG);
+        const key = e.key.toLowerCase();
+        if (key === 'd') navigate('/');
+        else if (key === 's') navigate('/store');
+        else if (key === 'a') navigate('/retention');
+        else if (key === 'r') navigate('/releases');
+        else if (key === 'c') navigate('/config');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state, activeProject, navigate]);
 
   return (
     <div className="flex min-h-screen bg-background text-white relative">
@@ -45,6 +123,8 @@ function App() {
         <TopBar
           onMenuClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           isSidebarOpen={!sidebarCollapsed}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onOpenShortcuts={() => setIsShortcutsOpen(true)}
           {...state}
         />
 
@@ -84,7 +164,9 @@ function App() {
           <AuthOverlay {...state} />
         )}
 
-        <AppSwitcherModal
+        <CommandPaletteModal
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
           projects={state.projects}
           selectedProjectIndex={state.selectedProjectIndex}
           onSelectProject={state.setSelectedProjectIndex}
@@ -93,6 +175,16 @@ function App() {
           platform={state.platform}
           starredApps={state.starredApps}
           toggleStarApp={state.toggleStarApp}
+          dateRange={state.dateRange}
+          setDateRange={state.setDateRange}
+          refreshData={state.refreshData}
+          switchToDemoMode={state.switchToDemoMode}
+          openShortcutsHelp={() => setIsShortcutsOpen(true)}
+        />
+
+        <KeyboardShortcutsModal
+          isOpen={isShortcutsOpen}
+          onClose={() => setIsShortcutsOpen(false)}
         />
 
         <DemoPopup isDemoMode={state.isDemoMode} />
@@ -128,3 +220,4 @@ function App() {
 }
 
 export default App;
+

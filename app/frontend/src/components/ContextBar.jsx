@@ -100,15 +100,17 @@ export default function ContextBar({
 
       {/* Freshness Badge */}
       <div className="flex items-center space-x-2 text-[11px] text-slate-400 font-medium ml-auto">
-        <Clock size={13} className={isStale ? "text-amber-400" : "text-accent-blue"} />
         <span className={clsx(
-          "px-2.5 py-1 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 transition-colors",
+          "px-2.5 py-1 rounded-lg border text-[11px] font-mono flex items-center gap-1.5 transition-colors shadow-sm",
           isStale
             ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
-            : "bg-white/5 text-slate-300 border-white/10"
-        )}>
-          {isStale && <AlertCircle size={12} className="text-amber-400" />}
-          {freshness}
+            : "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+        )}
+        title={isStale ? "Data is older than 3 days. Click sync icon above to update." : "Data is up to date"}
+        >
+          <span className={clsx("w-2 h-2 rounded-full animate-pulse", isStale ? "bg-amber-400" : "bg-emerald-400")} />
+          {isStale && <AlertCircle size={12} className="text-amber-400 shrink-0" />}
+          <span>{freshness}</span>
         </span>
       </div>
     </div>
