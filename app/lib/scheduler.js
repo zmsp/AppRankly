@@ -266,21 +266,30 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
     }
 
     // Send single consolidated notification after checking all apps per period
-    if (updatedApps.length > 0) {
-      console.log(`[Scheduler] Discovered new stats for ${updatedApps.length} app(s). Broadcasting consolidated notification...`);
-      const appleApps = updatedApps.filter(a => a.platform === 'APPLE');
-      const androidApps = updatedApps.filter(a => a.platform === 'GOOGLE' || a.platform === 'ANDROID');
+    // Filter out apps with no install/uninstall changes and no alerts
+    const appsWithChanges = updatedApps.filter(a => a.installs !== 0 || a.uninstalls !== 0 || (a.smartAlerts && a.smartAlerts.length > 0));
+
+    if (appsWithChanges.length > 0) {
+      console.log(`[Scheduler] Discovered new stats changes for ${appsWithChanges.length} app(s). Broadcasting consolidated notification...`);
+      const appleApps = appsWithChanges.filter(a => a.platform === 'APPLE');
+      const androidApps = appsWithChanges.filter(a => a.platform === 'GOOGLE' || a.platform === 'ANDROID');
+
+      let combinedInstalls = 0;
+      let combinedUninstalls = 0;
+      appsWithChanges.forEach(a => {
+        combinedInstalls += a.installs;
+        combinedUninstalls += a.uninstalls;
+      });
 
       const formatApp = (app) => {
-        let line = `* ${app.displayName}`;
-        line += `\n  - Installs: +${app.installs}`;
-        if (app.uninstalls > 0 || app.platform === 'GOOGLE' || app.platform === 'ANDROID') {
-          line += `\n  - Uninstalls: -${app.uninstalls}`;
-        }
-        line += `\n  - Total: ${app.totalInstalls}`;
-        line += `\n  - Health: ${app.healthScore}/100`;
+        const statParts = [];
+        if (app.installs !== 0) statParts.push(`+${app.installs} installs`);
+        if (app.uninstalls !== 0) statParts.push(`-${app.uninstalls} uninstalls`);
+        if (statParts.length === 0) statParts.push('No net change');
+
+        let line = `* ${app.displayName}: ${statParts.join(', ')}`;
         if (app.smartAlerts && app.smartAlerts.length > 0) {
-          line += `\n  - Alert: ${app.smartAlerts.join('\n  - Alert: ')}`;
+          line += ` (Alert: ${app.smartAlerts.join('; ')})`;
         }
         return line;
       };
@@ -293,11 +302,11 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
         parts.push(`[Android]\n${androidApps.map(formatApp).join('\n')}`);
       }
 
-      const title = updatedApps.length === 1
-        ? `App Health & Stats: ${updatedApps[0].displayName}`
-        : `App Health & Stats (${updatedApps.length} Apps)`;
+      const title = appsWithChanges.length === 1
+        ? `App Health & Stats: ${appsWithChanges[0].displayName}`
+        : `App Health & Stats (${appsWithChanges.length} Apps)`;
 
-      const message = `${parts.join('\n\n')}\n\nCombined Total: +${totalCombinedInstalls} installs, -${totalCombinedUninstalls} uninstalls across ${updatedApps.length} app(s)`;
+      const message = `${parts.join('\n\n')}\n\nCombined Total: +${combinedInstalls} installs, -${combinedUninstalls} uninstalls across ${appsWithChanges.length} app(s)`;
 
       const res = await broadcastAlert({
         title,
@@ -311,10 +320,12 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
       if (res.ntfyResult?.success || res.webhookResult?.success) {
         notificationsSent = 1;
-        for (const app of updatedApps) {
+        for (const app of appsWithChanges) {
           details.push({ app: app.displayName, platform: app.platform, date: app.date, status: 'Notified' });
         }
       }
+    } else if (updatedApps.length > 0) {
+      console.log(`[Scheduler] ${updatedApps.length} app(s) updated baseline, but 0 apps had non-zero install/uninstall changes. Skipping notification.`);
     }
 
     saveLastKnownStats(DATA_DIR, lastKnownStats);

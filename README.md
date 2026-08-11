@@ -6,21 +6,12 @@
 
 > **Self-hosted iOS & Android analytics toolkit.** A private, unified alternative to App Store Connect and Google Play Console — keep 100% of your data and credentials on your own server.
 
-[![GitHub Stars](https://img.shields.io/github/stars/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/network/members)
-[![Open Issues](https://img.shields.io/github/issues/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/issues)
-[![Last Commit](https://img.shields.io/github/last-commit/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/commits/main)
+[![Live Demo](https://img.shields.io/badge/demo-live%20interactive-success?style=flat-square)](https://zmsp.github.io/AppRankly/#demo)
+[![Docker Pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fzmsp%2FAppRankly%2Fapprankly&query=%24.downloadCount&label=docker%20pulls&style=flat-square&color=blue&logo=docker&logoColor=white)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
+[![Unraid Template](https://img.shields.io/badge/unraid-community%20apps-orange?style=flat-square)](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy)
 [![Latest Version](https://img.shields.io/github/v/release/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/releases)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](https://github.com/zmsp/AppRankly/blob/main/LICENSE)
-
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20-brightgreen?style=flat-square)](https://nodejs.org)
-[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?style=flat-square)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
-[![Unraid Template](https://img.shields.io/badge/unraid-community%20apps-orange?style=flat-square)](https://unraid.net)
-
-[![Live Demo](https://img.shields.io/badge/demo-live%20interactive-success?style=flat-square)](https://zmsp.github.io/AppRankly/#demo)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/zmsp/AppRankly/blob/main/CONTRIBUTING.md)
-[![My Apps](https://img.shields.io/badge/my%20apps-apps.shahadat.us-informational?style=flat-square)](https://apps.shahadat.us)
-[![Buy Me A Coffee](https://img.shields.io/badge/support-buy%20me%20a%20coffee-yellow?style=flat-square)](https://www.buymeacoffee.com)
+[![GitHub Stars](https://img.shields.io/github/stars/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/stargazers)
 
 ---
 
