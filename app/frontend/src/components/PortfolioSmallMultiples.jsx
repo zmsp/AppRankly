@@ -29,11 +29,18 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
     let googleInstalls = 0;
     let appleInstalls = 0;
 
-    const getTrendArray = (...keys) => {
+    const getTrendArray = (platFilter, ...keys) => {
       for (const k of keys) {
-        if (k && appTrends[k]) {
-          const entry = appTrends[k];
+        if (!k) continue;
+        if (platFilter && appTrends[`${platFilter}:${k}`]) {
+          const entry = appTrends[`${platFilter}:${k}`];
           return entry.trends || (Array.isArray(entry) ? entry : []);
+        }
+        if (appTrends[k]) {
+          const entry = appTrends[k];
+          if (!platFilter || entry.platform === platFilter || !entry.platform) {
+            return entry.trends || (Array.isArray(entry) ? entry : []);
+          }
         }
       }
       return [];
@@ -43,10 +50,10 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
     let aEntry = [];
 
     if (proj.isMerged && (proj.googleApp || proj.appleApp)) {
-      gEntry = getTrendArray(proj.googlePackageName, proj.googleApp?.packageName, proj.googleApp?.name);
-      aEntry = getTrendArray(proj.appleBundleId, proj.appleApp?.bundleId, proj.appleApp?.packageName, proj.appleApp?.name);
+      gEntry = getTrendArray('google', proj.googlePackageName, proj.googleApp?.packageName, proj.googleApp?.name);
+      aEntry = getTrendArray('apple', proj.appleBundleId, proj.appleApp?.bundleId, proj.appleApp?.packageName, proj.appleApp?.name);
     } else {
-      const trendData = getTrendArray(proj.packageName, proj.bundleId, proj.name);
+      const trendData = getTrendArray(proj.platform, proj.packageName, proj.bundleId, proj.name);
       if (proj.platform === 'apple') {
         aEntry = trendData;
       } else {
@@ -181,16 +188,16 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
           
           {/* 3-Line Legend */}
           <div className="flex items-center space-x-3 text-xs font-semibold text-slate-300 bg-slate-950/40 px-3 py-1 rounded-xl border border-white/10">
-            <span className="flex items-center gap-1.5" title="Combined Multi-Platform Installs">
+            <span className="flex items-center gap-1.5" title="Combined Multi-Platform Installs (Solid Blue)">
               <span className="w-3 h-1 bg-[#00d2ff] rounded-full inline-block shadow-sm shadow-[#00d2ff]/50" />
               Combined
             </span>
-            <span className="flex items-center gap-1.5" title="Google Play Store Installs">
-              <span className="w-3 h-1 bg-[#34d399] rounded-full inline-block shadow-sm shadow-[#34d399]/50" />
+            <span className="flex items-center gap-1.5" title="Google Play Store Installs (Dotted Green)">
+              <span className="w-3 h-1 border-b-2 border-dashed border-[#34d399] inline-block shadow-sm shadow-[#34d399]/50" />
               Android
             </span>
-            <span className="flex items-center gap-1.5" title="Apple App Store Installs">
-              <span className="w-3 h-1 bg-[#38bdf8] rounded-full inline-block shadow-sm shadow-[#38bdf8]/50" />
+            <span className="flex items-center gap-1.5" title="Apple App Store Installs (Dotted White)">
+              <span className="w-3 h-1 border-b-2 border-dashed border-white inline-block shadow-sm shadow-white/50" />
               Apple
             </span>
           </div>
@@ -228,13 +235,13 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
           const isPairedMerged = proj.isMerged && proj.googleApp && proj.appleApp;
 
           const sparklineLines = hasTrends ? [
-            { data: points, color: '#00d2ff', strokeWidth: 1.5, showFill: true, fillGradientId: 'combine-gradient' },
-            { data: applePoints, color: '#38bdf8', strokeWidth: 1 },
-            { data: googlePoints, color: '#34d399', strokeWidth: 1 }
+            { data: points, color: '#00d2ff', strokeWidth: 1.8, showFill: true, fillGradientId: 'combine-gradient' },
+            { data: applePoints, color: '#ffffff', strokeWidth: 1.2, isDashed: true },
+            { data: googlePoints, color: '#34d399', strokeWidth: 1.2, isDashed: true }
           ] : [
-            { data: points.length >= 2 ? points : [0, 0], color: 'rgba(255, 255, 255, 0.35)', strokeWidth: 1, isDashed: true },
-            { data: applePoints.length >= 2 ? applePoints : [0, 0], color: 'rgba(56, 189, 248, 0.3)', strokeWidth: 1, isDashed: true },
-            { data: googlePoints.length >= 2 ? googlePoints : [0, 0], color: 'rgba(52, 211, 153, 0.3)', strokeWidth: 1, isDashed: true }
+            { data: points.length >= 2 ? points : [0, 0], color: 'rgba(0, 210, 255, 0.35)', strokeWidth: 1.5, isDashed: false },
+            { data: applePoints.length >= 2 ? applePoints : [0, 0], color: 'rgba(255, 255, 255, 0.6)', strokeWidth: 1, isDashed: true },
+            { data: googlePoints.length >= 2 ? googlePoints : [0, 0], color: 'rgba(52, 211, 153, 0.6)', strokeWidth: 1, isDashed: true }
           ];
 
           return (

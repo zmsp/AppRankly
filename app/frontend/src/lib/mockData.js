@@ -169,10 +169,14 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
     };
   }).filter(Boolean);
 
-  // Key appTrends by packageName as well for exact lookup
+  // Key appTrends by packageName as well as platform-prefixed key for exact lookup
   appTrends["com.demo.alpha"] = appTrends["App Alpha"];
   appTrends["com.demo.beta"] = appTrends["App Beta"];
   appTrends["com.demo.gamma"] = appTrends["App Gamma"];
+
+  appTrends["google:com.demo.alpha"] = appTrends["App Alpha"];
+  appTrends["google:com.demo.beta"] = appTrends["App Beta"];
+  appTrends["apple:com.demo.gamma"] = appTrends["App Gamma"];
 
   // Compute platformTotals for Google and Apple
   const googleTotal = appTrends["App Alpha"].reduce((sum, d) => sum + d.dailyUserInstalls, 0) +

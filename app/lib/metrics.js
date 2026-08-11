@@ -174,18 +174,30 @@ function aggregateOverviews(overviewsWithNames) {
     const isGenerateDataFormat = !!item.overview;
     const curr = isGenerateDataFormat ? item.overview : item;
     
-    // Store app trends keyed by actual packageName (unique ID) to avoid display-name collisions
+    const plat = curr.platform || item.platform || 'unknown';
+
+    // Store app trends keyed by actual packageName (unique ID) and platform-prefixed key to avoid cross-platform key collisions
     const key = item.packageName || item.name;
     if (key) {
-      appTrendsMap[key] = {
+      const trendEntry = {
         trends: curr.dailyTrends || [],
         displayName: item.displayName || item.name || item.packageName,
-        platform: curr.platform
+        platform: plat,
+        packageName: key
       };
+
+      // Always save platform-prefixed key to avoid cross-platform key collisions when packageNames match
+      appTrendsMap[`${plat}:${key}`] = trendEntry;
+
+      // Only save bare key if no collision exists yet; if collision occurs between platforms, remove bare key so callers use platform-prefixed keys
+      if (!appTrendsMap[key]) {
+        appTrendsMap[key] = trendEntry;
+      } else if (appTrendsMap[key].platform !== plat) {
+        delete appTrendsMap[key];
+      }
     }
 
     // Track per-platform install totals reliably
-    const plat = curr.platform || 'unknown';
     if (!platformTotals[plat]) {
       platformTotals[plat] = { totalInstalls: 0, totalDailyUserInstalls: 0, totalDailyUserUninstalls: 0, currentlyActiveDevices: 0, appCount: 0 };
     }

@@ -533,16 +533,24 @@ class PackageUtils {
       vitalsTrends = vitalsTrends.concat(vitals);
     }
 
-    // Sort and deduplicate trends by date
-    allTrends.sort((a, b) => a.date.localeCompare(b.date));
-    const uniqueTrends = [];
-    const seenDates = new Set();
+    // Sort and aggregate trends by date
+    const trendsMap = new Map();
     allTrends.forEach(t => {
-      if (!seenDates.has(t.date)) {
-        uniqueTrends.push(t);
-        seenDates.add(t.date);
+      const existing = trendsMap.get(t.date);
+      if (existing) {
+        existing.activeDevices = Math.max(existing.activeDevices, t.activeDevices || 0);
+        existing.dailyInstalls += (t.dailyInstalls || 0);
+        existing.dailyUninstalls += (t.dailyUninstalls || 0);
+        existing.upgrades += (t.upgrades || 0);
+        existing.dailyDeviceInstalls += (t.dailyDeviceInstalls || 0);
+        existing.dailyUserInstalls += (t.dailyUserInstalls || 0);
+        existing.dailyUserUninstalls += (t.dailyUserUninstalls || 0);
+        existing.netGrowth = existing.dailyInstalls - existing.dailyUninstalls;
+      } else {
+        trendsMap.set(t.date, { ...t });
       }
     });
+    const uniqueTrends = Array.from(trendsMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     // Merge ratings into uniqueTrends
     if (ratingTrends.length > 0) {
@@ -839,7 +847,7 @@ class PackageUtils {
         })
         .on("end", () => {
           console.log(`Parsed ${trends.length} trend entries from ${fileName}`);
-          resolve(trends.slice(-30)); // Grabs last 30 entries as per production blueprint
+          resolve(trends);
         });
     });
   }

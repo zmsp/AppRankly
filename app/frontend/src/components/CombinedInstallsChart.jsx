@@ -166,7 +166,15 @@ export default function CombinedInstallsChart({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   });
 
-  const appNames = Object.keys(appTrends);
+  const appKeys = Object.keys(appTrends).filter(key => {
+    // If key starts with platform prefix, keep it
+    if (key.startsWith('google:') || key.startsWith('apple:')) return true;
+    // Keep bare key only if there is no platform-prefixed key for it
+    const entry = appTrends[key];
+    const plat = entry?.platform;
+    if (plat && appTrends[`${plat}:${key}`]) return false;
+    return true;
+  });
 
   const datasets = [
     {
@@ -184,15 +192,21 @@ export default function CombinedInstallsChart({
       fill: false,
       tension: 0.3
     },
-    ...appNames.map((appName, index) => {
-      const color = COLOR_PALETTE[index % COLOR_PALETTE.length];
-      const trendEntry = appTrends[appName] || [];
+    ...appKeys.map((appKey, index) => {
+      const trendEntry = appTrends[appKey] || [];
       const trends = trendEntry?.trends || (Array.isArray(trendEntry) ? trendEntry : []);
       const trendMap = new Map(trends.map(t => [t.date, t.dailyUserInstalls || t.dailyInstalls || 0]));
 
-      const rawName = trendEntry?.displayName || appName;
+      const isApple = trendEntry?.platform === 'apple' || appKey.startsWith('apple:');
+      const isGoogle = trendEntry?.platform === 'google' || appKey.startsWith('google:');
+
+      const color = isApple ? '#ffffff' : isGoogle ? '#34d399' : COLOR_PALETTE[index % COLOR_PALETTE.length];
+
+      const baseName = trendEntry?.displayName || appKey.replace(/^(google|apple):/, '');
+      const platTag = isApple ? ' (iOS)' : isGoogle ? ' (Android)' : '';
+      const rawName = (baseName.includes('(') || !platTag) ? baseName : `${baseName}${platTag}`;
       // Truncate long display names for concise legend presentation
-      const displayName = rawName.length > 22 ? `${rawName.slice(0, 20)}…` : rawName;
+      const displayName = rawName.length > 24 ? `${rawName.slice(0, 22)}…` : rawName;
 
       return {
         label: displayName,
@@ -202,8 +216,8 @@ export default function CombinedInstallsChart({
           return isLogarithmic ? Math.max(val, 1) : val;
         }),
         borderColor: color,
-        borderWidth: 2,
-        borderDash: [3, 3],
+        borderWidth: isApple || isGoogle ? 1.8 : 2,
+        borderDash: [4, 4],
         pointRadius: 0,
         pointHoverRadius: 5,
         fill: false,
