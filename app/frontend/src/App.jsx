@@ -15,6 +15,7 @@ import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
 import DemoPopup from './components/DemoPopup';
 import QuickNotesModal from './components/QuickNotesModal';
+import AskRankly from './components/AskRankly';
 import CommandPaletteModal from './components/CommandPaletteModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import { useAppState } from './hooks/useAppState';
@@ -199,6 +200,17 @@ function App() {
           isOpen={state.quickNotesOpen}
           onClose={() => state.setQuickNotesOpen(false)}
           {...state}
+        />
+
+        <AskRankly
+          sendNoteAiChat={state.sendNoteAiChat}
+          projects={state.projects}
+          stats={state.stats}
+          platform={state.platform}
+          selectedProjectIndex={state.selectedProjectIndex}
+          dateRange={state.dateRange}
+          activeDimension={state.activeDimension}
+          dimensionStats={state.dimensionStats}
         />
 
         <DemoPopup isDemoMode={state.isDemoMode} />

@@ -23,7 +23,6 @@ import {
 import toast from 'react-hot-toast';
 import MarkdownEditor from '../components/MarkdownEditor';
 import NoteHistoryModal from '../components/NoteHistoryModal';
-import NoteAiChat from '../components/NoteAiChat';
 import AppIcon from '../components/AppIcon';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -582,15 +581,6 @@ export default function Notes({
         onRestored={(restoredContent, restoredTitle) => {
           if (restoredContent) setContent(restoredContent);
           if (restoredTitle) setTitle(restoredTitle);
-        }}
-      />
-
-      <NoteAiChat
-        noteTitle={title}
-        noteContent={content}
-        sendNoteAiChat={sendNoteAiChat}
-        onAppendContent={(insertedText) => {
-          setContent(prev => (prev ? `${prev}\n\n${insertedText}` : insertedText));
         }}
       />
     </div>

@@ -74,6 +74,11 @@ Authoritative mathematical formulas, interpretation guides, platform origins, an
 
 ![Metrics Glossary & Formulas](images/screenshot/glossary.png)
 
+### App Notes & AI Insights
+Persistent per-app notes with AI-generated summaries of reviews and sentiment trends.
+
+![App Notes](images/screenshot/notes.png)
+
 </details>
 
 ---

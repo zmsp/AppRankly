@@ -18,7 +18,6 @@ WORKDIR /build
 COPY app/package*.json ./
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev
 COPY app/ ./
 # Remove frontend source code to keep runtime bundle light
 RUN rm -rf frontend

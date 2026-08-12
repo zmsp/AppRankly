@@ -38,11 +38,11 @@
     "providers": {
       "openai": {
         "apiKey": "YOUR_OPENAI_API_KEY (Get from https://platform.openai.com/api-keys)",
-        "model": "gpt-4.1-nano"
+        "model": "gpt-4o-mini"
       },
       "anthropic": {
         "apiKey": "YOUR_ANTHROPIC_API_KEY (Get from https://console.anthropic.com/settings/keys)",
-        "model": "claude-opus-4-8"
+        "model": "claude-3-5-haiku-latest"
       },
       "gemini": {
         "apiKey": "YOUR_GEMINI_API_KEY (Get from https://aistudio.google.com/app/apikey)",

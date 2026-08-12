@@ -624,7 +624,7 @@ app.put("/api/config", authenticate, (req, res) => {
 
 // Endpoint for Note AI Chat assistant
 app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
-  const { noteTitle, noteContent, messages = [], provider, model } = req.body;
+  const { noteTitle, noteContent, messages = [], provider, model, confirmDownload = false } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Messages array is required" });
   }
@@ -636,6 +636,7 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
     const aiResponse = await aiModule.generateJSON({
       provider: provider || undefined,
       customModel: model || undefined,
+      confirmDownload: Boolean(confirmDownload),
       system: "You are a helpful, concise AI writing and brainstorming assistant for App Store stats and note management. Help the user edit, summarize, extract tasks, or brainstorm ideas based on their current note. Keep your response brief, clear, and direct.",
       prompt: `Current Note Title: "${noteTitle || 'Untitled Note'}"\nCurrent Note Content:\n\`\`\`markdown\n${(noteContent || '').slice(0, 4000)}\n\`\`\`\n\nUser Question/Instruction: "${lastUserMsg}"\n\nProvide a clear, helpful response to the user's question or instruction.`,
       schema: {
@@ -649,6 +650,14 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
 
     res.json({ reply: aiResponse.data?.reply || "I'm sorry, I couldn't generate a response." });
   } catch (err) {
+    if (err.code === 'LOCAL_MODEL_NOT_DOWNLOADED' || err.message === 'LOCAL_MODEL_NOT_DOWNLOADED') {
+      return res.json({
+        requireConfirmation: true,
+        modelName: err.modelName || 'onnx-community/SmolLM2-135M-Instruct',
+        reply: `The local ONNX AI model (SmolLM2-135M ~130MB) is not yet downloaded to your server's data folder. Would you like to download it now?`
+      });
+    }
+
     console.warn("[Note AI Chat] Fallback due to error:", err.message);
     res.json({
       reply: `Note Assistant: I received your request ("${lastUserMsg.slice(0, 50)}..."), but could not contact the AI service (${err.message}). Please make sure your AI Provider API key is configured.`

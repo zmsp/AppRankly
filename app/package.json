@@ -24,6 +24,7 @@
     "@fast-csv/parse": "^4.3.6",
     "@google-cloud/storage": "^5.20.5",
     "@google/genai": "^2.16.0",
+    "@huggingface/transformers": "^4.2.0",
     "axios": "^1.19.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

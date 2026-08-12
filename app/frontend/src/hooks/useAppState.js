@@ -586,14 +586,30 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
     }
   }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
 
-  const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model) => {
-    if (isDemoMode) {
-      return { reply: "Demo Mode: AI Chat responses are simulated. (Config -> AI Provider API Key needed for live AI responses)." };
+  const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model, confirmDownload = false) => {
+    if (isStaticMode || isDemoMode) {
+      if (provider === 'local') {
+        try {
+          const { pipeline } = await import('@huggingface/transformers');
+          const lastUserMsg = messages[messages.length - 1]?.content || "";
+          const generator = await pipeline('text-generation', 'HuggingFaceTB/SmolLM2-135M-Instruct');
+          const output = await generator(lastUserMsg, { max_new_tokens: 120, temperature: 0.7, repetition_penalty: 1.2 });
+          let replyText = output[0]?.generated_text || "";
+          if (replyText.startsWith(lastUserMsg)) {
+            replyText = replyText.slice(lastUserMsg.length).trim();
+          }
+          return { reply: replyText || "SmolLM2 Demo: Direct concise answer generated." };
+        } catch (e) {
+          console.warn("Client-side local AI error:", e);
+          return { reply: `[Static/Demo Mode] Local AI Browser Inference initialized (${e.message || 'Falling back'}). Configure an API key in backend for remote models.` };
+        }
+      }
+      return { reply: "Demo Mode: AI Chat responses are simulated for remote API providers. Switch to 'Local Model (SmolLM2-135M)' in the dropdown to test browser-side local AI!" };
     }
     try {
       const res = await apiFetch('/api/notes/ai-chat', {
         method: 'POST',
-        body: JSON.stringify({ noteTitle, noteContent, messages, provider, model })
+        body: JSON.stringify({ noteTitle, noteContent, messages, provider, model, confirmDownload })
       }, authToken, isStaticMode);
       if (res.ok) {
         return await res.json();

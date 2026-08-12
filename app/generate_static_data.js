@@ -135,6 +135,21 @@ async function generate() {
   const publicDir = path.join(__dirname, "public");
   copyRecursiveSync(publicDir, docsDir);
 
+  // Uncompress AI model static asset to docs/data/models for GitHub Pages static demo support
+  const modelArchivePath = path.join(__dirname, "static_assets", "smollm2_q4.tar.gz");
+  if (fs.existsSync(modelArchivePath)) {
+    const docsModelsDir = path.join(docsDataDir, "models", "HuggingFaceTB", "SmolLM2-135M-Instruct");
+    console.log(`Uncompressing AI model archive to ${docsModelsDir} for GitHub Pages static site...`);
+    fs.mkdirSync(docsModelsDir, { recursive: true });
+    const { execSync } = require('child_process');
+    try {
+      execSync(`tar -xzf "${modelArchivePath}" -C "${docsModelsDir}"`);
+      console.log("AI model uncompressed successfully for static site.");
+    } catch (e) {
+      console.warn("Failed to uncompress static AI model for docs:", e.message);
+    }
+  }
+
   // Write static config for frontend
   const staticConfig = {
     isStatic: true,
