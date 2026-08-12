@@ -42,6 +42,26 @@ export function useAppState() {
   const [isStaticMode, setIsStaticMode] = useState(false);
   const [noPass, setNoPass] = useState(false);
 
+  useEffect(() => {
+    const checkStaticConfig = async () => {
+      try {
+        const res = await fetch('static_config.json');
+        if (res.ok) {
+          const config = await res.json();
+          if (config.isStatic) {
+            setIsStaticMode(true);
+            if (config.isDemoMode) setIsDemoMode(true);
+            if (config.noPass) setNoPass(true);
+            console.log('[AppRankly] Running in Static Mode (GitHub Pages)');
+          }
+        }
+      } catch (e) {
+        // Not a static build, ignore
+      }
+    };
+    checkStaticConfig();
+  }, []);
+
   // Parse initial state from URL if present (handling sub-routes like /details/android/g-0)
   const pathParts = location.pathname.split('/').filter(Boolean);
   const knownSubRoutes = ['details', 'store', 'retention', 'releases', 'reports', 'config', 'glossary'];
@@ -589,22 +609,9 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
   const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model, confirmDownload = false) => {
     if (isStaticMode || isDemoMode) {
       if (provider === 'local') {
-        try {
-          const { pipeline } = await import('@huggingface/transformers');
-          const lastUserMsg = messages[messages.length - 1]?.content || "";
-          const generator = await pipeline('text-generation', 'HuggingFaceTB/SmolLM2-135M-Instruct');
-          const output = await generator(lastUserMsg, { max_new_tokens: 120, temperature: 0.7, repetition_penalty: 1.2 });
-          let replyText = output[0]?.generated_text || "";
-          if (replyText.startsWith(lastUserMsg)) {
-            replyText = replyText.slice(lastUserMsg.length).trim();
-          }
-          return { reply: replyText || "SmolLM2 Demo: Direct concise answer generated." };
-        } catch (e) {
-          console.warn("Client-side local AI error:", e);
-          return { reply: `[Static/Demo Mode] Local AI Browser Inference initialized (${e.message || 'Falling back'}). Configure an API key in backend for remote models.` };
-        }
+        return { reply: "The Local AI model is disabled in the GitHub Pages demo to keep the site lightweight. In a self-hosted Docker installation, this would run a 135M parameter LLM directly on your server or in your browser." };
       }
-      return { reply: "Demo Mode: AI Chat responses are simulated for remote API providers. Switch to 'Local Model (SmolLM2-135M)' in the dropdown to test browser-side local AI!" };
+      return { reply: "AI Chat is simulated in the static demo mode. In a full installation, you can use OpenAI, Anthropic, Gemini, or a Local SmolLM2 model to analyze your app's performance and generate ASO content." };
     }
     try {
       const res = await apiFetch('/api/notes/ai-chat', {

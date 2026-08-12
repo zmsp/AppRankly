@@ -15,13 +15,20 @@ RUN cd app/frontend && npm run build
 # --- Stage 2: Build Backend & Dependencies ---
 FROM node:22-alpine AS builder
 WORKDIR /build
+
+# Download AI model archive first.
+# This layer is now independent and will be cached by Docker/GitHub
+# even if you change your source code or npm dependencies.
+RUN mkdir -p static_assets && \
+    wget -O static_assets/smollm2_q4.tar.gz https://github.com/zmsp/AppRankly/releases/download/v1.2.0/smollm2_q4.tar.gz
+
 COPY app/package*.json ./
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev
+
+# Copy the rest of the application
 COPY app/ ./
-# Download AI model archive for local inference
-RUN npm run download-model
 # Remove frontend source code to keep runtime bundle light
 RUN rm -rf frontend
 
