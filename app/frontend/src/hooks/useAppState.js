@@ -7,6 +7,31 @@ import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/d
 import { buildCacheKey, getCached, setCached, cachedFetch, clearCache } from '../lib/statsCache';
 import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
+const MOCK_NOTES = [
+  {
+    id: 'note_demo_1',
+    title: 'ASO Screenshot & Title Optimization',
+    content: `# ASO Strategy & Keyword Testing\n\n> App Package: \`com.demo.alpha\` | Platform: \`ANDROID\`\n\n- [x] Test new subtitle keywords: "Fast & Privacy-Focused"\n- [x] Design high-contrast icon variant\n- [ ] Set up Google Play Store listing experiment\n- [ ] Reply to recent 3-star customer reviews\n`,
+    packageName: 'com.demo.alpha',
+    platform: 'google',
+    tags: ['aso', 'keywords', 'ab-test'],
+    pinned: true,
+    createdAt: '2026-08-10T10:00:00.000Z',
+    updatedAt: '2026-08-11T14:30:00.000Z'
+  },
+  {
+    id: 'note_demo_2',
+    title: 'v2.4 Release Changelog & QA Checklist',
+    content: `# Release v2.4 Roadmap\n\n- [x] Finalize production build bundle\n- [x] Run static analysis and unit tests\n- [ ] Prepare App Store Connect release notes\n- [ ] Coordinate launch day marketing push\n`,
+    packageName: 'com.demo.gamma',
+    platform: 'apple',
+    tags: ['release', 'v2.4', 'qa'],
+    pinned: false,
+    createdAt: '2026-08-08T09:00:00.000Z',
+    updatedAt: '2026-08-09T11:15:00.000Z'
+  }
+];
+
 export function useAppState() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -120,6 +145,8 @@ export function useAppState() {
   const [dimensionStats, setDimensionStats] = useState(null);
   const [deviceStats, setDeviceStats] = useState(null);
   const [releases, setReleases] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [quickNotesOpen, setQuickNotesOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dimensionLoading, setDimensionLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -358,6 +385,225 @@ export function useAppState() {
       console.error('Failed to fetch releases', err);
     }
   }, [authToken, isStaticMode]);
+
+  const fetchNotes = useCallback(async () => {
+    if (isDemoMode) {
+      setNotes(MOCK_NOTES);
+      return;
+    }
+    try {
+      const res = await apiFetch('/api/notes', {}, authToken, isStaticMode);
+      if (res.ok) {
+        const data = await res.json();
+        setNotes(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notes', err);
+      setNotes(MOCK_NOTES);
+    }
+  }, [authToken, isStaticMode, isDemoMode]);
+
+  const addNote = useCallback(async (noteData) => {
+    if (isDemoMode) {
+      const newNote = {
+        id: `demo_note_${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...noteData
+      };
+      setNotes(prev => [newNote, ...prev]);
+      return { success: true, note: newNote };
+    }
+    try {
+      const res = await apiFetch('/api/notes', {
+        method: 'POST',
+        body: JSON.stringify(noteData)
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchNotes();
+        return result;
+      }
+    } catch (err) {
+      console.error('Failed to add note:', err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
+
+  const updateNote = useCallback(async (id, noteData) => {
+    if (isDemoMode) {
+      setNotes(prev => prev.map(n => String(n.id) === String(id) ? { ...n, ...noteData, updatedAt: new Date().toISOString() } : n));
+      return { success: true };
+    }
+    try {
+      const res = await apiFetch(`/api/notes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(noteData)
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchNotes();
+        return result;
+      }
+    } catch (err) {
+      console.error(`Failed to update note ${id}:`, err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
+
+  const deleteNote = useCallback(async (id) => {
+    if (isDemoMode) {
+      setNotes(prev => prev.filter(n => String(n.id) !== String(id)));
+      return { success: true };
+    }
+    try {
+      const res = await apiFetch(`/api/notes/${id}`, {
+        method: 'DELETE'
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchNotes();
+        return result;
+      }
+    } catch (err) {
+      console.error(`Failed to delete note ${id}:`, err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
+
+  const generateAsoNote = useCallback(async (targetPackageName, targetPlatform, appTitle, summarizedData) => {
+    let telemetrySection = '';
+    if (summarizedData) {
+      const inst = Number(summarizedData.installs || 0).toLocaleString();
+      const uninst = Number(summarizedData.uninstalls || 0).toLocaleString();
+      const net = Number(summarizedData.netGrowth || ((summarizedData.installs || 0) - (summarizedData.uninstalls || 0)));
+      const netFormatted = (net >= 0 ? '+' : '') + net.toLocaleString();
+      const active = Number(summarizedData.activeDevices || 0).toLocaleString();
+      const ver = summarizedData.version || 'N/A';
+
+      telemetrySection = `## 📊 Telemetry & Performance Summary
+- **Total Installs**: ${inst}
+- **Total Uninstalls**: ${uninst}
+- **Net Growth**: ${netFormatted}
+- **Active Devices**: ${active}
+- **App Version**: ${ver}
+
+---
+`;
+    }
+
+    if (isDemoMode) {
+      const asoNote = {
+        id: `demo_note_aso_${Date.now()}`,
+        title: `ASO Recommendations & Audit: ${appTitle || targetPackageName}`,
+        content: `# ASO Audit & Strategy: ${appTitle || targetPackageName}
+
+> Generated on: ${new Date().toLocaleDateString()}
+> App Package: \`${targetPackageName}\` | Platform: \`${(targetPlatform || 'all').toUpperCase()}\` 
+
+---
+
+${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
+- [ ] **Title Keyword Placement**: Ensure high-volume target keywords appear in the primary title (first 30 characters).
+- [ ] **Subtitle / Short Description**: Use compelling action verbs and top features.
+- [ ] **Character Count Check**:
+  - App Store Title: Max 30 chars
+  - App Store Subtitle: Max 30 chars
+  - Play Store Short Description: Max 80 chars
+
+## 🖼️ 2. Visual Creative Optimization (Screenshots & Icon)
+- [ ] **Icon Contrast & Clarity**: Test minimalist vs detailed icon variants.
+- [ ] **First 3 Screenshots**: Focus on core value proposition in slide 1 & 2.
+- [ ] **Caption Legibility**: Use bold, readable headlines above screenshots.
+- [ ] **Localized Assets**: Ensure screenshots are localized for top target markets.
+
+## ⭐ 3. Ratings, Reviews & Conversion Rate
+- [ ] **In-App Rating Prompt Trigger**: Trigger prompt after key positive user actions.
+- [ ] **Negative Review Outreach**: Reply to all 1-3 star reviews within 48 hours.
+- [ ] **A/B Testing Hypothesis**: Set up Product Page Optimization (PPO) or Google Play Store Listing Experiment.
+
+## 📝 4. Action Items & Notes
+- Write brainstorming notes here...
+`,
+        packageName: targetPackageName || 'all',
+        platform: targetPlatform || 'all',
+        tags: ['aso', 'audit', 'recommendations', 'telemetry'],
+        pinned: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setNotes(prev => [asoNote, ...prev]);
+      return { success: true, note: asoNote };
+    }
+    try {
+      const res = await apiFetch('/api/notes/generate-aso', {
+        method: 'POST',
+        body: JSON.stringify({ packageName: targetPackageName, platform: targetPlatform, appTitle, summarizedData })
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchNotes();
+        return result;
+      }
+    } catch (err) {
+      console.error('Failed to generate ASO note:', err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
+
+  const fetchNoteHistory = useCallback(async (noteId) => {
+    if (!noteId || isDemoMode) return [];
+    try {
+      const res = await apiFetch(`/api/notes/${noteId}/history`, {}, authToken, isStaticMode);
+      if (res.ok) {
+        const data = await res.json();
+        return data.history || [];
+      }
+    } catch (err) {
+      console.error(`Failed to fetch history for note ${noteId}:`, err);
+    }
+    return [];
+  }, [authToken, isStaticMode, isDemoMode]);
+
+  const restoreNoteVersion = useCallback(async (noteId, commitHash, restoredContent, title) => {
+    if (isDemoMode) {
+      setNotes(prev => prev.map(n => String(n.id) === String(noteId) ? { ...n, content: restoredContent, title: title || n.title, updatedAt: new Date().toISOString() } : n));
+      return { success: true };
+    }
+    try {
+      const res = await apiFetch(`/api/notes/${noteId}/restore`, {
+        method: 'POST',
+        body: JSON.stringify({ commitHash, content: restoredContent, title })
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        const result = await res.json();
+        await fetchNotes();
+        return result;
+      }
+    } catch (err) {
+      console.error(`Failed to restore note ${noteId}:`, err);
+      throw err;
+    }
+  }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
+
+  const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model) => {
+    if (isDemoMode) {
+      return { reply: "Demo Mode: AI Chat responses are simulated. (Config -> AI Provider API Key needed for live AI responses)." };
+    }
+    try {
+      const res = await apiFetch('/api/notes/ai-chat', {
+        method: 'POST',
+        body: JSON.stringify({ noteTitle, noteContent, messages, provider, model })
+      }, authToken, isStaticMode);
+      if (res.ok) {
+        return await res.json();
+      }
+      return { reply: "Error contacting AI server." };
+    } catch (err) {
+      console.error('Note AI Chat error:', err);
+      return { reply: `Error: ${err.message}` };
+    }
+  }, [authToken, isStaticMode, isDemoMode]);
 
   // Load Main Stats Overview
   const loadOverviewStats = useCallback(async () => {
@@ -622,8 +868,9 @@ export function useAppState() {
     if (authToken || isDemoMode || noPass) {
       fetchProjects(authToken);
       fetchReleases();
+      fetchNotes();
     }
-  }, [fetchProjects, fetchReleases, authToken, isDemoMode, noPass]);
+  }, [fetchProjects, fetchReleases, fetchNotes, authToken, isDemoMode, noPass]);
 
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {
@@ -713,6 +960,8 @@ export function useAppState() {
     dateRange, setDateRange: handleSetDateRange,
     stats, dimensionStats, deviceStats,
     releases, setReleases,
+    notes, setNotes,
+    quickNotesOpen, setQuickNotesOpen,
     loading, dimensionLoading, error,
     setupRequired, setSetupRequired,
     refreshData: forceRefresh,
@@ -723,7 +972,16 @@ export function useAppState() {
     addRelease,
     updateRelease,
     deleteRelease,
-    autoDetectReleases
+    autoDetectReleases,
+    fetchNotes,
+    addNote,
+    updateNote,
+    deleteNote,
+    generateAsoNote,
+    fetchNoteHistory,
+    restoreNoteVersion,
+    sendNoteAiChat
   };
 }
+
 

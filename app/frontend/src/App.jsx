@@ -8,11 +8,13 @@ import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import StoreASO from './pages/StoreASO';
 import Releases from './pages/Releases';
+import Notes from './pages/Notes';
 import Reports from './pages/Reports';
 import Config from './pages/Config';
 import Glossary from './pages/Glossary';
 import AuthOverlay from './components/AuthOverlay';
 import DemoPopup from './components/DemoPopup';
+import QuickNotesModal from './components/QuickNotesModal';
 import CommandPaletteModal from './components/CommandPaletteModal';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 import { useAppState } from './hooks/useAppState';
@@ -96,6 +98,7 @@ function App() {
         else if (key === 's') navigate('/store');
         else if (key === 'a') navigate('/retention');
         else if (key === 'r') navigate('/releases');
+        else if (key === 'n') navigate('/notes');
         else if (key === 'c') navigate('/config');
       }
     };
@@ -140,6 +143,8 @@ function App() {
           comparisonMode={state.comparisonMode}
           lastDataDate={lastDataDate}
           stats={state.stats}
+          notes={state.notes}
+          onOpenQuickNotes={() => state.setQuickNotesOpen(true)}
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
@@ -150,6 +155,9 @@ function App() {
             <Route path="/store/*" element={<StoreASO {...state} onSelectProject={state.setSelectedProjectIndex} />} />
             <Route path="/retention/*" element={<Analytics {...state} />} />
             <Route path="/releases/*" element={<Releases {...state} />} />
+            <Route path="/notes" element={<Notes {...state} />} />
+            <Route path="/notes/:platform/:projectIndex" element={<Notes {...state} />} />
+            <Route path="/notes/id/:noteId" element={<Notes {...state} />} />
             <Route path="/reports/*" element={<Reports {...state} />} />
             <Route path="/config/*" element={<Config {...state} />} />
             <Route path="/glossary/*" element={<Glossary {...state} />} />
@@ -185,6 +193,12 @@ function App() {
         <KeyboardShortcutsModal
           isOpen={isShortcutsOpen}
           onClose={() => setIsShortcutsOpen(false)}
+        />
+
+        <QuickNotesModal
+          isOpen={state.quickNotesOpen}
+          onClose={() => state.setQuickNotesOpen(false)}
+          {...state}
         />
 
         <DemoPopup isDemoMode={state.isDemoMode} />

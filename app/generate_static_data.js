@@ -361,7 +361,72 @@ async function generate() {
     fs.writeFileSync(path.join(docsDataDir, "releases.json"), JSON.stringify([], null, 2));
   }
 
+  // Copy or compile notes.json
+  const notesPath = path.join(__dirname, "data", "notes.json");
+  const notesDir = path.join(__dirname, "data", "notes");
+  const exportedNotes = [];
+
+  if (fs.existsSync(notesDir)) {
+    try {
+      const subdirs = fs.readdirSync(notesDir, { withFileTypes: true });
+      for (const dirent of subdirs) {
+        if (dirent.isDirectory()) {
+          const pkgDir = path.join(notesDir, dirent.name);
+          const files = fs.readdirSync(pkgDir);
+          for (const file of files) {
+            if (file.endsWith('.md')) {
+              try {
+                const raw = fs.readFileSync(path.join(pkgDir, file), 'utf8');
+                const frontmatterMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+                const metadata = {};
+                let content = raw;
+                if (frontmatterMatch) {
+                  content = frontmatterMatch[2];
+                  frontmatterMatch[1].split(/\r?\n/).forEach(line => {
+                    const colonIdx = line.indexOf(':');
+                    if (colonIdx > 0) {
+                      const key = line.slice(0, colonIdx).trim();
+                      let val = line.slice(colonIdx + 1).trim();
+                      if (val === 'true') val = true;
+                      else if (val === 'false') val = false;
+                      else if (val.startsWith('[') && val.endsWith(']')) {
+                        try { val = JSON.parse(val); } catch (e) { val = []; }
+                      } else if (val.startsWith('"') && val.endsWith('"')) { val = val.slice(1, -1); }
+                      metadata[key] = val;
+                    }
+                  });
+                }
+                exportedNotes.push({
+                  id: metadata.id || path.basename(file, '.md'),
+                  title: metadata.title || 'Untitled Note',
+                  packageName: metadata.packageName || dirent.name,
+                  platform: metadata.platform || 'all',
+                  tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+                  pinned: Boolean(metadata.pinned),
+                  createdAt: metadata.createdAt || new Date().toISOString(),
+                  updatedAt: metadata.updatedAt || new Date().toISOString(),
+                  content
+                });
+              } catch (e) {}
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error building static notes data:", err);
+    }
+  }
+
+  if (exportedNotes.length > 0) {
+    fs.writeFileSync(path.join(docsDataDir, "notes.json"), JSON.stringify(exportedNotes, null, 2));
+  } else if (fs.existsSync(notesPath)) {
+    fs.copyFileSync(notesPath, path.join(docsDataDir, "notes.json"));
+  } else {
+    fs.writeFileSync(path.join(docsDataDir, "notes.json"), JSON.stringify([], null, 2));
+  }
+
   fs.writeFileSync(path.join(docsDataDir, "projects.json"), JSON.stringify(projectList, null, 2));
+
   console.log("\nDone generating static data to 'docs/data' folder.");
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Calendar, AlertCircle, Download } from 'lucide-react';
+import { Clock, Calendar, AlertCircle, Download, Edit3, Notebook } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatDataFreshness } from '../lib/format';
 import { exportToCSV } from '../lib/exportUtils';
@@ -17,8 +17,11 @@ export default function ContextBar({
   dateRange,
   comparisonMode,
   lastDataDate,
-  stats
+  stats,
+  notes = [],
+  onOpenQuickNotes
 }) {
+
   const freshness = formatDataFreshness(lastDataDate);
 
   // Check if data is more than 3 days lag
@@ -78,6 +81,22 @@ export default function ContextBar({
           setPlatform={setPlatform}
           setPlatformAndProject={setPlatformAndProject}
         />
+
+        {/* Notebook Popup Trigger Button */}
+        <button
+          onClick={onOpenQuickNotes}
+          title="Open Quick App Notebook"
+          className="flex items-center space-x-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 px-2.5 py-1.5 rounded-xl transition-all shadow-sm text-[11px] font-semibold"
+        >
+          <Edit3 size={13} className="text-indigo-400 shrink-0" />
+          <span>Notes</span>
+          {notes.filter(n => (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length > 0 && (
+            <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-indigo-500 text-white">
+              {notes.filter(n => (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length}
+            </span>
+          )}
+        </button>
+
 
         {/* Single Source of Truth Status Chip */}
         <div className="flex items-center space-x-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-slate-300 shadow-sm">

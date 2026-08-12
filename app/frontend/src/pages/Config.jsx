@@ -4,7 +4,8 @@ import {
   Zap, Code2, Sliders, Eye, EyeOff,
   Folder, Key, Database, Globe, Copy, RotateCcw, Bot, Coffee,
   Bell, Clock, BookOpen, HelpCircle, ChevronDown, ChevronRight, Search, FileText,
-  Layers, Plus, Trash2
+  Layers, Plus, Trash2, GitBranch
+
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { TOP_10_TIMEZONES } from '../lib/constants';
@@ -78,6 +79,8 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
         setResult({ success: true, provider: payload?.provider || 'openai', model: payload?.model || 'gpt-4.1-nano', usage: { inputTokens: 4, outputTokens: 2 } });
       } else if (platform === 'ntfy') {
         setResult({ success: true, message: `Test ntfy notification sent to topic '${payload?.topic || 'demo_topic'}'` });
+      } else if (platform === 'git') {
+        setResult({ success: true, message: `Successfully connected to Git remote repository and verified branch '${payload?.branch || 'main'}' (demo mode)` });
       } else {
         setResult({ success: true, appCount: 3, apps: [{ name: 'Demo App One', bundleId: 'com.demo.one' }, { name: 'Demo App Two', bundleId: 'com.demo.two' }] });
       }
@@ -108,7 +111,9 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
       ? 'Google Play'
       : platform === 'ntfy'
         ? 'ntfy Notification'
-        : `AI Provider (${payload?.provider || 'active'})`;
+        : platform === 'git'
+          ? 'Git Remote Repository'
+          : `AI Provider (${payload?.provider || 'active'})`;
 
   return (
     <div className="space-y-3">
@@ -482,10 +487,53 @@ const CONFIG_DOCS_GROUPS = [
         summary: 'Fallback ntfy topic environment variable.',
         description: 'Used if ntfyTopic is omitted from config.json file.',
         example: '"my_fallback_topic"'
+      },
+      {
+        name: 'GIT_NOTES_ENABLED',
+        platform: 'Git Notes',
+        required: false,
+        default: 'false',
+        summary: 'Enable auto-commit & push to Git for per-app Markdown notes.',
+        description: 'When set to true, every note save or deletion is committed and pushed to your configured Git repository.',
+        example: '"true"'
+      },
+      {
+        name: 'GIT_NOTES_BRANCH',
+        platform: 'Git Notes',
+        required: false,
+        default: 'main',
+        summary: 'Target Git branch for committing notes.',
+        description: 'Branch name to push notes to.',
+        example: '"main"'
+      },
+      {
+        name: 'GIT_REMOTE_URL',
+        platform: 'Git Notes',
+        required: false,
+        summary: 'Remote Git repository URL for notes.',
+        description: 'HTTPS URL of target Git repository (e.g. GitHub/GitLab).',
+        example: '"https://github.com/username/app-notes.git"'
+      },
+      {
+        name: 'GIT_USERNAME',
+        platform: 'Git Notes',
+        required: false,
+        summary: 'Git authentication username.',
+        description: 'Username or account email for HTTPS Git authentication.',
+        example: '"myusername"'
+      },
+      {
+        name: 'GIT_PASSWORD',
+        platform: 'Git Notes',
+        required: false,
+        summary: 'Git authentication password or Personal Access Token (PAT).',
+        description: 'Personal access token with repo write scope for pushing commits.',
+        example: '"ghp_xxxxxxxxxxxxxxxxxxxx"'
       }
     ]
   }
 ];
+
 
 function ExpandableVarItem({ item, search = '' }) {
   const [expanded, setExpanded] = useState(false);
@@ -1220,7 +1268,107 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
             </div>
           </div>
 
+          {/* Git Repository & Notes Auto-Sync Section */}
           <div className="glass-card p-6 space-y-5">
+            <SectionHeader
+              icon={GitBranch}
+              title="Git Repository & Notes Auto-Sync"
+              subtitle="Automatically commit and push per-app Markdown notes to a remote Git repository"
+            >
+              <TestButton
+                platform="git"
+                payload={{
+                  remoteUrl: entry.gitNotes?.remoteUrl,
+                  branch: entry.gitNotes?.branch,
+                  username: entry.gitNotes?.username,
+                  password: entry.gitNotes?.password
+                }}
+                authToken={authToken}
+                isStaticMode={isStaticMode}
+                isDemoMode={isDemoMode}
+              />
+            </SectionHeader>
+
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 bg-white/5 border border-white/10 p-3.5 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="git-notes-enabled"
+                  checked={Boolean(entry.gitNotes?.enabled)}
+                  onChange={e => {
+                    const currentGit = entry.gitNotes || {};
+                    updateEntry('gitNotes', { ...currentGit, enabled: e.target.checked });
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 text-accent-blue focus:ring-0 accent-accent-blue cursor-pointer"
+                />
+                <label htmlFor="git-notes-enabled" className="text-xs font-bold text-white cursor-pointer select-none">
+                  Enable Automatic Git Commit & Push for Notes
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field
+                  label="Git Remote Repository URL"
+                  hint="HTTPS URL of remote Git repository (e.g. https://github.com/user/app-notes.git)"
+                >
+                  <Input
+                    value={entry.gitNotes?.remoteUrl || ''}
+                    onChange={v => {
+                      const currentGit = entry.gitNotes || {};
+                      updateEntry('gitNotes', { ...currentGit, remoteUrl: v });
+                    }}
+                    placeholder="https://github.com/username/app-notes.git"
+                  />
+                </Field>
+
+                <Field
+                  label="Git Branch"
+                  hint="Target branch to commit and push notes (default: main)"
+                >
+                  <Input
+                    value={entry.gitNotes?.branch || 'main'}
+                    onChange={v => {
+                      const currentGit = entry.gitNotes || {};
+                      updateEntry('gitNotes', { ...currentGit, branch: v });
+                    }}
+                    placeholder="main"
+                  />
+                </Field>
+
+                <Field
+                  label="Git Username"
+                  hint="Username or email for HTTPS Git authentication"
+                >
+                  <Input
+                    value={entry.gitNotes?.username || ''}
+                    onChange={v => {
+                      const currentGit = entry.gitNotes || {};
+                      updateEntry('gitNotes', { ...currentGit, username: v });
+                    }}
+                    placeholder="e.g. my-github-username"
+                  />
+                </Field>
+
+                <Field
+                  label="Git Password / Access Token"
+                  hint="Personal Access Token (PAT) with repository write permissions"
+                >
+                  <Input
+                    secret
+                    value={entry.gitNotes?.password || ''}
+                    onChange={v => {
+                      const currentGit = entry.gitNotes || {};
+                      updateEntry('gitNotes', { ...currentGit, password: v });
+                    }}
+                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                  />
+                </Field>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-6 space-y-5">
+
             <SectionHeader icon={Bot} title="AI & ASO Configuration" subtitle="Configure AI models (OpenAI, Anthropic Claude, Google Gemini) for automated ASO analysis">
               <TestButton
                 platform="ai"
@@ -1652,6 +1800,29 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
             <TestButton
               platform="ntfy"
               payload={{ topic: entry?.ntfyTopic }}
+              authToken={authToken}
+              isStaticMode={isStaticMode}
+              isDemoMode={isDemoMode}
+            />
+          </div>
+
+          <div className="glass-card p-6">
+            <SectionHeader icon={GitBranch} title="Git Remote Repository" subtitle="Tests connection, remote URL, branch refs, and HTTP credentials via git ls-remote / fetch" />
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <InfoRow label="Remote Repository URL" value={entry?.gitNotes?.remoteUrl ? entry.gitNotes.remoteUrl : '— (Not set)'} mono />
+              <InfoRow label="Git Branch" value={entry?.gitNotes?.branch ? entry.gitNotes.branch : 'main'} />
+              <InfoRow label="Git Username" value={entry?.gitNotes?.username ? entry.gitNotes.username : '— (Not set)'} />
+              <InfoRow label="Git Authentication" value={entry?.gitNotes?.password ? 'Personal Access Token set' : 'None / Public'} />
+              <InfoRow label="Auto-Commit & Push" value={entry?.gitNotes?.enabled ? 'Enabled' : 'Disabled (Local commits only)'} />
+            </div>
+            <TestButton
+              platform="git"
+              payload={{
+                remoteUrl: entry?.gitNotes?.remoteUrl,
+                branch: entry?.gitNotes?.branch,
+                username: entry?.gitNotes?.username,
+                password: entry?.gitNotes?.password
+              }}
               authToken={authToken}
               isStaticMode={isStaticMode}
               isDemoMode={isDemoMode}

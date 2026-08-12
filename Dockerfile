@@ -28,9 +28,13 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install git for notes auto-commit & repository sync
+RUN apk add --no-cache git
+
 # Use non-root node user for security
 RUN mkdir -p /app/data && chown -R node:node /app
 USER node
+
 
 # Copy backend code & installed node_modules from builder
 COPY --from=builder --chown=node:node /build ./

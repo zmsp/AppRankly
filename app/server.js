@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const { exec, execSync } = require("child_process");
 const helmet = require("helmet");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -18,6 +19,8 @@ const asoRouter = require("./routes/aso");
 const { sendNtfyNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
+const { db } = require("./lib/db");
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +50,9 @@ if (!JWT_SECRET) {
 
 const PASSWORD_FILE = path.join(DATA_DIR, ".admin_password");
 const RELEASES_FILE = path.join(DATA_DIR, "releases.json");
+const NOTES_DIR = path.join(DATA_DIR, "notes");
+
+
 
 // Secure headers
 app.use(helmet({
@@ -616,6 +622,40 @@ app.put("/api/config", authenticate, (req, res) => {
   }
 });
 
+// Endpoint for Note AI Chat assistant
+app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
+  const { noteTitle, noteContent, messages = [], provider, model } = req.body;
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "Messages array is required" });
+  }
+
+  const lastUserMsg = messages[messages.length - 1]?.content || "";
+
+  try {
+    const aiModule = require("./lib/ai");
+    const aiResponse = await aiModule.generateJSON({
+      provider: provider || undefined,
+      customModel: model || undefined,
+      system: "You are a helpful, concise AI writing and brainstorming assistant for App Store stats and note management. Help the user edit, summarize, extract tasks, or brainstorm ideas based on their current note. Keep your response brief, clear, and direct.",
+      prompt: `Current Note Title: "${noteTitle || 'Untitled Note'}"\nCurrent Note Content:\n\`\`\`markdown\n${(noteContent || '').slice(0, 4000)}\n\`\`\`\n\nUser Question/Instruction: "${lastUserMsg}"\n\nProvide a clear, helpful response to the user's question or instruction.`,
+      schema: {
+        type: "object",
+        properties: {
+          reply: { type: "string" }
+        },
+        required: ["reply"]
+      }
+    });
+
+    res.json({ reply: aiResponse.data?.reply || "I'm sorry, I couldn't generate a response." });
+  } catch (err) {
+    console.warn("[Note AI Chat] Fallback due to error:", err.message);
+    res.json({
+      reply: `Note Assistant: I received your request ("${lastUserMsg.slice(0, 50)}..."), but could not contact the AI service (${err.message}). Please make sure your AI Provider API key is configured.`
+    });
+  }
+});
+
 // Test Apple App Store Connect connection
 app.post("/api/test/apple", authenticate, async (req, res) => {
   console.log(`[Test Connection] [Apple] Initiating test connection check...`);
@@ -698,7 +738,59 @@ app.post("/api/test/ai", authenticate, async (req, res) => {
   }
 });
 
+// Test Git Remote Repository Connection (git ls-remote / fetch)
+app.post("/api/test/git", authenticate, async (req, res) => {
+  const { remoteUrl, branch, username, password } = req.body || {};
+
+  const baseConfig = getBaseConfig() || {};
+  const gitConfig = baseConfig.gitNotes || baseConfig.git || {};
+
+  const targetUrl = remoteUrl || gitConfig.remoteUrl || process.env.GIT_REMOTE_URL || '';
+  const targetBranch = branch || gitConfig.branch || process.env.GIT_NOTES_BRANCH || 'main';
+  const targetUser = username || gitConfig.username || process.env.GIT_USERNAME || '';
+  const targetPass = password || gitConfig.password || process.env.GIT_PASSWORD || process.env.GIT_TOKEN || '';
+
+  if (!targetUrl) {
+    return res.json({
+      success: false,
+      error: "Git Remote URL is empty. Please specify a remote repository URL (e.g. https://github.com/username/repo.git)."
+    });
+  }
+
+  ensureGitNotesRepo();
+
+  let authRemote = targetUrl;
+  if (targetUser && targetPass && authRemote.startsWith('https://')) {
+    const cleanUrl = authRemote.replace(/^https:\/\//, '');
+    authRemote = `https://${encodeURIComponent(targetUser)}:${encodeURIComponent(targetPass)}@${cleanUrl}`;
+  }
+
+  console.log(`[Test Connection] [Git] Testing remote URL "${targetUrl}" (branch: ${targetBranch})...`);
+
+  try {
+    const output = execSync(`git ls-remote "${authRemote}" ${targetBranch}`, {
+      cwd: NOTES_DIR,
+      encoding: 'utf8',
+      timeout: 15000
+    });
+
+    console.log(`[Test Connection] [Git] SUCCESS — Fetched remote refs:`, output.trim().split('\n')[0]);
+    res.json({
+      success: true,
+      message: `Successfully connected to Git remote repository and verified branch "${targetBranch}".`,
+      output: output.trim().split('\n')[0] || 'Remote head verified'
+    });
+  } catch (err) {
+    console.error(`[Test Connection] [Git] ERROR:`, err.message);
+    res.json({
+      success: false,
+      error: `Failed to connect to Git remote: ${err.stderr || err.message}`
+    });
+  }
+});
+
 // Admin endpoint to monitor cache metrics and tier hits
+
 app.get("/api/cache-stats", authenticate, (req, res) => {
   res.json(resolver.getMetrics());
 });
@@ -1120,6 +1212,581 @@ app.delete("/api/releases/:id", authenticate, (req, res) => {
   resolver.clearCache('stats');
   res.json({ success: true, deletedId: id });
 });
+
+// --- Notes & Brainstorming Management ---
+
+// --- Notes & Brainstorming Management (Git Markdown Directory & SQLite Sync) ---
+
+function parseNoteMarkdown(rawText) {
+  if (!rawText) return { metadata: {}, content: '' };
+  
+  const frontmatterMatch = rawText.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
+  if (!frontmatterMatch) {
+    return { metadata: {}, content: rawText };
+  }
+
+  const rawHeader = frontmatterMatch[1];
+  const content = frontmatterMatch[2];
+  const metadata = {};
+
+  rawHeader.split(/\r?\n/).forEach(line => {
+    const colonIdx = line.indexOf(':');
+    if (colonIdx > 0) {
+      const key = line.slice(0, colonIdx).trim();
+      let val = line.slice(colonIdx + 1).trim();
+
+      if (val === 'true') val = true;
+      else if (val === 'false') val = false;
+      else if (val.startsWith('[') && val.endsWith(']')) {
+        try { val = JSON.parse(val); } catch (e) { val = []; }
+      } else if (val.startsWith('"') && val.endsWith('"')) {
+        val = val.slice(1, -1);
+      }
+      metadata[key] = val;
+    }
+  });
+
+  return { metadata, content };
+}
+
+function stringifyNoteMarkdown(note) {
+  const metaLines = [
+    '---',
+    `id: "${note.id}"`,
+    `title: "${(note.title || '').replace(/"/g, '\\"')}"`,
+    `packageName: "${note.packageName || 'all'}"`,
+    `platform: "${note.platform || 'all'}"`,
+    `tags: ${JSON.stringify(note.tags || [])}`,
+    `pinned: ${Boolean(note.pinned)}`,
+    `createdAt: "${note.createdAt || new Date().toISOString()}"`,
+    `updatedAt: "${note.updatedAt || new Date().toISOString()}"`,
+    '---',
+    '',
+    note.content || ''
+  ];
+  return metaLines.join('\n');
+}
+
+function getNotesFromStorage() {
+  if (!fs.existsSync(NOTES_DIR)) {
+    try { fs.mkdirSync(NOTES_DIR, { recursive: true }); } catch (e) {}
+  }
+
+  const fileNotes = [];
+  try {
+    if (fs.existsSync(NOTES_DIR)) {
+      const subdirs = fs.readdirSync(NOTES_DIR, { withFileTypes: true });
+      for (const dirent of subdirs) {
+        if (dirent.isDirectory()) {
+          const pkgDir = path.join(NOTES_DIR, dirent.name);
+          const files = fs.readdirSync(pkgDir);
+          for (const file of files) {
+            if (file.endsWith('.md')) {
+              try {
+                const fullPath = path.join(pkgDir, file);
+                const raw = fs.readFileSync(fullPath, 'utf8');
+                const { metadata, content } = parseNoteMarkdown(raw);
+                fileNotes.push({
+                  id: metadata.id || path.basename(file, '.md'),
+                  title: metadata.title || 'Untitled Note',
+                  packageName: metadata.packageName || dirent.name,
+                  platform: metadata.platform || 'all',
+                  tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+                  pinned: Boolean(metadata.pinned),
+                  createdAt: metadata.createdAt || new Date().toISOString(),
+                  updatedAt: metadata.updatedAt || new Date().toISOString(),
+                  content
+                });
+              } catch (e) {
+                console.error(`Error reading note markdown file ${file}:`, e);
+              }
+            }
+          }
+        } else if (dirent.name.endsWith('.md')) {
+          try {
+            const fullPath = path.join(NOTES_DIR, dirent.name);
+            const raw = fs.readFileSync(fullPath, 'utf8');
+            const { metadata, content } = parseNoteMarkdown(raw);
+            fileNotes.push({
+              id: metadata.id || path.basename(dirent.name, '.md'),
+              title: metadata.title || 'Untitled Note',
+              packageName: metadata.packageName || 'all',
+              platform: metadata.platform || 'all',
+              tags: Array.isArray(metadata.tags) ? metadata.tags : [],
+              pinned: Boolean(metadata.pinned),
+              createdAt: metadata.createdAt || new Date().toISOString(),
+              updatedAt: metadata.updatedAt || new Date().toISOString(),
+              content
+            });
+          } catch (e) {
+            console.error(`Error reading note markdown file ${dirent.name}:`, e);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error scanning NOTES_DIR:", err);
+  }
+
+  // Also sync SQLite database if available
+  if (db) {
+    try {
+      fileNotes.forEach(note => {
+        try {
+          const stmt = db.prepare(`
+            INSERT INTO notes (id, package_name, platform, title, content, tags_json, pinned, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              package_name = excluded.package_name,
+              platform = excluded.platform,
+              title = excluded.title,
+              content = excluded.content,
+              tags_json = excluded.tags_json,
+              pinned = excluded.pinned,
+              updated_at = excluded.updated_at
+          `);
+          stmt.run(
+            note.id,
+            note.packageName || 'all',
+            note.platform || 'all',
+            note.title || 'Untitled Note',
+            note.content || '',
+            JSON.stringify(note.tags || []),
+            note.pinned ? 1 : 0,
+            note.createdAt || new Date().toISOString(),
+            note.updatedAt || new Date().toISOString()
+          );
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  fileNotes.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
+
+  return fileNotes;
+}
+
+function saveNoteToStorage(note) {
+  const pkgDirName = (note.packageName && note.packageName !== 'all') ? note.packageName.replace(/[^a-zA-Z0-9._-]/g, '_') : '_global';
+  const targetDir = path.join(NOTES_DIR, pkgDirName);
+
+  if (!fs.existsSync(targetDir)) {
+    try { fs.mkdirSync(targetDir, { recursive: true }); } catch (e) {}
+  }
+
+  const filename = `${note.id}.md`;
+  const filePath = path.join(targetDir, filename);
+  const rawMd = stringifyNoteMarkdown(note);
+
+  try {
+    fs.writeFileSync(filePath, rawMd, 'utf8');
+  } catch (e) {
+    console.error(`Failed to write note markdown file ${filePath}:`, e);
+  }
+
+  if (db) {
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO notes (id, package_name, platform, title, content, tags_json, pinned, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          package_name = excluded.package_name,
+          platform = excluded.platform,
+          title = excluded.title,
+          content = excluded.content,
+          tags_json = excluded.tags_json,
+          pinned = excluded.pinned,
+          updated_at = excluded.updated_at
+      `);
+      stmt.run(
+        note.id,
+        note.packageName || 'all',
+        note.platform || 'all',
+        note.title || 'Untitled Note',
+        note.content || '',
+        JSON.stringify(note.tags || []),
+        note.pinned ? 1 : 0,
+        note.createdAt || new Date().toISOString(),
+        note.updatedAt || new Date().toISOString()
+      );
+    } catch (e) {
+      console.error("Failed to save note to DB:", e);
+    }
+  }
+
+  syncNotesToGit(`docs(notes): update note "${note.title || note.id}" for ${note.packageName || 'all'}`);
+}
+
+function ensureGitNotesRepo() {
+  if (!fs.existsSync(NOTES_DIR)) {
+    try { fs.mkdirSync(NOTES_DIR, { recursive: true }); } catch (e) {}
+  }
+
+  const gitDir = path.join(NOTES_DIR, '.git');
+  if (!fs.existsSync(gitDir)) {
+    try {
+      console.log(`[Git Notes] Initializing git repository at ${NOTES_DIR}...`);
+      execSync('git init', { cwd: NOTES_DIR });
+      execSync('git config user.name "AppRankly Notes Bot"', { cwd: NOTES_DIR });
+      execSync('git config user.email "bot@apprankly.local"', { cwd: NOTES_DIR });
+    } catch (e) {
+      console.warn(`[Git Notes] Failed to auto-initialize Git repository:`, e.message);
+    }
+  }
+}
+
+// Auto-initialize Git notes repo on server startup
+ensureGitNotesRepo();
+
+function getNoteGitHistory(noteId) {
+  ensureGitNotesRepo();
+
+  let relPath = null;
+  if (fs.existsSync(NOTES_DIR)) {
+    try {
+      const subdirs = fs.readdirSync(NOTES_DIR, { withFileTypes: true });
+      for (const dirent of subdirs) {
+        if (dirent.isDirectory()) {
+          const testPath = path.join(NOTES_DIR, dirent.name, `${noteId}.md`);
+          if (fs.existsSync(testPath)) {
+            relPath = `${dirent.name}/${noteId}.md`;
+            break;
+          }
+        } else if (dirent.name === `${noteId}.md`) {
+          relPath = `${noteId}.md`;
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (!relPath) return [];
+
+  try {
+    const logOutput = execSync(`git log --pretty=format:"%H|%an|%ad|%s" --date=iso -n 25 -- "${relPath}"`, { cwd: NOTES_DIR, encoding: 'utf8' });
+    if (!logOutput.trim()) return [];
+
+    const commits = logOutput.trim().split('\n').filter(Boolean).map(line => {
+      const parts = line.split('|');
+      const hash = parts[0] || '';
+      const author = parts[1] || 'AppRankly Bot';
+      const date = parts[2] || new Date().toISOString();
+      const message = parts.slice(3).join('|') || 'Update note';
+
+      let rawContent = '';
+      try {
+        rawContent = execSync(`git show ${hash}:"${relPath}"`, { cwd: NOTES_DIR, encoding: 'utf8' });
+      } catch (e) {}
+
+      const parsed = parseNoteMarkdown(rawContent);
+      return {
+        hash,
+        shortHash: hash ? hash.slice(0, 7) : '',
+        author,
+        date,
+        message,
+        title: parsed.metadata?.title || 'Note Revision',
+        content: parsed.content || rawContent
+      };
+    });
+
+    return commits;
+  } catch (e) {
+    console.warn(`[Git History Warning] Failed to fetch git history for note ${noteId}:`, e.message);
+    return [];
+  }
+}
+
+
+function syncNotesToGit(commitMessage = 'docs(notes): update app notes') {
+  ensureGitNotesRepo();
+  const baseConfig = getBaseConfig() || {};
+  const gitConfig = baseConfig.gitNotes || baseConfig.git || {};
+
+  const branch = gitConfig.branch || process.env.GIT_NOTES_BRANCH || 'main';
+  const username = gitConfig.username || process.env.GIT_USERNAME || '';
+  const password = gitConfig.password || process.env.GIT_PASSWORD || process.env.GIT_TOKEN || '';
+  const remoteUrl = gitConfig.remoteUrl || process.env.GIT_REMOTE_URL || gitConfig.remote || '';
+
+  const gitCmds = [
+    'git add -A .',
+    `git commit -m "${commitMessage.replace(/["\\$`]/g, '\\$&')}" || true`
+  ];
+
+  // Push to remote repository if a remote URL is configured
+  if (remoteUrl) {
+    let authRemote = remoteUrl;
+    if (username && password && authRemote.startsWith('https://')) {
+      const cleanUrl = authRemote.replace(/^https:\/\//, '');
+      authRemote = `https://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${cleanUrl}`;
+    }
+    gitCmds.push(`git push "${authRemote}" ${branch} || git push origin ${branch} || true`);
+  }
+
+  const fullCmd = gitCmds.join(' && ');
+  exec(fullCmd, { cwd: NOTES_DIR }, (error, stdout, stderr) => {
+    if (error) {
+      console.warn('[Git Notes Sync] Output:', stderr || error.message);
+    } else {
+      console.log(`[Git Notes Sync] Saved local commit (${commitMessage})${remoteUrl ? ` & pushed to remote (${branch})` : ''}`);
+    }
+  });
+}
+
+
+function deleteNoteFromStorage(id) {
+  if (fs.existsSync(NOTES_DIR)) {
+    try {
+      const subdirs = fs.readdirSync(NOTES_DIR, { withFileTypes: true });
+      for (const dirent of subdirs) {
+        if (dirent.isDirectory()) {
+          const targetPath = path.join(NOTES_DIR, dirent.name, `${id}.md`);
+          if (fs.existsSync(targetPath)) {
+            fs.unlinkSync(targetPath);
+          }
+        } else if (dirent.name === `${id}.md`) {
+          fs.unlinkSync(path.join(NOTES_DIR, dirent.name));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete note markdown file:", e);
+    }
+  }
+
+  if (db) {
+    try {
+      const stmt = db.prepare('DELETE FROM notes WHERE id = ?');
+      stmt.run(id);
+    } catch (e) {
+      console.error("Failed to delete note from DB:", e);
+    }
+  }
+
+  syncNotesToGit(`docs(notes): delete note ${id}`);
+}
+
+
+// Get notes
+app.get("/api/notes", authenticate, (req, res) => {
+  let notes = getNotesFromStorage();
+  const { packageName, platform } = req.query;
+  if (packageName && packageName !== 'all') {
+    notes = notes.filter(n => n.packageName === packageName || n.packageName === 'all');
+  }
+  if (platform && platform !== 'all') {
+    notes = notes.filter(n => n.platform === platform || n.platform === 'all');
+  }
+  res.json(notes);
+});
+
+// Create note
+app.post("/api/notes", authenticate, (req, res) => {
+  const { title, content, packageName, platform, tags, pinned } = req.body;
+  const now = new Date().toISOString();
+  const newNote = {
+    id: req.body.id || `note_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    title: title || 'Untitled Note',
+    content: content || '',
+    packageName: packageName || 'all',
+    platform: platform || 'all',
+    tags: Array.isArray(tags) ? tags : [],
+    pinned: Boolean(pinned),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  saveNoteToStorage(newNote);
+  res.json({ success: true, note: newNote });
+});
+
+// Update note
+app.put("/api/notes/:id", authenticate, (req, res) => {
+  const { id } = req.params;
+  const { title, content, packageName, platform, tags, pinned } = req.body;
+
+  let notes = getNotesFromStorage();
+  const existing = notes.find(n => String(n.id) === String(id));
+  if (!existing) {
+    return res.status(404).json({ error: "Note not found" });
+  }
+
+  const updatedNote = {
+    ...existing,
+    title: title !== undefined ? title : existing.title,
+    content: content !== undefined ? content : existing.content,
+    packageName: packageName !== undefined ? packageName : existing.packageName,
+    platform: platform !== undefined ? platform : existing.platform,
+    tags: Array.isArray(tags) ? tags : existing.tags,
+    pinned: pinned !== undefined ? Boolean(pinned) : existing.pinned,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveNoteToStorage(updatedNote);
+  res.json({ success: true, note: updatedNote });
+});
+
+// Delete note
+app.delete("/api/notes/:id", authenticate, (req, res) => {
+  const { id } = req.params;
+  deleteNoteFromStorage(id);
+  res.json({ success: true, deletedId: id });
+});
+
+// Get Git commit version history for a note
+app.get("/api/notes/:id/history", authenticate, (req, res) => {
+  const { id } = req.params;
+  const history = getNoteGitHistory(id);
+  res.json({ success: true, history });
+});
+
+// Restore historical commit version of a note
+app.post("/api/notes/:id/restore", authenticate, (req, res) => {
+  const { id } = req.params;
+  const { commitHash, content, title } = req.body;
+
+  let notes = getNotesFromStorage();
+  const existing = notes.find(n => String(n.id) === String(id));
+  if (!existing) {
+    return res.status(404).json({ error: "Note not found" });
+  }
+
+  const restoredNote = {
+    ...existing,
+    title: title || existing.title,
+    content: content || existing.content,
+    updatedAt: new Date().toISOString()
+  };
+
+  saveNoteToStorage(restoredNote);
+  res.json({ success: true, note: restoredNote });
+});
+
+// Generate ASO recommendation note for an app (AI-enhanced or standard fallback with telemetry summary)
+app.post("/api/notes/generate-aso", authenticate, async (req, res) => {
+  const { packageName, platform, appTitle, summarizedData } = req.body;
+  const targetPackage = packageName || 'all';
+  const targetPlatform = platform || 'all';
+
+  let title = `ASO Strategy & AI Recommendations: ${appTitle || targetPackage}`;
+  let templateContent = '';
+
+  let telemetrySection = '';
+  if (summarizedData) {
+    const inst = Number(summarizedData.installs || 0).toLocaleString();
+    const uninst = Number(summarizedData.uninstalls || 0).toLocaleString();
+    const net = Number(summarizedData.netGrowth || ((summarizedData.installs || 0) - (summarizedData.uninstalls || 0))).toLocaleString();
+    const netFormatted = (Number(summarizedData.netGrowth || 0) >= 0 ? '+' : '') + net;
+    const active = Number(summarizedData.activeDevices || 0).toLocaleString();
+    const ver = summarizedData.version || 'N/A';
+
+    telemetrySection = `## 📊 Telemetry & Performance Summary
+- **Total Installs**: ${inst}
+- **Total Uninstalls**: ${uninst}
+- **Net Growth**: ${netFormatted}
+- **Active Devices**: ${active}
+- **App Version**: ${ver}
+
+---
+`;
+  }
+
+  try {
+    const aiModule = require("./lib/ai");
+    const telemetryContext = summarizedData ? `Current telemetry: Installs=${summarizedData.installs}, Uninstalls=${summarizedData.uninstalls}, ActiveDevices=${summarizedData.activeDevices}, Version=${summarizedData.version}` : '';
+    const aiResponse = await aiModule.generateJSON({
+      system: "You are an expert App Store Optimization (ASO) strategist for iOS App Store and Google Play Store.",
+      prompt: `Generate an ASO audit and keyword strategy note for app "${appTitle || targetPackage}" (Package/Bundle: ${targetPackage}, Platform: ${targetPlatform}). ${telemetryContext}. Include 3 primary title keywords, 3 subtitle/short description suggestions, 3 screenshot visual hypotheses, and 5 ASO action items in Markdown format.`,
+      schema: {
+        type: "object",
+        properties: {
+          titleKeywords: { type: "array", items: { type: "string" } },
+          subtitleIdeas: { type: "array", items: { type: "string" } },
+          screenshotHypotheses: { type: "array", items: { type: "string" } },
+          actionItems: { type: "array", items: { type: "string" } },
+          summaryMarkdown: { type: "string" }
+        },
+        required: ["summaryMarkdown", "titleKeywords"]
+      }
+    });
+
+    const aiData = aiResponse.data || {};
+    templateContent = `# ASO AI Strategy: ${appTitle || targetPackage}
+
+> Generated by AI (${aiResponse.model || 'ASO Assistant'}) on ${new Date().toLocaleDateString()}
+> Package: \`${targetPackage}\` | Platform: \`${targetPlatform.toUpperCase()}\`
+
+---
+
+${telemetrySection}
+## 🎯 1. Target Title Keywords
+${(aiData.titleKeywords || []).map(k => `- **${k}**`).join('\n')}
+
+## ✍️ 2. Subtitle & Short Description Copy Options
+${(aiData.subtitleIdeas || []).map(s => `- ${s}`).join('\n')}
+
+## 🖼️ 3. Screenshot Visual A/B Hypotheses
+${(aiData.screenshotHypotheses || []).map(h => `- [ ] ${h}`).join('\n')}
+
+## 📝 4. Action Items & Checklist
+${(aiData.actionItems || []).map(a => `- [ ] ${a}`).join('\n')}
+
+${aiData.summaryMarkdown ? `\n## 💡 AI Insights\n${aiData.summaryMarkdown}` : ''}
+`;
+  } catch (err) {
+    console.warn("AI generation fallback to standard ASO template:", err.message);
+    templateContent = `# ASO Audit & Strategy: ${appTitle || targetPackage}
+
+> Generated on: ${new Date().toLocaleDateString()}
+> App Package: \`${targetPackage}\` | Platform: \`${targetPlatform.toUpperCase()}\`
+
+---
+
+${telemetrySection}
+## 🎯 1. Title & Subtitle Keywords Optimization
+- [ ] **Title Keyword Placement**: Ensure high-volume target keywords appear in the primary title (first 30 characters).
+- [ ] **Subtitle / Short Description**: Use compelling action verbs and top features.
+- [ ] **Character Count Check**:
+  - App Store Title: Max 30 chars
+  - App Store Subtitle: Max 30 chars
+  - Play Store Short Description: Max 80 chars
+
+## 🖼️ 2. Visual Creative Optimization (Screenshots & Icon)
+- [ ] **Icon Contrast & Clarity**: Test minimalist vs detailed icon variants.
+- [ ] **First 3 Screenshots**: Focus on core value proposition in slide 1 & 2.
+- [ ] **Caption Legibility**: Use bold, readable headlines above screenshots.
+- [ ] **Localized Assets**: Ensure screenshots are localized for top target markets.
+
+## ⭐ 3. Ratings, Reviews & Conversion Rate
+- [ ] **In-App Rating Prompt Trigger**: Trigger prompt after key positive user actions.
+- [ ] **Negative Review Outreach**: Reply to all 1-3 star reviews within 48 hours.
+- [ ] **A/B Testing Hypothesis**: Set up Product Page Optimization (PPO) or Google Play Store Listing Experiment.
+
+## 📝 4. Action Items & Notes
+- Write brainstorming notes here...
+`;
+  }
+
+  const now = new Date().toISOString();
+  const asoNote = {
+    id: `note_aso_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+    title,
+    content: templateContent,
+    packageName: targetPackage,
+    platform: targetPlatform,
+    tags: ['aso', 'recommendations', 'telemetry'],
+    pinned: true,
+    createdAt: now,
+    updatedAt: now
+  };
+
+  saveNoteToStorage(asoNote);
+  res.json({ success: true, note: asoNote });
+});
+
+
 
 // Auto-detect store releases from store metadata APIs & web scrapers (per app or portfolio)
 app.post("/api/releases/auto-detect", authenticate, async (req, res) => {

@@ -1,0 +1,435 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  Heading1,
+  Heading2,
+  Heading3,
+  Bold,
+  Italic,
+  List,
+  CheckSquare,
+  Code,
+  Quote,
+  Table,
+  Link,
+  Eye,
+  Edit3,
+  Columns,
+  Sparkles,
+  Copy,
+  Download,
+  FileCode2,
+  Check,
+  MoreHorizontal
+} from 'lucide-react';
+import toast from 'react-hot-toast';
+import MarkdownViewer from './MarkdownViewer';
+
+const TEMPLATES = {
+  release: `# 🚀 Release Notes & Changelog (vX.Y.Z)
+
+## 📱 App Store & Play Store Release Copy
+What's New in this Version:
+- ✨ Major feature: [Describe key new feature]
+- ⚡ Performance optimizations and faster load times
+- 🐛 Resolved minor UI layout and text clipping bugs
+
+## 📋 Pre-Submission QA Checklist
+- [ ] Unit tests & static analysis pass cleanly
+- [ ] App build compiled for production release
+- [ ] Localized store screenshots & previews updated
+- [ ] Verified in-app review prompts and deep links
+`,
+  aso: `# 🎯 ASO Experiment Hypothesis
+
+## 🔬 Hypothesis Statement
+Changing the primary title and screenshot slide 1 headline to focus on "Privacy & Speed" will increase Store Listing Conversion Rate (CVR) by +8%.
+
+## 📊 Baseline & Target Metrics
+- **Current Baseline CVR**: 14.2%
+- **Target Experiment CVR**: 16.5%
+- **Test Duration**: 14 Days
+- **Traffic Split**: 50/50 Control vs Variant
+
+## 🧪 Variants to Test
+- [ ] **Control**: Original screenshots with dark theme
+- [ ] **Variant A**: High-contrast blue gradient with 3-word bold headlines
+- [ ] **Variant B**: Feature callouts with star rating social proof
+`,
+  bug: `# 🐛 Bug & Crash Triage Report
+
+## 🚨 Issue Overview
+- **Impact**: High / Moderate / Low
+- **Affected OS & Devices**: iOS 17.5+ / Android 14
+- **App Version**: v2.3.1
+
+## 🔄 Steps to Reproduce
+1. Launch app on target device
+2. Tap on settings menu
+3. Select date range filter -> observe crash or blank screen
+
+## 🛠️ Fix & Verification Notes
+- [ ] Reproduce issue in local environment
+- [ ] Apply fix in pull request
+- [ ] Verify fix with regression test suite
+`,
+  feature: `# 💡 Feature Pitch & User Feedback
+
+## 🎯 Target Problem
+Users struggle to track retention cohorts over custom date ranges.
+
+## 🚀 Proposed Solution
+Add custom date range selector with preset shortcuts (7d, 14d, 30d, 90d).
+
+## 📊 Success Metrics
+- **Activation Rate**: +12% increase in weekly active users
+- **User Engagement**: +5% higher daily session duration
+`,
+  telemetry: `# 📊 Performance & Telemetry Brief
+
+## 📱 App Overview & Release Info
+- **Target App**: [App Name]
+- **Target Platform**: iOS / Android
+- **App Version**: [Target Version]
+
+## 📈 Summarized Telemetry Metrics
+- **Total Installs**: [Installs]
+- **Total Uninstalls**: [Uninstalls]
+- **Net Growth**: [Net Growth]
+- **Active Devices**: [Active Devices]
+
+## 🔬 Key Telemetry Observations & Action Items
+- [ ] Monitor post-update uninstall ratio vs previous version
+- [ ] Evaluate acquisition channels for high-converting keywords
+- [ ] Track D1/D7 user retention cohorts
+`
+};
+
+export default function MarkdownEditor({
+  value = '',
+  onChange,
+  onGenerateAso,
+  isGeneratingAso = false,
+  placeholder = 'Write notes in Markdown format...',
+  minHeight = '300px'
+}) {
+  const [viewMode, setViewMode] = useState('edit'); // 'edit' | 'split' | 'preview'
+  const [copied, setCopied] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const textareaRef = useRef(null);
+
+  // Enforce disable of 'split' mode on mobile viewports (<768px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && viewMode === 'split') {
+        setViewMode('edit');
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [viewMode]);
+
+  const insertSnippet = (before, after = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      onChange?.(value + before + after);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selection = value.substring(start, end);
+    const replacement = before + (selection || 'text') + after;
+
+    const newValue = value.substring(0, start) + replacement + value.substring(end);
+    onChange?.(newValue);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + (selection || 'text').length);
+    }, 0);
+  };
+
+  const insertLinePrefix = (prefix) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const newValue = value.substring(0, lineStart) + prefix + value.substring(lineStart);
+    onChange?.(newValue);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
+
+  const handleApplyTemplate = (e) => {
+    const tmplKey = e.target.value;
+    if (!tmplKey || !TEMPLATES[tmplKey]) return;
+    if (value.trim() && !window.confirm('Replace current note content with template?')) {
+      e.target.value = '';
+      return;
+    }
+    onChange?.(TEMPLATES[tmplKey]);
+    toast.success('Applied template');
+    e.target.value = '';
+  };
+
+  const handleCopyMarkdown = () => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    toast.success('Copied Markdown to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadFile = () => {
+    if (!value) return;
+    const blob = new Blob([value], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `app_note_${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Downloaded .md file');
+  };
+
+  return (
+    <div className="flex flex-col border border-white/10 rounded-2xl bg-slate-950/60 overflow-hidden shadow-xl relative">
+      {/* Sticky Single-Row Horizontally Scrollable Toolbar */}
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-1.5 p-1.5 border-b border-white/10 bg-slate-900/95 backdrop-blur-md">
+        <div className="flex items-center overflow-x-auto custom-scrollbar gap-1 py-0.5 flex-1 min-w-0 pr-1 select-none">
+          {/* Main Headings */}
+          <button
+            type="button"
+            onClick={() => insertLinePrefix('# ')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Heading 1"
+          >
+            <Heading1 size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => insertLinePrefix('## ')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Heading 2"
+          >
+            <Heading2 size={16} />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-0.5 shrink-0" />
+
+          {/* Formatting */}
+          <button
+            type="button"
+            onClick={() => insertSnippet('**', '**')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Bold (**text**)"
+          >
+            <Bold size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => insertSnippet('*', '*')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Italic (*text*)"
+          >
+            <Italic size={16} />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-0.5 shrink-0" />
+
+          {/* Lists */}
+          <button
+            type="button"
+            onClick={() => insertLinePrefix('- ')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Bullet List (- item)"
+          >
+            <List size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => insertLinePrefix('- [ ] ')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Task List (- [ ] task)"
+          >
+            <CheckSquare size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => insertSnippet('```\n', '\n```')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Code Block (```)"
+          >
+            <Code size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => insertSnippet('[', '](https://example.com)')}
+            className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+            title="Insert Link [Text](url)"
+          >
+            <Link size={16} />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-0.5 shrink-0" />
+
+          {/* AI Sparkle Button with Brand Purple Gradient */}
+          {onGenerateAso && (
+            <button
+              type="button"
+              onClick={onGenerateAso}
+              disabled={isGeneratingAso}
+              className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center space-x-1.5 px-3 py-1.5 sm:py-1 rounded-xl bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-200 hover:from-purple-600/40 hover:to-indigo-600/40 border border-purple-500/40 transition-all text-xs font-bold shadow-md shadow-purple-500/10 shrink-0 justify-center"
+              title="Pull Store Metadata & AI Ideas"
+            >
+              <Sparkles size={16} className={isGeneratingAso ? "animate-spin text-amber-300 flex-shrink-0" : "text-amber-300 flex-shrink-0"} />
+              <span className="hidden sm:inline whitespace-nowrap">{isGeneratingAso ? "Pulling..." : "Pull ASO Ideas"}</span>
+            </button>
+          )}
+
+          {/* Template Selector */}
+          <select
+            onChange={handleApplyTemplate}
+            defaultValue=""
+            className="min-h-[44px] sm:min-h-0 bg-slate-900 border border-white/10 text-slate-300 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:border-accent-blue/60 shrink-0"
+            title="Choose a pre-built note template"
+          >
+            <option value="" disabled>Template...</option>
+            <option value="release">🚀 Release Changelog</option>
+            <option value="telemetry">📊 Telemetry & Performance</option>
+            <option value="aso">🎯 ASO Experiment</option>
+            <option value="bug">🐛 Bug & Crash Triage</option>
+            <option value="feature">💡 Feature Pitch</option>
+          </select>
+
+          {/* More Options (...) Button */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+              title="More formatting options"
+            >
+              <MoreHorizontal size={18} />
+            </button>
+
+            {/* Low Frequency Actions Popover */}
+            {showMoreMenu && (
+              <div
+                className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1.5 w-48 glass-card bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl p-2 z-50 space-y-1"
+                onClick={() => setShowMoreMenu(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => insertLinePrefix('### ')}
+                  className="w-full min-h-[44px] sm:min-h-0 px-3 py-2 text-left text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-xl flex items-center space-x-2.5 transition-colors"
+                >
+                  <Heading3 size={15} />
+                  <span>Heading 3</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertLinePrefix('> ')}
+                  className="w-full min-h-[44px] sm:min-h-0 px-3 py-2 text-left text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-xl flex items-center space-x-2.5 transition-colors"
+                >
+                  <Quote size={15} />
+                  <span>Blockquote</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertSnippet('\n| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n')}
+                  className="w-full min-h-[44px] sm:min-h-0 px-3 py-2 text-left text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-xl flex items-center space-x-2.5 transition-colors"
+                >
+                  <Table size={15} />
+                  <span>Insert Table</span>
+                </button>
+                <div className="h-px bg-white/10 my-1" />
+                <button
+                  type="button"
+                  onClick={handleCopyMarkdown}
+                  className="w-full min-h-[44px] sm:min-h-0 px-3 py-2 text-left text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-xl flex items-center space-x-2.5 transition-colors"
+                >
+                  {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+                  <span>{copied ? 'Copied!' : 'Copy Markdown'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadFile}
+                  className="w-full min-h-[44px] sm:min-h-0 px-3 py-2 text-left text-xs text-slate-300 hover:text-white hover:bg-white/10 rounded-xl flex items-center space-x-2.5 transition-colors"
+                >
+                  <Download size={15} />
+                  <span>Download .md File</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* View Mode Toggle Segmented Control (Write vs Preview on Mobile; Write/Split/Preview on Desktop) */}
+        <div className="flex items-center space-x-1 bg-white/5 p-1 rounded-xl border border-white/10 shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('edit')}
+            className={`min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'edit' ? 'bg-accent-blue text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Edit3 size={13} />
+            <span>Write</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('split')}
+            className={`hidden md:flex items-center justify-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'split' ? 'bg-accent-blue text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Columns size={13} />
+            <span>Split</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('preview')}
+            className={`min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center space-x-1 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'preview' ? 'bg-accent-blue text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Eye size={13} />
+            <span>Preview</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Editor Body */}
+      <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/10 min-h-[300px]">
+        {/* Write Area */}
+        {(viewMode === 'edit' || viewMode === 'split') && (
+          <div className={`p-3 ${viewMode === 'edit' ? 'col-span-2' : 'col-span-1'}`}>
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange?.(e.target.value)}
+              placeholder={placeholder}
+              style={{ minHeight }}
+              className="w-full h-full bg-transparent text-slate-100 placeholder-slate-500 font-mono text-xs md:text-sm focus:outline-none resize-y custom-scrollbar leading-relaxed"
+            />
+          </div>
+        )}
+
+        {/* Preview Area */}
+        {(viewMode === 'preview' || viewMode === 'split') && (
+          <div className={`p-4 overflow-y-auto custom-scrollbar bg-slate-900/40 ${viewMode === 'preview' ? 'col-span-2' : 'col-span-1'}`} style={{ minHeight }}>
+            <MarkdownViewer content={value} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
