@@ -5,6 +5,8 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { GoogleGenAI } = require('@google/genai');
 
+const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/download/v1.2.0/smollm2_q4.tar.gz';
+
 function getResolvedConfigPath() {
   const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
   const candidatePaths = [
@@ -196,9 +198,11 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
 
   const exists = isLocalModelDownloaded(model);
   if (!exists && !confirmDownload) {
-    const error = new Error(`LOCAL_MODEL_NOT_DOWNLOADED`);
-    error.code = 'LOCAL_MODEL_NOT_DOWNLOADED';
+    const error = new Error(`LOCAL_MODEL_NOT_FOUND`);
+    error.code = 'LOCAL_MODEL_NOT_FOUND';
     error.modelName = model;
+    error.downloadUrl = MODEL_URL;
+    error.message = `Local AI model archive not found. Please run 'npm run download-model' or download it manually from ${MODEL_URL} and place it in app/static_assets/`;
     throw error;
   }
 

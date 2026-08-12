@@ -186,6 +186,7 @@ cp example.config.json data/config/config.json
 
 # Install server + frontend deps, then start (Express + Vite watch)
 cd app && npm install
+npm run download-model # Fetches the local AI model (112MB)
 npm --prefix frontend install
 npm run dev
 ```

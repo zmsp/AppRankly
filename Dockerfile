@@ -18,7 +18,10 @@ WORKDIR /build
 COPY app/package*.json ./
 # Install only production dependencies
 RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev
 COPY app/ ./
+# Download AI model archive for local inference
+RUN npm run download-model
 # Remove frontend source code to keep runtime bundle light
 RUN rm -rf frontend
 

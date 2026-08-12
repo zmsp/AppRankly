@@ -11,6 +11,7 @@
     "db:backfill": "node cli.js backfill",
     "db:status": "node cli.js status",
     "cache:clear": "node cli.js cache-clear",
+    "download-model": "node download_model.js",
     "build": "npm run build:frontend",
     "build:static": "npm run build:frontend && node generate_static_data.js",
     "build:demo": "npm run build:frontend && node generate_static_data.js --demo --no-pass",
