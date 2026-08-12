@@ -614,6 +614,19 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
       return { reply: "AI Chat is simulated in the static demo mode. In a full installation, you can use OpenAI, Anthropic, Gemini, or a Local SmolLM2 model to analyze your app's performance and generate ASO content." };
     }
     try {
+      // Cleanly trigger dedicated download endpoint if confirmation was given
+      if (confirmDownload && provider === 'local') {
+        toast.loading('Downloading AI model...', { id: 'ai-download' });
+        const dlRes = await apiFetch('/api/ai/local-model/download', { method: 'POST' }, authToken, isStaticMode);
+        if (dlRes.ok) {
+           toast.success('AI model ready!', { id: 'ai-download' });
+        } else {
+           const errData = await dlRes.json().catch(() => ({}));
+           toast.error(`Download failed: ${errData.error || 'Unknown error'}`, { id: 'ai-download' });
+           return { reply: "Local AI model download failed. Please check server logs." };
+        }
+      }
+
       const res = await apiFetch('/api/notes/ai-chat', {
         method: 'POST',
         body: JSON.stringify({ noteTitle, noteContent, messages, provider, model, confirmDownload })

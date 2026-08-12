@@ -1,6 +1,6 @@
 services:
   apprankly-dashboard:
-    image: ghcr.io/zmsp/apprankly:main
+    image: hi:latest
     container_name: AppRankly
     ports:
       - "3000:3000"

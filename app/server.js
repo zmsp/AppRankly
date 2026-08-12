@@ -14,7 +14,7 @@ const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
 const { aggregateOverviews, getNormalizedPairings, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex, fillContinuousDailyTrends } = require("./lib/metrics");
-const { ensureDirectoriesAndTemplates } = require("./lib/init");
+const { ensureDirectoriesAndTemplates, downloadAndExtractModel } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
@@ -624,9 +624,20 @@ app.put("/api/config", authenticate, (req, res) => {
 
 // Endpoint for Note AI Chat assistant
 app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
-  const { noteTitle, noteContent, messages = [], provider, model, confirmDownload = false } = req.body;
+  const { noteTitle, noteContent, messages = [], provider, model, confirmDownload } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Messages array is required" });
+  }
+
+  // Handle on-demand model download if requested
+  if (confirmDownload && provider === 'local') {
+    try {
+      console.log(`[AI Chat] confirmDownload received. Initializing local model download...`);
+      await downloadAndExtractModel(DATA_DIR);
+    } catch (err) {
+      console.error("[AI Chat] Failed to download model on-demand:", err.message);
+      return res.status(500).json({ error: "Failed to initialize local AI model", details: err.message });
+    }
   }
 
   const lastUserMsg = messages[messages.length - 1]?.content || "";
@@ -636,7 +647,6 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
     const aiResponse = await aiModule.generateJSON({
       provider: provider || undefined,
       customModel: model || undefined,
-      confirmDownload: Boolean(confirmDownload),
       system: "You are a helpful, concise AI writing and brainstorming assistant for App Store stats and note management. Help the user edit, summarize, extract tasks, or brainstorm ideas based on their current note. Keep your response brief, clear, and direct.",
       prompt: `Current Note Title: "${noteTitle || 'Untitled Note'}"\nCurrent Note Content:\n\`\`\`markdown\n${(noteContent || '').slice(0, 4000)}\n\`\`\`\n\nUser Question/Instruction: "${lastUserMsg}"\n\nProvide a clear, helpful response to the user's question or instruction.`,
       schema: {
@@ -650,7 +660,7 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
 
     res.json({ reply: aiResponse.data?.reply || "I'm sorry, I couldn't generate a response." });
   } catch (err) {
-    if (err.code === 'LOCAL_MODEL_NOT_DOWNLOADED' || err.message === 'LOCAL_MODEL_NOT_DOWNLOADED') {
+    if (err.code === 'LOCAL_MODEL_NOT_DOWNLOADED') {
       return res.json({
         requireConfirmation: true,
         modelName: err.modelName || 'onnx-community/SmolLM2-135M-Instruct',
@@ -662,6 +672,16 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
     res.json({
       reply: `Note Assistant: I received your request ("${lastUserMsg.slice(0, 50)}..."), but could not contact the AI service (${err.message}). Please make sure your AI Provider API key is configured.`
     });
+  }
+});
+
+app.post("/api/ai/local-model/download", authenticate, async (req, res) => {
+  try {
+    await downloadAndExtractModel(DATA_DIR);
+    res.json({ success: true, message: "Local AI model downloaded and initialized successfully." });
+  } catch (error) {
+    console.error("Error downloading local AI model:", error);
+    res.status(500).json({ error: "Failed to download local AI model", details: error.message });
   }
 });
 
@@ -2142,15 +2162,15 @@ app.get("/api/notifications/status", authenticate, (req, res) => {
   });
 });
 
-// Initialize periodic background stats auto-refresh scheduler
-startPeriodicScheduler(schedulerHelpers);
-
 // Serve static frontend files from 'public' directory
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+// Initialize periodic background stats auto-refresh scheduler
+startPeriodicScheduler(schedulerHelpers);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Play Store Stats Dashboard Server running at http://localhost:${PORT}`);

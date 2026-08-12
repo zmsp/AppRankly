@@ -5,16 +5,16 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { GoogleGenAI } = require('@google/genai');
 
-const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/v1.2.0/download/smollm2_q4.tar.gz';
+const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/download/v1.2.0/smollm2_q4.tar.gz';
 
 function getResolvedConfigPath() {
-  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
+  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', '..', 'data') : path.join(__dirname, '..', '..', '..', 'data'));
   const candidatePaths = [
     process.env.CONFIG_PATH,
     path.join(dataDir, 'config', 'config.json'),
     path.join(dataDir, 'config.json'),
-    path.join(__dirname, '..', '..', 'config', 'config.json'),
-    path.join(__dirname, '..', 'config', 'config.json')
+    path.join(__dirname, '..', '..', '..', 'config', 'config.json'),
+    path.join(__dirname, '..', '..', 'config', 'config.json')
   ].filter(Boolean);
 
   return candidatePaths.find(p => fs.existsSync(p)) || candidatePaths[0];
@@ -61,7 +61,7 @@ function getAIStatus() {
   const { defaultProvider, providers } = loadAIConfig();
   const providerList = Object.keys(providers).map(id => ({
     id,
-    available: Boolean(providers[id].apiKey),
+    available: id === 'local' ? isLocalModelDownloaded(providers[id].model) : Boolean(providers[id].apiKey),
     model: providers[id].model,
     maskedKey: providers[id].apiKey ? `${providers[id].apiKey.slice(0, 7)}...${providers[id].apiKey.slice(-4)}` : ''
   }));
@@ -107,7 +107,6 @@ async function openaiGenerate({ system, prompt, schema, apiKey, model, maxTokens
     }
   };
 
-  // Modern OpenAI models (o1, o3-mini, gpt-4o, etc.) use max_completion_tokens
   if (model.startsWith('o1') || model.startsWith('o3') || model.startsWith('gpt-4o')) {
     params.max_completion_tokens = maxTokens;
   } else {
@@ -148,66 +147,23 @@ async function geminiGenerate({ system, prompt, schema, apiKey, model }) {
   };
 }
 
-function getStaticArchivePath() {
-  const candidates = [
-    path.join(__dirname, '..', 'static_assets', 'smollm2_q4.tar.gz'),
-    path.join(__dirname, '..', '..', 'app', 'static_assets', 'smollm2_q4.tar.gz'),
-    path.join(process.cwd(), 'app', 'static_assets', 'smollm2_q4.tar.gz'),
-    path.join(process.cwd(), 'static_assets', 'smollm2_q4.tar.gz')
-  ];
-  return candidates.find(p => fs.existsSync(p));
-}
-
-function ensureLocalModelExtracted(modelName = 'HuggingFaceTB/SmolLM2-135M-Instruct') {
-  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
-  const modelsDir = path.join(dataDir, 'models');
-  const targetDir = path.join(modelsDir, ...modelName.split('/'));
-
-  if (fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0) {
-    return targetDir;
-  }
-
-  // Check for compressed static asset archive in application assets
-  const archivePath = getStaticArchivePath();
-  if (archivePath) {
-    console.log(`[Local AI Model] First request: Decompressing ${archivePath} into runtime data directory ${targetDir}...`);
-    fs.mkdirSync(targetDir, { recursive: true });
-    const { execSync } = require('child_process');
-    execSync(`tar -xzf "${archivePath}" -C "${targetDir}"`);
-    console.log(`[Local AI Model] Decompression complete for ${modelName} into data directory.`);
-    return targetDir;
-  }
-
-  return targetDir;
-}
-
 function isLocalModelDownloaded(modelName = 'HuggingFaceTB/SmolLM2-135M-Instruct') {
-  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
+  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', '..', 'data') : path.join(__dirname, '..', '..', '..', 'data'));
   const targetDir = path.join(dataDir, 'models', ...modelName.split('/'));
 
-  if (fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0) return true;
-
-  return Boolean(getStaticArchivePath());
+  return fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0;
 }
 
-async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-135M-Instruct', confirmDownload = false }) {
-  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));
+async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-135M-Instruct' }) {
+  const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', '..', 'data') : path.join(__dirname, '..', '..', '..', 'data'));
   const modelsDir = path.join(dataDir, 'models');
 
-  ensureLocalModelExtracted(model);
-
-  const exists = isLocalModelDownloaded(model);
-  if (!exists && !confirmDownload) {
-    const error = new Error(`LOCAL_MODEL_NOT_FOUND`);
-    error.code = 'LOCAL_MODEL_NOT_FOUND';
+  if (!isLocalModelDownloaded(model)) {
+    const error = new Error(`LOCAL_MODEL_NOT_DOWNLOADED`);
+    error.code = 'LOCAL_MODEL_NOT_DOWNLOADED';
     error.modelName = model;
     error.downloadUrl = MODEL_URL;
-    error.message = `Local AI model archive not found. Please run 'npm run download-model' or download it manually from ${MODEL_URL} and place it in app/static_assets/`;
     throw error;
-  }
-
-  if (!fs.existsSync(modelsDir)) {
-    fs.mkdirSync(modelsDir, { recursive: true });
   }
 
   let pipeline, env;
@@ -224,14 +180,11 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
     env.token = process.env.HF_TOKEN;
   }
 
-  console.log(`[Local AI Model] Loading/Downloading ${model} into cache at ${modelsDir}...`);
+  console.log(`[Local AI Model] Loading ${model} from ${modelsDir}...`);
   let generator;
   try {
     generator = await pipeline('text-generation', model, { dtype: 'q4' });
   } catch (err) {
-    if (err.message?.includes('Unauthorized access') || err.message?.includes('401')) {
-      throw new Error(`HuggingFace returned unauthorized access for ${model}. If downloading restricted/gated models, set process.env.HF_TOKEN in your environment or use a public open ONNX model repository.`);
-    }
     throw err;
   }
 
@@ -239,7 +192,6 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
   const output = await generator(fullPrompt, { max_new_tokens: 250, temperature: 0.7, repetition_penalty: 1.2 });
   let rawText = output[0]?.generated_text || '';
 
-  // Slicing text strictly after the last assistant token marker
   const assistantMarker = '<|im_start|>assistant\n';
   if (rawText.includes(assistantMarker)) {
     rawText = rawText.split(assistantMarker).pop();
@@ -249,7 +201,6 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
     rawText = rawText.slice(fullPrompt.length).trim();
   }
 
-  // Clean trailing ChatML tokens or artifacts
   rawText = rawText.replace(/<\|im_end\|>[\s\S]*$/g, '').trim();
   rawText = rawText.replace(/Current Note Title:[\s\S]*$/i, '').trim();
 
@@ -259,9 +210,7 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
     if (jsonMatch) {
       jsonResult = JSON.parse(jsonMatch[0]);
     }
-  } catch (e) {
-    // Fallback reply
-  }
+  } catch (e) {}
 
   return {
     data: jsonResult,
@@ -269,7 +218,7 @@ async function localGenerate({ prompt, system, model = 'HuggingFaceTB/SmolLM2-13
   };
 }
 
-async function generateJSON({ system, prompt, schema, provider, customModel, customApiKey, confirmDownload = false, maxTokens = 8192 }) {
+async function generateJSON({ system, prompt, schema, provider, customModel, customApiKey, maxTokens = 8192 }) {
   const { defaultProvider, providers } = loadAIConfig();
   const selectedProvider = provider || defaultProvider;
   const pConfig = providers[selectedProvider] || {};
@@ -278,9 +227,8 @@ async function generateJSON({ system, prompt, schema, provider, customModel, cus
   let result;
 
   if (selectedProvider === 'local') {
-    result = await localGenerate({ system, prompt, model: activeModel, confirmDownload });
+    result = await localGenerate({ system, prompt, model: activeModel });
   } else {
-    // Allow API key from custom parameter, config.json, or env
     const envKeyName = `${selectedProvider.toUpperCase()}_API_KEY`;
     const apiKey = customApiKey || pConfig.apiKey || process.env[envKeyName] || process.env.GEMINI_API_KEY;
 
