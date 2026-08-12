@@ -19,9 +19,10 @@ app/test/
 Thumbs.db
 
 # Configurations & Keys
-config/
-data/
-app/data/
+/config/
+/data/
+/app/config/
+/app/data/
 .env
 .env.*
 *.p8
@@ -32,6 +33,7 @@ app/data/
 !package-lock.json
 !**/package.json
 !**/package-lock.json
+!app/frontend/src/**/*.json
 !example.config.json
 !config/example.config.json
 
