@@ -195,6 +195,7 @@ npm run dev
 
 ## Key Features
 
+- **App-specific notes & AI insights** — keep track of changes with persistent notes for each app; generate AI summaries of recent user reviews and sentiment trends to inform your strategy.
 - **Unified cross-platform metrics** — installs, uninstalls, active devices, upgrades, and country/device/version breakdowns for Google Play and Apple App Store in one UI.
 - **AI-powered ASO studio** — autocomplete keyword mining, keyword rank checks, competitor comparison, listing health audits, metadata variant generation, and review digests. Bring your own key: **OpenAI, Anthropic, or Gemini** (pick per provider in config).
 - **SQLite caching layer** — daily facts and AI results are cached locally (`node:sqlite`, zero native deps), so repeat queries never re-download or re-bill.
