@@ -122,7 +122,7 @@ Open **http://localhost:3000**.
 
 ```bash
 # 1. Pull from GitHub Container Registry
-docker pull ghcr.io/zmsp/apprankly:latest
+docker pull ghcr.io/zmsp/apprankly:main
 
 # 2. Create config under ./data (this method mounts the whole data dir)
 mkdir -p data/config/keys
@@ -135,7 +135,7 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/data:/app/data \
   -e JWT_SECRET="your-secure-random-secret" \
-  ghcr.io/zmsp/apprankly:latest
+  ghcr.io/zmsp/apprankly:main
 ```
 
 ### Option 3: Unraid

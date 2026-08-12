@@ -5,7 +5,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { GoogleGenAI } = require('@google/genai');
 
-const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/download/v1.2.0/smollm2_q4.tar.gz';
+const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/v1.2.0/download/smollm2_q4.tar.gz';
 
 function getResolvedConfigPath() {
   const dataDir = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? path.join(__dirname, '..', 'data') : path.join(__dirname, '..', '..', 'data'));

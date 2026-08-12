@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/download/v1.2.0/smollm2_q4.tar.gz';
+const MODEL_URL = 'https://github.com/zmsp/AppRankly/releases/v1.2.0/download/smollm2_q4.tar.gz';
 const TARGET_PATH = path.join(__dirname, 'static_assets', 'smollm2_q4.tar.gz');
 
 async function downloadModel() {

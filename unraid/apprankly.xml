@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>AppRankly</Name>
-  <Repository>ghcr.io/zmsp/apprankly:latest</Repository>
+  <Repository>ghcr.io/zmsp/apprankly:main</Repository>
   <Registry>https://github.com/zmsp/AppRankly/pkgs/container/apprankly</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
