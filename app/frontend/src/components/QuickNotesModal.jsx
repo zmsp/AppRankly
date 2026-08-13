@@ -36,7 +36,7 @@ export default function QuickNotesModal({
   const appName = activeProject ? activeProject.name : 'All Apps';
 
   // Find existing notes for active app
-  const appNotes = notes.filter(n => (pkgName === 'all' ? true : n.packageName === pkgName));
+  const appNotes = Array.isArray(notes) ? notes.filter(n => n && (pkgName === 'all' ? true : n.packageName === pkgName)) : [];
   const [activeNoteId, setActiveNoteId] = useState(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');

@@ -10,7 +10,7 @@ export default function MarkdownViewer({ content = '', className = '' }) {
   }
 
   const renderFormattedInline = (text) => {
-    if (!text) return null;
+    if (!text || typeof text !== 'string') return null;
     
     // Split text by tokens while preserving markdown delimiters
     const elements = [];
@@ -90,7 +90,7 @@ export default function MarkdownViewer({ content = '', className = '' }) {
   };
 
   // Process line-by-line block structures
-  const lines = content.split('\n');
+  const lines = typeof content === 'string' ? content.split('\n') : [];
   const blocks = [];
   let inCodeBlock = false;
   let codeBlockContent = [];

@@ -90,9 +90,9 @@ export default function ContextBar({
         >
           <Edit3 size={13} className="text-indigo-400 shrink-0" />
           <span>Notes</span>
-          {notes.filter(n => (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length > 0 && (
+          {Array.isArray(notes) && notes.filter(n => n && (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length > 0 && (
             <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-indigo-500 text-white">
-              {notes.filter(n => (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length}
+              {notes.filter(n => n && (!activeProject || activeProject.packageName === 'all' ? true : n.packageName === activeProject.packageName)).length}
             </span>
           )}
         </button>

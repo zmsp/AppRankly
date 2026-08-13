@@ -416,7 +416,7 @@ export function useAppState() {
       const res = await apiFetch('/api/notes', {}, authToken, isStaticMode);
       if (res.ok) {
         const data = await res.json();
-        setNotes(data);
+        setNotes(Array.isArray(data) ? data : []);
       }
     } catch (err) {
       console.error('Failed to fetch notes', err);
