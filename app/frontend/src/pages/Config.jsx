@@ -182,6 +182,78 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
   );
 }
 
+function SetupGitButton({ authToken, isStaticMode, isDemoMode }) {
+  const [state, setState] = useState('idle');
+  const [result, setResult] = useState(null);
+
+  const run = async () => {
+    if (isDemoMode) {
+      setState('ok');
+      setResult({ success: true, message: "Demo mode: Git repository would be initialized and local notes migrated." });
+      return;
+    }
+    const confirmed = window.confirm("This will backup your local notes, clear the current notes directory, clone the remote repository, and restore your notes there. Proceed?");
+    if (!confirmed) return;
+
+    setState('loading');
+    setResult(null);
+    try {
+      const res = await apiFetch('/api/notes/setup-git', { method: 'POST' }, authToken, isStaticMode);
+      const data = await res.json();
+      setState(data.success ? 'ok' : 'err');
+      setResult(data);
+    } catch (err) {
+      setState('err');
+      setResult({ error: err.message });
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={run}
+        disabled={state === 'loading'}
+        className={clsx(
+          "flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all border shadow-sm",
+          state === 'idle' && "bg-accent-blue/10 border-accent-blue/20 hover:bg-accent-blue/20 text-accent-blue",
+          state === 'loading' && "bg-white/5 border-white/10 text-white/40 cursor-wait",
+          state === 'ok' && "bg-emerald-500/10 border-emerald-500/20 text-emerald-400",
+          state === 'err' && "bg-rose-500/10 border-rose-500/20 text-rose-400"
+        )}
+      >
+        {state === 'loading' ? (
+          <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+        ) : state === 'ok' ? (
+          <CheckCircle2 size={14} />
+        ) : state === 'err' ? (
+          <XCircle size={14} />
+        ) : (
+          <Settings size={14} />
+        )}
+        <span>Run Migration & Setup Repo</span>
+      </button>
+
+      {result && (
+        <div className={clsx(
+          "text-[11px] rounded-xl p-3 border font-mono",
+          result.success
+            ? "bg-emerald-500/5 border-emerald-500/15 text-emerald-300"
+            : "bg-rose-500/5 border-rose-500/15 text-rose-300"
+        )}>
+          {result.success ? (
+            <div className="font-bold text-emerald-400">✓ {result.message}</div>
+          ) : (
+            <div>
+              <div className="font-bold text-rose-400">✗ Setup Failed</div>
+              <div className="text-white/50 mt-1 break-all">{result.error || result.reason}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function JsonEditor({ raw, onChange }) {
   const [error, setError] = useState(null);
   const handleChange = (val) => {
@@ -1276,18 +1348,21 @@ export default function Config({ authToken, isStaticMode, isDemoMode, fetchAiSta
               title="Git Repository & Notes Auto-Sync"
               subtitle="Automatically commit and push per-app Markdown notes to a remote Git repository"
             >
-              <TestButton
-                platform="git"
-                payload={{
-                  remoteUrl: entry.gitNotes?.remoteUrl,
-                  branch: entry.gitNotes?.branch,
-                  username: entry.gitNotes?.username,
-                  password: entry.gitNotes?.password
-                }}
-                authToken={authToken}
-                isStaticMode={isStaticMode}
-                isDemoMode={isDemoMode}
-              />
+              <div className="flex items-center space-x-2">
+                <SetupGitButton authToken={authToken} isStaticMode={isStaticMode} isDemoMode={isDemoMode} />
+                <TestButton
+                  platform="git"
+                  payload={{
+                    remoteUrl: entry.gitNotes?.remoteUrl,
+                    branch: entry.gitNotes?.branch,
+                    username: entry.gitNotes?.username,
+                    password: entry.gitNotes?.password
+                  }}
+                  authToken={authToken}
+                  isStaticMode={isStaticMode}
+                  isDemoMode={isDemoMode}
+                />
+              </div>
             </SectionHeader>
 
             <div className="space-y-4">

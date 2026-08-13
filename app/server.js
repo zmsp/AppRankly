@@ -1,8 +1,9 @@
 const express = require("express");
+const util = require("util");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
-const { execSync } = require("child_process");
+const { execFile } = require("child_process");
 const helmet = require("helmet");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -14,7 +15,7 @@ const { JWT_SECRET, PASSWORD_FILE, isPasswordSet, authenticate } = require("./li
 const { buildAppleViewer, buildGoogleViewer, fetchPackagesByPlatform, getIgnoredSet } = require("./lib/viewerFactory");
 const { getScrapedAppleStoreData, getScrapedPlayStoreData, APPSTORE_CACHE_FILE, PLAYSTORE_CACHE_FILE } = require("./lib/scraper");
 const { getReleasesFromFile, saveReleasesToFile, RELEASES_FILE } = require("./lib/releases");
-const { NOTES_DIR, ensureGitNotesRepo, getNotesFromStorage, saveNoteToStorage, deleteNoteFromStorage, getNoteGitHistory } = require("./lib/notes");
+const { NOTES_DIR, ensureGitNotesRepo, getNotesFromStorage, saveNoteToStorage, deleteNoteFromStorage, getNoteGitHistory, setupGitNotesRepo } = require("./lib/notes");
 
 const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const resolver = require("./lib/resolver");
@@ -25,6 +26,8 @@ const { sendNtfyNotification, syncNtfyTopicMessages, clearNotifications, markNot
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
 const { db } = require("./lib/db");
+
+const execFileAsync = util.promisify(execFile);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -179,16 +182,20 @@ app.post("/api/test/git", authenticate, async (req, res) => {
   const targetUser = username || gitConfig.username || process.env.GIT_USERNAME || '';
   const targetPass = password || gitConfig.password || process.env.GIT_PASSWORD || process.env.GIT_TOKEN || '';
   if (!targetUrl) return res.json({ success: false, error: "Git Remote URL is empty." });
-  ensureGitNotesRepo();
+  await ensureGitNotesRepo();
   let authRemote = targetUrl;
   if (targetUser && targetPass && (authRemote.startsWith('https://') || authRemote.startsWith('http://'))) {
     const protocol = authRemote.startsWith('https://') ? 'https://' : 'http://';
     authRemote = `${protocol}${encodeURIComponent(targetUser)}:${encodeURIComponent(targetPass)}@${authRemote.replace(protocol, '')}`;
   }
   try {
-    const output = execSync(`git ls-remote "${authRemote}" ${targetBranch}`, { cwd: NOTES_DIR, encoding: 'utf8', timeout: 15000 });
-    res.json({ success: true, message: `Connected to branch "${targetBranch}".`, output: output.trim().split('\n')[0] });
-  } catch (err) { res.json({ success: false, error: `Failed: ${err.stderr || err.message}` }); }
+    // Security: Use execFile to prevent command injection
+    const { stdout } = await execFileAsync('git', ['ls-remote', authRemote, targetBranch], { cwd: NOTES_DIR, encoding: 'utf8', timeout: 15000 });
+    res.json({ success: true, message: `Connected to branch "${targetBranch}".`, output: stdout.trim().split('\n')[0] });
+  } catch (err) {
+    const message = (err.message || '').replace(/:[^@:]+@/g, ':***@');
+    res.json({ success: false, error: `Failed: ${message}` });
+  }
 });
 
 app.get("/api/cache-stats", authenticate, (req, res) => res.json(resolver.getMetrics()));
@@ -338,43 +345,51 @@ app.delete("/api/releases/:id", authenticate, (req, res) => {
   res.json({ success: true });
 });
 
-app.get("/api/notes", authenticate, (req, res) => {
-  let notes = getNotesFromStorage();
+app.get("/api/notes", authenticate, async (req, res) => {
+  let notes = await getNotesFromStorage();
   const { packageName, platform } = req.query;
   if (packageName && packageName !== 'all') notes = notes.filter(n => n.packageName === packageName || n.packageName === 'all');
   if (platform && platform !== 'all') notes = notes.filter(n => n.platform === platform || n.platform === 'all');
   res.json(notes);
 });
 
-app.post("/api/notes", authenticate, (req, res) => {
+app.post("/api/notes", authenticate, async (req, res) => {
   const { title, content, packageName, platform, tags, pinned } = req.body;
   const now = new Date().toISOString();
   const note = { id: req.body.id || `note_${Date.now()}`, title: title || 'Untitled Note', content: content || '', packageName: packageName || 'all', platform: platform || 'all', tags: Array.isArray(tags) ? tags : [], pinned: !!pinned, createdAt: now, updatedAt: now };
-  saveNoteToStorage(note);
+  await saveNoteToStorage(note);
   res.json({ success: true, note });
 });
 
-app.put("/api/notes/:id", authenticate, (req, res) => {
-  const notes = getNotesFromStorage();
+app.put("/api/notes/:id", authenticate, async (req, res) => {
+  const notes = await getNotesFromStorage();
   const existing = notes.find(n => String(n.id) === String(req.params.id));
   if (!existing) return res.status(404).json({ error: "Not found" });
   const updated = { ...existing, ...req.body, updatedAt: new Date().toISOString() };
-  saveNoteToStorage(updated);
+  await saveNoteToStorage(updated);
   res.json({ success: true, note: updated });
 });
 
-app.delete("/api/notes/:id", authenticate, (req, res) => {
-  deleteNoteFromStorage(req.params.id);
+app.delete("/api/notes/:id", authenticate, async (req, res) => {
+  await deleteNoteFromStorage(req.params.id);
   res.json({ success: true });
 });
 
-app.get("/api/notes/:id/history", authenticate, (req, res) => res.json({ success: true, history: getNoteGitHistory(req.params.id) }));
-app.post("/api/notes/:id/restore", authenticate, (req, res) => {
-  const notes = getNotesFromStorage();
+app.get("/api/notes/:id/history", authenticate, async (req, res) => res.json({ success: true, history: await getNoteGitHistory(req.params.id) }));
+app.post("/api/notes/setup-git", authenticate, async (req, res) => {
+  try {
+    const result = await setupGitNotesRepo();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+app.post("/api/notes/:id/restore", authenticate, async (req, res) => {
+  const notes = await getNotesFromStorage();
   const existing = notes.find(n => String(n.id) === String(req.params.id));
   if (!existing) return res.status(404).json({ error: "Not found" });
   const restored = { ...existing, ...req.body, updatedAt: new Date().toISOString() };
-  saveNoteToStorage(restored);
+  await saveNoteToStorage(restored);
   res.json({ success: true, note: restored });
 });
 
@@ -389,7 +404,7 @@ app.post("/api/notes/generate-aso", authenticate, async (req, res) => {
     });
     const now = new Date().toISOString();
     const note = { id: `note_aso_${Date.now()}`, title: `ASO Strategy: ${appTitle || packageName}`, content: resp.data.summaryMarkdown, packageName, platform, tags: ['aso'], pinned: true, createdAt: now, updatedAt: now };
-    saveNoteToStorage(note);
+    await saveNoteToStorage(note);
     res.json({ success: true, note });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
