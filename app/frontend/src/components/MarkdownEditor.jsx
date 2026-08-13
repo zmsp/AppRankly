@@ -19,12 +19,17 @@ import {
   Download,
   FileCode2,
   Check,
-  MoreHorizontal
+  MoreHorizontal,
+  FilePlus,
+  FileText,
+  FileStack,
+  ChevronDown,
+  Settings
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MarkdownViewer from './MarkdownViewer';
 
-const TEMPLATES = {
+export const TEMPLATES = {
   release: `# 🚀 Release Notes & Changelog (vX.Y.Z)
 
 ## 📱 App Store & Play Store Release Copy
@@ -115,7 +120,24 @@ export default function MarkdownEditor({
   const [viewMode, setViewMode] = useState('edit'); // 'edit' | 'split' | 'preview'
   const [copied, setCopied] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showTemplateMenu, setShowTemplateMenu] = useState(false);
   const textareaRef = useRef(null);
+
+  // --- Logic ---
+  const handleTemplateAction = (action, templateKey) => {
+    const template = TEMPLATES[templateKey];
+    if (!template) return;
+
+    if (action === 'replace') {
+      if (value.trim() && !window.confirm('Replace current note content with template?')) return;
+      onChange?.(template);
+      toast.success(`Applied ${templateKey} template`);
+    } else {
+      insertSnippet(template, '');
+      toast.success(`Inserted ${templateKey} snippet`);
+    }
+    setShowTemplateMenu(false);
+  };
 
   // Enforce disable of 'split' mode on mobile viewports (<768px)
   useEffect(() => {
@@ -165,18 +187,6 @@ export default function MarkdownEditor({
       textarea.focus();
       textarea.setSelectionRange(start + prefix.length, end + prefix.length);
     }, 0);
-  };
-
-  const handleApplyTemplate = (e) => {
-    const tmplKey = e.target.value;
-    if (!tmplKey || !TEMPLATES[tmplKey]) return;
-    if (value.trim() && !window.confirm('Replace current note content with template?')) {
-      e.target.value = '';
-      return;
-    }
-    onChange?.(TEMPLATES[tmplKey]);
-    toast.success('Applied template');
-    e.target.value = '';
   };
 
   const handleCopyMarkdown = () => {
@@ -294,20 +304,53 @@ export default function MarkdownEditor({
             </button>
           )}
 
-          {/* Template Selector */}
-          <select
-            onChange={handleApplyTemplate}
-            defaultValue=""
-            className="min-h-[44px] sm:min-h-0 bg-slate-900 border border-white/10 text-slate-300 text-xs rounded-xl px-2.5 py-1 focus:outline-none focus:border-accent-blue/60 shrink-0"
-            title="Choose a pre-built note template"
-          >
-            <option value="" disabled>Template...</option>
-            <option value="release">🚀 Release Changelog</option>
-            <option value="telemetry">📊 Telemetry & Performance</option>
-            <option value="aso">🎯 ASO Experiment</option>
-            <option value="bug">🐛 Bug & Crash Triage</option>
-            <option value="feature">💡 Feature Pitch</option>
-          </select>
+          {/* Custom Template Dropdown */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowTemplateMenu(!showTemplateMenu)}
+              className={`min-h-[44px] sm:min-h-0 flex items-center space-x-1.5 px-3 py-1.5 sm:py-1 rounded-xl border transition-all text-xs font-bold shrink-0 ${
+                showTemplateMenu ? 'bg-white/10 border-accent-blue/50 text-white' : 'bg-slate-900 border-white/10 text-slate-300 hover:text-white'
+              }`}
+            >
+              <FileStack size={14} className="text-accent-blue" />
+              <span className="hidden sm:inline">Templates</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${showTemplateMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showTemplateMenu && (
+              <div className="absolute left-0 top-full mt-1.5 w-64 glass-card bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold px-2 py-1 mb-1">Select Template Action</div>
+                <div className="space-y-1">
+                  {Object.keys(TEMPLATES).map((key) => (
+                    <div key={key} className="flex items-center justify-between p-1.5 hover:bg-white/5 rounded-xl transition-colors group">
+                      <span className="text-xs text-slate-300 font-medium capitalize pl-1">
+                        {key === 'aso' ? 'ASO Experiment' : key === 'bug' ? 'Bug Triage' : key === 'feature' ? 'Feature Pitch' : key === 'release' ? 'Release Notes' : 'Telemetry Brief'}
+                      </span>
+                      <div className="flex items-center space-x-1 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleTemplateAction('insert', key); }}
+                          title="Insert at cursor"
+                          className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center space-x-1"
+                        >
+                          <FilePlus size={14} />
+                          <span className="text-[10px] font-bold">Insert</span>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleTemplateAction('replace', key); }}
+                          title="Replace entire note"
+                          className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all flex items-center space-x-1"
+                        >
+                          <FileText size={14} />
+                          <span className="text-[10px] font-bold">Replace</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* More Options (...) Button */}
           <div className="relative shrink-0">

@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bot, Send, Sparkles, X, User, Loader2, Plus, Cpu, RotateCcw, Compass,
-  Notebook, Maximize2, Save, Trash2, Pin, Check, MessageSquare, Settings
+  Notebook, Maximize2, Save, Trash2, Pin, Check, MessageSquare, Settings,
+  FileStack, ChevronDown, FilePlus, FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import pageContexts from '../data/pageContexts.json';
 import MarkdownViewer from './MarkdownViewer';
+import { TEMPLATES } from './MarkdownEditor';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
 const DEFAULT_MODEL_OPTIONS = [
@@ -194,6 +196,21 @@ export default function FloatingAssistant({
     }
   };
 
+  const handleTemplateAction = (action, templateKey) => {
+    const template = TEMPLATES[templateKey];
+    if (!template) return;
+
+    if (action === 'replace') {
+      if (noteContent.trim() && !window.confirm('Replace current note content with template?')) return;
+      setNoteContent(template);
+      toast.success(`Applied ${templateKey} template`);
+    } else {
+      setNoteContent(prev => prev + (prev.endsWith('\n') ? '' : '\n\n') + template);
+      toast.success(`Appended ${templateKey} template`);
+    }
+    setShowSettings(false);
+  };
+
   // --- Shared AI Helpers ---
   const buildDynamicPageData = () => {
     const parts = [];
@@ -260,14 +277,21 @@ export default function FloatingAssistant({
   const renderHeader = () => (
     <div className="p-3 border-b border-white/10 flex flex-col gap-2 bg-slate-800/80">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className={`p-1.5 rounded-lg border ${activeTab === 'chat' ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/30' : 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'}`}>
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className={`p-1.5 rounded-lg border shrink-0 ${activeTab === 'chat' ? 'bg-accent-blue/20 text-accent-blue border-accent-blue/30' : 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'}`}>
             {activeTab === 'chat' ? <Bot size={16} /> : <Notebook size={16} />}
           </div>
-          <div className="min-w-0">
-            <h4 className="font-bold text-white text-xs">{activeTab === 'chat' ? 'Ask Rankly' : 'Quick Notes'}</h4>
+          <div className="min-w-0 flex flex-col">
+            <div className="flex items-center space-x-2">
+              <h4 className="font-bold text-white text-xs truncate">
+                {activeTab === 'chat' ? 'Ask Rankly' : noteTitle}
+              </h4>
+              {activeTab === 'notes' && noteContent !== lastSavedContent && (
+                <span className="text-[8px] text-accent-blue font-bold animate-pulse shrink-0 bg-accent-blue/10 px-1 rounded">Saving...</span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-400 truncate max-w-[150px]">
-              {activeTab === 'chat' ? currentPageContext.title : (noteTitle || 'Untitled')}
+              {activeTab === 'chat' ? currentPageContext.title : appName}
             </p>
           </div>
         </div>
@@ -283,23 +307,22 @@ export default function FloatingAssistant({
           )}
 
           {activeTab === 'chat' && (
-            <>
-              <button
-                onClick={() => setMessages([{ role: 'assistant', content: `Context reset to **${currentPageContext.title}**. How can I help?` }])}
-                title="Reset conversation"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-rose-400 transition-all"
-              >
-                <RotateCcw size={14} />
-              </button>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                title="Chat Settings"
-                className={`p-1.5 rounded-lg transition-all ${showSettings ? 'bg-accent-blue/20 text-accent-blue' : 'hover:bg-white/10 text-slate-400'}`}
-              >
-                <Settings size={14} />
-              </button>
-            </>
+            <button
+              onClick={() => setMessages([{ role: 'assistant', content: `Context reset to **${currentPageContext.title}**. How can I help?` }])}
+              title="Reset conversation"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-rose-400 transition-all"
+            >
+              <RotateCcw size={14} />
+            </button>
           )}
+
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            title={`${activeTab === 'chat' ? 'Chat' : 'Note'} Settings`}
+            className={`p-1.5 rounded-lg transition-all ${showSettings ? 'bg-accent-blue/20 text-accent-blue' : 'hover:bg-white/10 text-slate-400'}`}
+          >
+            <Settings size={14} />
+          </button>
 
           <button
             onClick={() => setIsOpen(false)}
@@ -359,11 +382,11 @@ export default function FloatingAssistant({
         <div className="fixed bottom-28 right-6 z-50 w-80 sm:w-96 glass-card rounded-2xl border border-white/20 shadow-2xl flex flex-col max-h-[580px] bg-slate-900/95 backdrop-blur-xl text-xs overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
           {renderHeader()}
 
-          {activeTab === 'chat' ? (
-            <>
-              {/* Chat Settings Panel */}
-              {showSettings && (
-                <div className="px-3 py-3 border-b border-white/10 bg-slate-900/50 space-y-3 animate-in slide-in-from-top-2 duration-200">
+          {/* Settings Panel (Chat or Notes) */}
+          {showSettings && (
+            <div className="px-3 py-3 border-b border-white/10 bg-slate-900/50 space-y-3 animate-in slide-in-from-top-2 duration-200">
+              {activeTab === 'chat' ? (
+                <>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold ml-1">AI Model Provider</label>
                     <div className="flex items-center space-x-2 bg-white/5 p-1 rounded-xl border border-white/10">
@@ -398,9 +421,42 @@ export default function FloatingAssistant({
                       </div>
                     )}
                   </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold ml-1">Note Templates</label>
+                  <div className="grid grid-cols-1 gap-1">
+                    {Object.keys(TEMPLATES).map((key) => (
+                      <div key={key} className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors group">
+                        <span className="text-[11px] text-slate-300 font-bold capitalize pl-1">
+                          {key}
+                        </span>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleTemplateAction('insert', key)}
+                            className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all border border-emerald-500/20"
+                          >
+                            <FilePlus size={12} />
+                            <span className="text-[9px] font-bold">Insert</span>
+                          </button>
+                          <button
+                            onClick={() => handleTemplateAction('replace', key)}
+                            className="flex items-center space-x-1 px-2 py-1 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all border border-rose-500/20"
+                          >
+                            <FileText size={12} />
+                            <span className="text-[9px] font-bold">Replace</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+            </div>
+          )}
 
+          {activeTab === 'chat' ? (
+            <>
               {/* Chat Content */}
               <div className="flex-1 p-3 overflow-y-auto space-y-3 custom-scrollbar min-h-[300px] max-h-[420px]">
                 {messages.map((msg, i) => (
@@ -457,29 +513,13 @@ export default function FloatingAssistant({
           ) : (
             <>
               {/* Notes Content */}
-              <div className="flex-1 flex flex-col p-4 space-y-4 min-h-[380px]">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between ml-1">
-                    <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">App Notebook</label>
-                    {noteContent !== lastSavedContent && (
-                      <span className="text-[9px] text-accent-blue font-bold animate-pulse">Auto-saving...</span>
-                    )}
-                  </div>
-                  <div className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white font-bold text-xs flex items-center justify-between">
-                    <span className="truncate">{noteTitle}</span>
-                    <Pin size={12} className="text-amber-400 fill-amber-400 shrink-0" />
-                  </div>
-                </div>
-
-                <div className="flex-1 flex flex-col space-y-1">
-                   <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold ml-1">Strategy & Tasks</label>
-                   <textarea
+              <div className="flex-1 flex flex-col p-3 space-y-3 min-h-[380px]">
+                 <textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
                     placeholder="Start writing strategy, ideas, or checklists..."
                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 resize-none custom-scrollbar font-mono text-xs leading-relaxed"
                   />
-                </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <div className="text-[9px] text-slate-500 font-medium">
