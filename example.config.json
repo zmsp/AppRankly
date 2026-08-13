@@ -49,5 +49,11 @@
         "model": "gemini-3.6-flash"
       }
     }
+  },
+  "gitNotes": {
+    "remoteUrl": "https://github.com/YOUR_USERNAME/YOUR_REPO.git (Target repository URL)",
+    "username": "YOUR_GITHUB_USERNAME",
+    "password": "YOUR_GITHUB_TOKEN (Personal Access Token with 'repo' scope)",
+    "branch": "main (Optional: defaults to main)"
   }
 }

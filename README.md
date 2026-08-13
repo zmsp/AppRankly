@@ -203,6 +203,18 @@ Google Play exports structured performance metrics into a private Google Cloud S
 3. Download the provided `.p8` credential token into your designated `keys/` directory mapping.
 4. Record the **Issuer ID** listed at the top of the interface and the specific 10-character **Key ID**.
 
+### 3. GitHub (for Notes Sync)
+
+AppRankly can sync your application notes and marketing records to a private GitHub repository, ensuring your annotations are versioned and backed up.
+
+1. **Create a Repository**: Create a private repository on GitHub (e.g., `my-app-notes`).
+2. **Generate a Personal Access Token**:
+   * Visit [GitHub Token Settings](https://github.com/settings/tokens).
+   * Click **Generate new token (classic)**.
+   * Scope: Select **'repo'** (Full control of private repositories).
+   * Copy the generated token (this will be used as your `password` in the config).
+3. **Configure in AppRankly**: Add the `gitNotes` block to your `config.json` as shown in the [Configuration Reference](#configuration-reference).
+
 ---
 
 ## Configuration Reference
@@ -236,6 +248,12 @@ Duplicate `example.config.json` inside your designated configuration target dire
       "anthropic": { "apiKey": "sk-ant-...", "model": "claude-3-5-sonnet" },
       "gemini":    { "apiKey": "...", "model": "gemini-1.5-flash" }
     }
+  },
+  "gitNotes": {
+    "remoteUrl": "https://github.com/youruser/your-notes-repo.git",
+    "username": "your-github-username",
+    "password": "your-personal-access-token",
+    "branch": "main"
   }
 }
 ```
@@ -254,6 +272,7 @@ Duplicate `example.config.json` inside your designated configuration target dire
 | `ntfyTopic` | Alert Framework | Unique secret path defining your subscription string. Leave empty `""` to turn off. | Optional |
 | `refreshIntervalHours` | Worker Lifecycle | Defines the lookup intervals checking for fresh metrics upstream. | Default: `1` |
 | `statsCheckRangeDays` | Data Aggregation | Window depth processing past timeline metrics during cron sync updates. | Default: `30` |
+| `gitNotes` | Version Control | Configuration for syncing local notes to a remote Git repository (GitHub/GitLab). | Optional |
 | `ai` | Optimization Lab | Object mappings storing keys and customized models across AI vendors. | Optional |
 
 ---
@@ -300,23 +319,43 @@ npm run cache:clear   # Drop cached timeline states to force total downstream ca
 
 ```mermaid
 graph TD
-    User([Browser]) <--> SPA["React SPA<br/>Vite · Tailwind · Chart.js"]
-    SPA <-->|"JWT REST API"| API["Express Server"]
-    SPA -.->|"static demo build"| Pages[("GitHub Pages<br/>precomputed JSON")]
+    User([Browser]) --> SPA["React SPA"]
+    SPA <-->|"JWT API"| API["Express Server"]
 
-    subgraph Backend["Node.js Backend"]
+    subgraph Backend["Node.js Backend Engine"]
+        direction TB
         API --> Resolver["Data Resolver"]
-        API --> ASO["ASO + AI Router"]
-        CLI["CLI (cli.js)<br/>sync · backfill · status"] --> Resolver
-        Scheduler["Scheduler<br/>(refreshIntervalHours)"] --> Resolver
-        Scheduler --> Notifier["ntfy Push Notifier"]
-        Resolver <--> DB[("SQLite<br/>facts + agg cache")]
+        API --> ASO["ASO Studio"]
+        API --> Notes["Notes Module"]
+        
+        DB[("SQLite Cache")] <--> Resolver
+        DB <--> Notes
+        
+        Scheduler["Cron Sync"] --> Resolver
+        CLI["CLI Utility"] --> Resolver
     end
 
-    Resolver <--> GCS[("Google Play<br/>GCS CSV reports")]
-    Resolver <--> ASC[("App Store Connect API<br/>sales reports")]
-    ASO --> Scrape["Play scraper · iTunes Search<br/>listings · ranks · reviews"]
-    ASO --> AI{{"AI Provider<br/>OpenAI · Anthropic · Gemini"}}
+    %% Grouping External Integrations Vertically
+    subgraph Integrations["Subsystems & Integrations"]
+        direction TB
+        
+        subgraph Metrics["Metric Sources"]
+            GCS[("Google Play GCS")] <--> Resolver
+            ASC[("App Store API")] <--> Resolver
+        end
+
+        subgraph Intelligence["AI & Intelligence"]
+            Scrape["Store Scrapers"] <--> ASO
+            AI{{"AI: LLM Models"}} <--> ASO
+        end
+
+        subgraph Persistence["Notes & Sync"]
+            Git[("GitHub Remote")] <--> Notes
+            FS[("Markdown Files")] <--> Notes
+        end
+    end
+
+    SPA -.->|"static"| Pages[("GitHub Pages")]
 ```
 
 ---
