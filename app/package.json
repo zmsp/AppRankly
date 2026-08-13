@@ -1,6 +1,6 @@
 {
   "name": "apprankly",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Google Play Store app statistics viewer with interactive dashboard and CLI utility",
   "main": "server.js",
   "scripts": {
