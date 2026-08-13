@@ -365,6 +365,13 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
       return;
     }
     try {
+      const summarizedData = {
+        installs: stats?.totalDailyUserInstalls || 0,
+        uninstalls: stats?.totalDailyUserUninstalls || 0,
+        activeDevices: stats?.currentlyActiveDevices || 0,
+        healthScore: stats?.appHealthScore || 0
+      };
+
       const res = await apiFetch('/api/aso/audit', {
         method: 'POST',
         body: JSON.stringify({
@@ -374,7 +381,8 @@ export default function StoreASO({ stats, isDemoMode, projects = [], selectedPro
           model: customModel || undefined,
           focusArea,
           customListingText: customListingText || undefined,
-          maxTokens: parseInt(maxTokens, 10) || undefined
+          maxTokens: parseInt(maxTokens, 10) || undefined,
+          summarizedData
         })
       }, authToken);
       if (res.ok) {

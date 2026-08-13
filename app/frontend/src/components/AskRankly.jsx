@@ -5,17 +5,17 @@ import toast from 'react-hot-toast';
 import pageContexts from '../data/pageContexts.json';
 import MarkdownViewer from './MarkdownViewer';
 
-const MODEL_OPTIONS = [
-  { id: 'openai', name: 'OpenAI (GPT-4o mini)', provider: 'openai', model: 'gpt-4o-mini' },
-  { id: 'anthropic', name: 'Anthropic (Claude 3.5 Haiku)', provider: 'anthropic', model: 'claude-3-5-haiku-latest' },
-  { id: 'gemini', name: 'Google (Gemini 2.5 Flash)', provider: 'gemini', model: 'gemini-2.5-flash' },
-  { id: 'local', name: 'Local Model (SmolLM2-135M-Instruct ~35MB)', provider: 'local', model: 'HuggingFaceTB/SmolLM2-135M-Instruct' }
+const DEFAULT_MODEL_OPTIONS = [
+  { id: 'openai', name: 'OpenAI (GPT-5 nano)', provider: 'openai', model: 'gpt-5-nano' },
+  { id: 'anthropic', name: 'Anthropic (Claude Haiku 4.5)', provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  { id: 'gemini', name: 'Google (Gemini 2.5 Flash Lite)', provider: 'gemini', model: 'gemini-2.5-flash-lite' }
 ];
 
 function getPageContext(pathname) {
   let matchedKey = '/';
-  if (pathname.startsWith('/analytics')) matchedKey = '/analytics';
-  else if (pathname.startsWith('/aso')) matchedKey = '/aso';
+  if (pathname.startsWith('/retention')) matchedKey = '/retention';
+  else if (pathname.startsWith('/store')) matchedKey = '/store';
+  else if (pathname.startsWith('/details')) matchedKey = '/details';
   else if (pathname.startsWith('/releases')) matchedKey = '/releases';
   else if (pathname.startsWith('/notes')) matchedKey = '/notes';
   else if (pathname.startsWith('/reports')) matchedKey = '/reports';
@@ -40,13 +40,38 @@ export default function AskRankly({
   selectedProjectIndex = 'all',
   dateRange = null,
   activeDimension = null,
-  dimensionStats = null
+  dimensionStats = null,
+  aiStatus = null
 }) {
   const location = useLocation();
   const currentPageContext = getPageContext(location.pathname);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedModelId, setSelectedModelId] = useState('local');
+
+  // Derive model options from aiStatus if available
+  const [modelOptions, setModelOptions] = useState(DEFAULT_MODEL_OPTIONS);
+  const [selectedModelId, setSelectedModelId] = useState('openai');
+
+  useEffect(() => {
+    if (aiStatus?.providers) {
+      const updated = aiStatus.providers.map(p => {
+        const defaultOpt = DEFAULT_MODEL_OPTIONS.find(d => d.id === p.id);
+        const displayName = p.id === 'openai' ? 'OpenAI' : p.id === 'anthropic' ? 'Anthropic' : 'Google';
+        return {
+          id: p.id,
+          name: `${displayName} (${p.model})`,
+          provider: p.id,
+          model: p.model,
+          available: p.available
+        };
+      });
+      setModelOptions(updated);
+      if (aiStatus.defaultProvider) {
+        setSelectedModelId(aiStatus.defaultProvider);
+      }
+    }
+  }, [aiStatus]);
+
   const [input, setInput] = useState('');
   
   const buildGreeting = (ctx) => `Hi! You are on **${ctx.title}** (${ctx.description}). Ask me anything or try one of the suggested prompts below.`;
@@ -63,28 +88,37 @@ export default function AskRankly({
 
   const buildDynamicPageData = () => {
     const parts = [];
-    if (platform && platform !== 'all') parts.push(`Platform: ${platform}`);
-    if (selectedProjectIndex && selectedProjectIndex !== 'all') {
-      const proj = projects.find(p => p.index === selectedProjectIndex);
-      if (proj) parts.push(`App: ${proj.name} (${proj.packageName || proj.bundleId})`);
+    const isAppSelected = selectedProjectIndex && selectedProjectIndex !== 'all';
+
+    if (isAppSelected) {
+      const proj = projects.find(p => p.index === selectedProjectIndex || p.packageName === selectedProjectIndex);
+      if (proj) {
+        parts.push(`App: ${proj.name} (${proj.platform === 'apple' ? 'iOS' : 'Android'})`);
+        parts.push(`Pkg: ${proj.packageName || proj.bundleId}`);
+      }
+    } else {
+      parts.push(`Scope: ${platform === 'all' ? 'Cross-Platform' : platform === 'google' ? 'Android' : 'iOS'}`);
     }
-    if (dateRange?.startDate) parts.push(`Range: ${dateRange.startDate} to ${dateRange.endDate}`);
+
+    if (dateRange?.startDate) {
+      parts.push(`Period: ${dateRange.startDate} to ${dateRange.endDate}`);
+    }
 
     if (stats) {
-      parts.push(`Installs: ${stats.totalDailyUserInstalls || 0}`);
-      if (stats.totalDailyUserUninstalls !== undefined) parts.push(`Uninstalls: ${stats.totalDailyUserUninstalls}`);
-      if (stats.currentlyActiveDevices) parts.push(`Active: ${stats.currentlyActiveDevices}`);
+      parts.push(`KPIs: { Installs: ${stats.totalDailyUserInstalls || 0}, Active: ${stats.currentlyActiveDevices || 0}, Health: ${stats.appHealthScore || 0}/100 }`);
+      if (stats.appHealthAlerts?.length > 0) parts.push(`Alerts: ${stats.appHealthAlerts.length}`);
     }
 
     if (activeDimension && dimensionStats?.length > 0) {
-      parts.push(`Top ${activeDimension}: ${dimensionStats.slice(0, 3).map(d => `${d.label || d.key}(${d.totalInstalls || d.installs || 0})`).join(', ')}`);
+      const top3 = dimensionStats.slice(0, 3).map(d => `${d.label || d.key}(${d.totalInstalls || d.installs || 0})`).join(', ');
+      parts.push(`Top ${activeDimension}: [${top3}]`);
     }
 
-    return parts.join(' | ') || 'No live data loaded.';
+    return parts.join(' | ') || 'No live data';
   };
 
-  const activeOption = MODEL_OPTIONS.find(m => m.id === selectedModelId) || MODEL_OPTIONS[0];
-  const currentContextText = buildDynamicPageData();
+  const activeOption = modelOptions.find(m => m.id === selectedModelId) || modelOptions[0];
+  const currentContextText = `[Page: ${currentPageContext.title}] [Live Data: ${buildDynamicPageData()}]${noteTitle ? ` [Active Note: ${noteTitle}]` : ''}`;
 
   // Auto-set context on route change ONLY when chat has no user messages (empty conversation state)
   useEffect(() => {
@@ -132,29 +166,17 @@ export default function AskRankly({
     toast.success(`Synced page context: ${currentPageContext.title}`);
   };
 
-  const executeChatRequest = async (userMessages, confirmDownload = false) => {
+  const executeChatRequest = async (userMessages) => {
     setIsSending(true);
     try {
-      const pageDataStr = buildDynamicPageData();
-      const contextTitle = `[Page: ${currentPageContext.title} | Context: ${currentPageContext.description}] [Live Context: ${pageDataStr}]${noteTitle ? ` [Note: ${noteTitle}]` : ''}`;
       const res = await sendNoteAiChat(
-        contextTitle,
+        currentContextText,
         noteContent,
         userMessages,
         activeOption.provider,
-        activeOption.model,
-        confirmDownload
+        activeOption.model
       );
-      if (res?.requireConfirmation) {
-        setMessages([
-          ...userMessages,
-          {
-            role: 'assistant',
-            content: res.reply,
-            isConfirmationPrompt: true
-          }
-        ]);
-      } else if (res?.reply) {
+      if (res?.reply) {
         setMessages([...userMessages, { role: 'assistant', content: res.reply }]);
       } else {
         toast.error('No reply received');
@@ -174,12 +196,7 @@ export default function AskRankly({
     setInput('');
     const newMessages = [...messages, { role: 'user', content: userMsg }];
     setMessages(newMessages);
-    await executeChatRequest(newMessages, false);
-  };
-
-  const handleConfirmDownload = async () => {
-    const cleanMsgs = messages.filter(m => !m.isConfirmationPrompt);
-    await executeChatRequest(cleanMsgs, true);
+    await executeChatRequest(newMessages);
   };
 
   if (!isOpen) {
@@ -267,9 +284,9 @@ export default function AskRankly({
             onChange={(e) => setSelectedModelId(e.target.value)}
             className="w-full bg-transparent text-white text-[11px] font-semibold focus:outline-none cursor-pointer"
           >
-            {MODEL_OPTIONS.map(opt => (
+            {modelOptions.map(opt => (
               <option key={opt.id} value={opt.id} className="bg-slate-900 text-white">
-                {opt.name}
+                {opt.name} {!opt.available && '(No Key)'}
               </option>
             ))}
           </select>
@@ -320,17 +337,7 @@ export default function AskRankly({
                   <MarkdownViewer content={msg.content} className="text-xs" />
                 )}
               </div>
-              {msg.isConfirmationPrompt && (
-                <button
-                  onClick={handleConfirmDownload}
-                  disabled={isSending}
-                  className="mt-2 flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 font-bold transition-all text-xs"
-                >
-                  <Sparkles size={12} />
-                  <span>Download Model (~130MB) & Proceed</span>
-                </button>
-              )}
-              {!isUser && i > 0 && !msg.isConfirmationPrompt && onAppendContent && (
+              {!isUser && i > 0 && onAppendContent && (
                 <button
                   onClick={() => {
                     onAppendContent(msg.content);
@@ -348,7 +355,7 @@ export default function AskRankly({
         {isSending && (
           <div className="flex items-center space-x-2 text-slate-400 text-[11px] p-2">
             <Loader2 size={14} className="animate-spin text-accent-blue" />
-            <span>{selectedModelId === 'local' ? 'Local model loading/running...' : 'AI is thinking...'}</span>
+            <span>AI is thinking...</span>
           </div>
         )}
         <div ref={messagesEndRef} />

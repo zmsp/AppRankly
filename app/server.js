@@ -14,7 +14,7 @@ const AppleAppStoreStatsViewer = require("./lib/AppleAppStoreStatsViewer");
 const cache = require("./lib/cache");
 const resolver = require("./lib/resolver");
 const { aggregateOverviews, getNormalizedPairings, matchAndPairApps, correlateReleases, calculateRetentionBenchmarks, weekdayAverages, linearForecast, concentrationIndex, fillContinuousDailyTrends } = require("./lib/metrics");
-const { ensureDirectoriesAndTemplates, downloadAndExtractModel } = require("./lib/init");
+const { ensureDirectoriesAndTemplates } = require("./lib/init");
 const asoRouter = require("./routes/aso");
 const { sendNtfyNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus } = require("./lib/scheduler");
@@ -624,20 +624,9 @@ app.put("/api/config", authenticate, (req, res) => {
 
 // Endpoint for Note AI Chat assistant
 app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
-  const { noteTitle, noteContent, messages = [], provider, model, confirmDownload } = req.body;
+  const { noteTitle, noteContent, messages = [], provider, model } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "Messages array is required" });
-  }
-
-  // Handle on-demand model download if requested
-  if (confirmDownload && provider === 'local') {
-    try {
-      console.log(`[AI Chat] confirmDownload received. Initializing local model download...`);
-      await downloadAndExtractModel(DATA_DIR);
-    } catch (err) {
-      console.error("[AI Chat] Failed to download model on-demand:", err.message);
-      return res.status(500).json({ error: "Failed to initialize local AI model", details: err.message });
-    }
   }
 
   const lastUserMsg = messages[messages.length - 1]?.content || "";
@@ -647,8 +636,9 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
     const aiResponse = await aiModule.generateJSON({
       provider: provider || undefined,
       customModel: model || undefined,
-      system: "You are a helpful, concise AI writing and brainstorming assistant for App Store stats and note management. Help the user edit, summarize, extract tasks, or brainstorm ideas based on their current note. Keep your response brief, clear, and direct.",
-      prompt: `Current Note Title: "${noteTitle || 'Untitled Note'}"\nCurrent Note Content:\n\`\`\`markdown\n${(noteContent || '').slice(0, 4000)}\n\`\`\`\n\nUser Question/Instruction: "${lastUserMsg}"\n\nProvide a clear, helpful response to the user's question or instruction.`,
+      system: "You are an expert App Store analyst and strategist named 'Rankly'. You help developers with ASO, performance analysis, and note management. Use the provided page context and live telemetry to give high-quality, data-driven advice. BE EXTREMELY CONCISE. Keep your responses short, direct, and professional (typically 1-3 sentences). Avoid preamble.",
+      prompt: `=== USER SESSION CONTEXT ===\n${noteTitle || 'General Session'}\n\n=== ACTIVE CONTENT (Note or Data View) ===\n\`\`\`markdown\n${(noteContent || 'No active note content.').slice(0, 4000)}\n\`\`\`\n\nUser Question/Instruction: "${lastUserMsg}"\n\nProvide a clear, helpful response. If the user asks for a summary, use the Live Context stats provided in the session context.`,
+      maxTokens: 1024,
       schema: {
         type: "object",
         properties: {
@@ -660,28 +650,10 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
 
     res.json({ reply: aiResponse.data?.reply || "I'm sorry, I couldn't generate a response." });
   } catch (err) {
-    if (err.code === 'LOCAL_MODEL_NOT_DOWNLOADED') {
-      return res.json({
-        requireConfirmation: true,
-        modelName: err.modelName || 'onnx-community/SmolLM2-135M-Instruct',
-        reply: `The local ONNX AI model (SmolLM2-135M ~130MB) is not yet downloaded to your server's data folder. Would you like to download it now?`
-      });
-    }
-
     console.warn("[Note AI Chat] Fallback due to error:", err.message);
     res.json({
       reply: `Note Assistant: I received your request ("${lastUserMsg.slice(0, 50)}..."), but could not contact the AI service (${err.message}). Please make sure your AI Provider API key is configured.`
     });
-  }
-});
-
-app.post("/api/ai/local-model/download", authenticate, async (req, res) => {
-  try {
-    await downloadAndExtractModel(DATA_DIR);
-    res.json({ success: true, message: "Local AI model downloaded and initialized successfully." });
-  } catch (error) {
-    console.error("Error downloading local AI model:", error);
-    res.status(500).json({ error: "Failed to download local AI model", details: error.message });
   }
 });
 
@@ -1058,6 +1030,7 @@ app.post("/api/stats", authenticate, async (req, res) => {
           stats.appHealthScore = score;
           stats.appHealthAlerts = alerts;
           stats.appHealthMetrics = metrics;
+          stats.appMetadata = metadata;
         }
 
         console.log(`Stats fetched for ${packageName} on ${platform}. Trends count: ${stats.dailyTrends?.length || 0}`);
@@ -1710,6 +1683,7 @@ app.post("/api/notes/generate-aso", authenticate, async (req, res) => {
     const netFormatted = (Number(summarizedData.netGrowth || 0) >= 0 ? '+' : '') + net;
     const active = Number(summarizedData.activeDevices || 0).toLocaleString();
     const ver = summarizedData.version || 'N/A';
+    const score = summarizedData.healthScore || 'N/A';
 
     telemetrySection = `## 📊 Telemetry & Performance Summary
 - **Total Installs**: ${inst}
@@ -1717,6 +1691,7 @@ app.post("/api/notes/generate-aso", authenticate, async (req, res) => {
 - **Net Growth**: ${netFormatted}
 - **Active Devices**: ${active}
 - **App Version**: ${ver}
+- **App Health Score**: ${score}/100
 
 ---
 `;
@@ -1724,10 +1699,32 @@ app.post("/api/notes/generate-aso", authenticate, async (req, res) => {
 
   try {
     const aiModule = require("./lib/ai");
-    const telemetryContext = summarizedData ? `Current telemetry: Installs=${summarizedData.installs}, Uninstalls=${summarizedData.uninstalls}, ActiveDevices=${summarizedData.activeDevices}, Version=${summarizedData.version}` : '';
+
+    // Pull extra ASO context from DB if available
+    let asoContext = '';
+    if (db && packageName) {
+      const tracked = db.prepare(`
+        SELECT term FROM aso_keyword WHERE package_name = ? AND platform = ? AND tracked = 1
+      `).all(packageName, platform);
+      if (tracked.length > 0) {
+        asoContext += `Tracked Keywords: ${tracked.map(k => k.term).join(', ')}. `;
+      }
+
+      const latestRanks = db.prepare(`
+        SELECT r.rank, k.term FROM aso_rank_history r
+        JOIN aso_keyword k ON r.keyword_id = k.id
+        WHERE r.package_name = ? AND r.platform = ?
+        ORDER BY r.checked_at DESC LIMIT 5
+      `).all(packageName, platform);
+      if (latestRanks.length > 0) {
+        asoContext += `Recent Rankings: ${latestRanks.map(r => `${r.term} (Rank ${r.rank || '50+'})`).join(', ')}. `;
+      }
+    }
+
+    const telemetryContext = summarizedData ? `Current telemetry: Installs=${summarizedData.installs}, Uninstalls=${summarizedData.uninstalls}, ActiveDevices=${summarizedData.activeDevices}, Version=${summarizedData.version}, HealthScore=${summarizedData.healthScore || 'N/A'}` : '';
     const aiResponse = await aiModule.generateJSON({
       system: "You are an expert App Store Optimization (ASO) strategist for iOS App Store and Google Play Store.",
-      prompt: `Generate an ASO audit and keyword strategy note for app "${appTitle || targetPackage}" (Package/Bundle: ${targetPackage}, Platform: ${targetPlatform}). ${telemetryContext}. Include 3 primary title keywords, 3 subtitle/short description suggestions, 3 screenshot visual hypotheses, and 5 ASO action items in Markdown format.`,
+      prompt: `Generate an ASO audit and keyword strategy note for app "${appTitle || targetPackage}" (Package/Bundle: ${targetPackage}, Platform: ${targetPlatform}). ${telemetryContext}. ${asoContext}Include 3 primary title keywords, 3 subtitle/short description suggestions, 3 screenshot visual hypotheses, and 5 ASO action items in Markdown format.`,
       schema: {
         type: "object",
         properties: {

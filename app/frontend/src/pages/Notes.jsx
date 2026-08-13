@@ -217,7 +217,9 @@ export default function Notes({
         uninstalls: uninst,
         netGrowth: inst - uninst,
         activeDevices: stats?.currentlyActiveDevices || 0,
-        version: proj?.version || 'v2.4.0'
+        version: proj?.version || 'v2.4.0',
+        healthScore: stats?.appHealthScore,
+        healthAlerts: stats?.appHealthAlerts
       };
       const res = await generateAsoNote(noteAppPkg, noteAppPlat, proj ? proj.name : appName, summarizedData);
       if (res?.note?.id) {

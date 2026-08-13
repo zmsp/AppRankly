@@ -211,6 +211,7 @@ function App() {
           dateRange={state.dateRange}
           activeDimension={state.activeDimension}
           dimensionStats={state.dimensionStats}
+          aiStatus={state.aiStatus}
         />
 
         <DemoPopup isDemoMode={state.isDemoMode} />

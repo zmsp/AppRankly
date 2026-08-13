@@ -166,6 +166,7 @@ export function useAppState() {
   const [deviceStats, setDeviceStats] = useState(null);
   const [releases, setReleases] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [aiStatus, setAiStatus] = useState(null);
   const [quickNotesOpen, setQuickNotesOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dimensionLoading, setDimensionLoading] = useState(false);
@@ -423,6 +424,29 @@ export function useAppState() {
     }
   }, [authToken, isStaticMode, isDemoMode]);
 
+  const fetchAiStatus = useCallback(async () => {
+    if (isDemoMode) {
+      setAiStatus({
+        defaultProvider: 'openai',
+        providers: [
+          { id: 'openai', available: true, model: 'gpt-5-nano', name: 'OpenAI (GPT-5 nano)' },
+          { id: 'anthropic', available: true, model: 'claude-haiku-4-5-20251001', name: 'Anthropic (Claude Haiku 4.5)' },
+          { id: 'gemini', available: true, model: 'gemini-2.5-flash-lite', name: 'Google (Gemini 2.5 Flash Lite)' }
+        ]
+      });
+      return;
+    }
+    try {
+      const res = await apiFetch('/api/ai/status', {}, authToken, isStaticMode);
+      if (res.ok) {
+        const data = await res.json();
+        setAiStatus(data);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch AI status', err);
+    }
+  }, [authToken, isStaticMode, isDemoMode]);
+
   const addNote = useCallback(async (noteData) => {
     if (isDemoMode) {
       const newNote = {
@@ -606,30 +630,14 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
     }
   }, [authToken, isStaticMode, isDemoMode, fetchNotes]);
 
-  const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model, confirmDownload = false) => {
+  const sendNoteAiChat = useCallback(async (noteTitle, noteContent, messages, provider, model) => {
     if (isStaticMode || isDemoMode) {
-      if (provider === 'local') {
-        return { reply: "The Local AI model is disabled in the GitHub Pages demo to keep the site lightweight. In a self-hosted Docker installation, this would run a 135M parameter LLM directly on your server or in your browser." };
-      }
-      return { reply: "AI Chat is simulated in the static demo mode. In a full installation, you can use OpenAI, Anthropic, Gemini, or a Local SmolLM2 model to analyze your app's performance and generate ASO content." };
+      return { reply: "AI Chat is simulated in the static demo mode. In a full installation, you can use OpenAI, Anthropic, or Gemini to analyze your app's performance and generate ASO content." };
     }
     try {
-      // Cleanly trigger dedicated download endpoint if confirmation was given
-      if (confirmDownload && provider === 'local') {
-        toast.loading('Downloading AI model...', { id: 'ai-download' });
-        const dlRes = await apiFetch('/api/ai/local-model/download', { method: 'POST' }, authToken, isStaticMode);
-        if (dlRes.ok) {
-           toast.success('AI model ready!', { id: 'ai-download' });
-        } else {
-           const errData = await dlRes.json().catch(() => ({}));
-           toast.error(`Download failed: ${errData.error || 'Unknown error'}`, { id: 'ai-download' });
-           return { reply: "Local AI model download failed. Please check server logs." };
-        }
-      }
-
       const res = await apiFetch('/api/notes/ai-chat', {
         method: 'POST',
-        body: JSON.stringify({ noteTitle, noteContent, messages, provider, model, confirmDownload })
+        body: JSON.stringify({ noteTitle, noteContent, messages, provider, model })
       }, authToken, isStaticMode);
       if (res.ok) {
         return await res.json();
@@ -905,8 +913,9 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
       fetchProjects(authToken);
       fetchReleases();
       fetchNotes();
+      fetchAiStatus();
     }
-  }, [fetchProjects, fetchReleases, fetchNotes, authToken, isDemoMode, noPass]);
+  }, [fetchProjects, fetchReleases, fetchNotes, fetchAiStatus, authToken, isDemoMode, noPass]);
 
   useEffect(() => {
     if (authToken || isDemoMode || noPass) {
@@ -997,6 +1006,7 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
     stats, dimensionStats, deviceStats,
     releases, setReleases,
     notes, setNotes,
+    aiStatus, setAiStatus,
     quickNotesOpen, setQuickNotesOpen,
     loading, dimensionLoading, error,
     setupRequired, setSetupRequired,
@@ -1010,6 +1020,7 @@ ${telemetrySection}## 🎯 1. Title & Subtitle Keywords Optimization
     deleteRelease,
     autoDetectReleases,
     fetchNotes,
+    fetchAiStatus,
     addNote,
     updateNote,
     deleteNote,

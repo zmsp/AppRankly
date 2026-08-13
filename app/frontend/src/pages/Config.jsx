@@ -714,7 +714,7 @@ function ConfigDocsSection() {
   );
 }
 
-export default function Config({ authToken, isStaticMode, isDemoMode }) {
+export default function Config({ authToken, isStaticMode, isDemoMode, fetchAiStatus }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
@@ -793,9 +793,9 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
           ai: {
             defaultProvider: 'openai',
             providers: {
-              openai: { apiKey: '', model: 'gpt-4.1-nano' },
-              anthropic: { apiKey: '', model: 'claude-3-5-sonnet-20241022' },
-              gemini: { apiKey: '', model: 'gemini-2.5-pro' }
+              openai: { apiKey: '', model: 'gpt-5-nano' },
+              anthropic: { apiKey: '', model: 'claude-haiku-4-5-20251001' },
+              gemini: { apiKey: '', model: 'gemini-2.5-flash-lite' }
             }
           }
         }];
@@ -867,6 +867,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
         setSaveStatus('ok');
         setSaveMsg('Config saved successfully' + (data.path ? ` → ${data.path}` : ''));
         setInitialConfigJson(currentJson);
+        if (fetchAiStatus) fetchAiStatus();
       } else {
         const data = await res.json().catch(() => ({}));
         setSaveStatus('err');
@@ -1424,7 +1425,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="OpenAI Model" hint="Select or enter model ID">
                     <select
-                      value={entry.ai?.providers?.openai?.model || 'gpt-4.1-nano'}
+                      value={entry.ai?.providers?.openai?.model || 'gpt-5-nano'}
                       onChange={e => {
                         const currentAi = entry.ai || {};
                         const providers = currentAi.providers || {};
@@ -1436,11 +1437,10 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                       }}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
                     >
-                      <option value="gpt-4.1-nano" className="bg-slate-900 text-white">gpt-4.1-nano (Recommended / Fast)</option>
+                      <option value="gpt-5-nano" className="bg-slate-900 text-white">gpt-5-nano (Lightweight)</option>
+                      <option value="gpt-4o-mini" className="bg-slate-900 text-white">gpt-4o-mini</option>
                       <option value="gpt-4o" className="bg-slate-900 text-white">gpt-4o (Flagship Multimodal)</option>
-                      <option value="gpt-4o-mini" className="bg-slate-900 text-white">gpt-4o-mini (Lightweight)</option>
                       <option value="o3-mini" className="bg-slate-900 text-white">o3-mini (Reasoning)</option>
-                      <option value="gpt-4-turbo" className="bg-slate-900 text-white">gpt-4-turbo</option>
                     </select>
                   </Field>
                   <Field label="OpenAI API Key" hint="Secret key (sk-...)">
@@ -1483,7 +1483,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="Claude Model" hint="Select model ID">
                     <select
-                      value={entry.ai?.providers?.anthropic?.model || 'claude-3-5-sonnet-20241022'}
+                      value={entry.ai?.providers?.anthropic?.model || 'claude-haiku-4-5-20251001'}
                       onChange={e => {
                         const currentAi = entry.ai || {};
                         const providers = currentAi.providers || {};
@@ -1495,8 +1495,9 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                       }}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
                     >
-                      <option value="claude-3-5-sonnet-20241022" className="bg-slate-900 text-white">claude-3-5-sonnet-20241022 (Recommended)</option>
-                      <option value="claude-3-5-haiku-20241022" className="bg-slate-900 text-white">claude-3-5-haiku-20241022 (Fast)</option>
+                      <option value="claude-haiku-4-5-20251001" className="bg-slate-900 text-white">claude-haiku-4.5 (Fast)</option>
+                      <option value="claude-3-5-haiku-latest" className="bg-slate-900 text-white">claude-3-5-haiku-latest</option>
+                      <option value="claude-3-5-sonnet-latest" className="bg-slate-900 text-white">claude-3-5-sonnet-latest (Recommended)</option>
                       <option value="claude-3-opus-20240229" className="bg-slate-900 text-white">claude-3-opus-20240229 (Complex Reasoning)</option>
                     </select>
                   </Field>
@@ -1540,7 +1541,7 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Field label="Gemini Model" hint="Select model ID">
                     <select
-                      value={entry.ai?.providers?.gemini?.model || 'gemini-3.6-flash'}
+                      value={entry.ai?.providers?.gemini?.model || 'gemini-2.5-flash-lite'}
                       onChange={e => {
                         const currentAi = entry.ai || {};
                         const providers = currentAi.providers || {};
@@ -1552,11 +1553,10 @@ export default function Config({ authToken, isStaticMode, isDemoMode }) {
                       }}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent-blue transition-colors text-white"
                     >
-                      <option value="gemini-3.6-flash" className="bg-slate-900 text-white">gemini-3.6-flash (Recommended / Latest Flash)</option>
-                      <option value="gemini-3.5-flash-lite" className="bg-slate-900 text-white">gemini-3.5-flash-lite (Ultra Fast & Lightweight)</option>
-                      <option value="gemini-3.1-pro" className="bg-slate-900 text-white">gemini-3.1-pro (Flagship Complex Reasoning & Coding)</option>
-                      <option value="gemini-2.5-pro" className="bg-slate-900 text-white">gemini-2.5-pro</option>
-                      <option value="gemini-2.5-flash" className="bg-slate-900 text-white">gemini-2.5-flash</option>
+                      <option value="gemini-2.5-flash-lite" className="bg-slate-900 text-white">gemini-2.5-flash-lite (Recommended / Balanced)</option>
+                      <option value="gemini-1.5-flash" className="bg-slate-900 text-white">gemini-1.5-flash</option>
+                      <option value="gemini-2.0-flash-exp" className="bg-slate-900 text-white">gemini-2.0-flash-exp</option>
+                      <option value="gemini-1.5-pro" className="bg-slate-900 text-white">gemini-1.5-pro (Complex Reasoning)</option>
                     </select>
                   </Field>
                   <Field label="Gemini API Key" hint="API key from Google AI Studio">

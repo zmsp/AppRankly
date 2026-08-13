@@ -459,9 +459,17 @@ router.post('/aso/audit', async (req, res) => {
     }
 
     const promptText = customListingText || `Audit the following ${platform} listing:${focusArea ? `\nFocus Area: ${focusArea}` : ''}\n\n${listingText}`;
+
+    // Enrich with telemetry if provided
+    let enrichedPrompt = promptText;
+    const { summarizedData } = req.body;
+    if (summarizedData) {
+      enrichedPrompt += `\n\n=== LIVE PERFORMANCE TELEMETRY ===\nInstalls: ${summarizedData.installs || 0}\nUninstalls: ${summarizedData.uninstalls || 0}\nActive Devices: ${summarizedData.activeDevices || 0}\nHealth Score: ${summarizedData.healthScore || 'N/A'}/100`;
+    }
+
     const result = await generateJSON({
       system: prompts.auditPrompt.system,
-      prompt: promptText,
+      prompt: enrichedPrompt,
       schema: prompts.auditPrompt.schema,
       provider,
       customModel: model,

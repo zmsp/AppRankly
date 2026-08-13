@@ -1,74 +1,92 @@
 {
   "/": {
-    "title": "Dashboard",
-    "description": "Overview of total installs, rating averages, download metrics, and project quick status across Apple App Store and Google Play Store.",
+    "title": "Portfolio Overview",
+    "description": "Consolidated dashboard of cross-platform portfolio performance, active devices, and critical health alerts.",
     "suggestedPrompts": [
-      "Summarize my overall download performance across platforms",
-      "Which app has the highest rating?",
-      "Give me 3 quick growth tips based on total install trends"
+      "Compare my overall performance between the App Store and Google Play",
+      "Which app needs immediate attention based on its health score?",
+      "Identify the top 3 growth trends across my entire portfolio",
+      "What are the most critical alerts or anomalies I should address today?"
     ]
   },
-  "/analytics": {
-    "title": "Analytics & Trends",
-    "description": "Detailed breakdown of installs by Country, OS Version, App Version, and Device breakdown.",
+  "/details": {
+    "title": "App Details",
+    "description": "Specific app metrics, installation trends, rating breakdowns, and detailed health indicators.",
     "suggestedPrompts": [
-      "Analyze top performing countries for installs",
-      "What OS versions account for most downloads?",
-      "Summarize recent download trends"
+      "Analyze this app's recent download velocity compared to its 30-day average",
+      "What is the primary driver behind the latest shift in user ratings?",
+      "Compare iOS vs. Android performance metrics for this specific app",
+      "Where is the biggest bottleneck or growth opportunity for this app right now?"
     ]
   },
-  "/aso": {
-    "title": "Store ASO & Keywords",
-    "description": "App Store Optimization hub for metadata, keywords, title optimization, and store listing conversion.",
+  "/retention": {
+    "title": "Retention & Trends",
+    "description": "Granular analysis of user retention, install/uninstall velocity, and geographic distribution.",
     "suggestedPrompts": [
-      "Give me ASO keyword recommendations for my main app",
-      "How can I improve my store listing conversion rate?",
-      "Draft a compelling 30-second app store description"
+      "Which countries have the highest day-7 and day-30 user retention?",
+      "Is there a correlation between my recent app updates and uninstall spikes?",
+      "Break down downloads by major OS versions to spot compatibility trends",
+      "Show me geographic regions where installs are growing but retention is dropping"
+    ]
+  },
+  "/store": {
+    "title": "Store ASO Hub",
+    "description": "App Store Optimization workspace for keyword research, metadata optimization, and conversion improvement.",
+    "suggestedPrompts": [
+      "Generate a list of high-intent ASO keywords based on my app's core features",
+      "Optimize my app title and subtitle to maximize keyword visibility",
+      "Draft a compelling, conversion-focused app store description from my feature list",
+      "What quick experiments can I run to improve my store listing conversion rate?"
     ]
   },
   "/releases": {
-    "title": "Release Logs",
-    "description": "Version release notes, deployment history, and build updates across iOS and Android.",
+    "title": "Release Intelligence",
+    "description": "Historical deployment logs, version impact analysis, and release note automation.",
     "suggestedPrompts": [
-      "Summarize the recent release changes",
-      "Draft what's new release notes for an upcoming update",
-      "Help highlight bug fixes vs new features"
+      "Summarize the key changes, bug fixes, and features in the latest build",
+      "Draft clean, engaging 'What's New' release notes for the upcoming store update",
+      "Analyze how the last production release impacted app stability and crash rates",
+      "Categorize my recent commits into user-facing features vs. under-the-hood fixes"
     ]
   },
   "/notes": {
-    "title": "App Strategy Notes",
-    "description": "Markdown notes for project strategy, todo items, meeting logs, and roadmap planning.",
+    "title": "Strategy & Roadmap",
+    "description": "AI-powered workspace for brainstorming features, documenting strategy, and planning your app's future.",
     "suggestedPrompts": [
-      "Help brainstorm feature ideas for my next sprint",
-      "Extract checklist items from my active strategy note",
-      "Summarize this strategy document"
+      "Brainstorm high-impact feature ideas for the next development sprint",
+      "Transform these raw feature ideas into a prioritized, actionable roadmap",
+      "Extract a functional checklist from my active strategy notes",
+      "Synthesize this product strategy document into an executive summary"
     ]
   },
   "/reports": {
-    "title": "Reports & Export",
-    "description": "Export CSV data, PDF summaries, and aggregate performance metrics across selected date ranges.",
+    "title": "Executive Reporting",
+    "description": "Data export, summary generation, and performance reporting for stakeholders and clients.",
     "suggestedPrompts": [
-      "How should I structure an executive monthly app performance report?",
-      "What key metrics should I include in my client export?",
-      "Summarize top growth metrics for reporting"
+      "What key performance metrics should I prioritize for an external stakeholder export?",
+      "Structure a comprehensive monthly performance report outline for my portfolio",
+      "Generate a narrative summary of my top growth drivers and wins this quarter",
+      "Draft a quick bulleted status update on portfolio health for a team sync"
     ]
   },
   "/config": {
-    "title": "Configuration",
-    "description": "App management, Google Cloud Service Account keys, Apple App Store Connect API keys, and AI Provider settings.",
+    "title": "System Configuration",
+    "description": "Secure management of API keys, AI model preferences, and app-wide environment settings.",
     "suggestedPrompts": [
-      "How do I set up AI provider API keys?",
-      "Check configuration status and connected accounts",
-      "Explain how to configure local AI model settings"
+      "How do I securely configure or rotate my AI provider API keys?",
+      "Explain the tradeoffs between the available LLM models for text generation",
+      "Audit my current configuration status and verify all connected store accounts",
+      "What are the security best practices for storing credential keys in this environment?"
     ]
   },
   "/glossary": {
-    "title": "Glossary",
-    "description": "Definitions of App Store, Google Play, ASO, and analytics terms (e.g. Conversion Rate, Organic Installs, Vitals, Crash Rates).",
+    "title": "Industry Glossary",
+    "description": "Comprehensive reference for App Store, Google Play, ASO, and Mobile Analytics terminology.",
     "suggestedPrompts": [
-      "Explain what ASO conversion rate means",
-      "What are Google Play Android Vitals?",
-      "Define organic vs paid app installs"
+      "Explain the exact definition of ASO conversion rate and how it's calculated",
+      "What are Google Play Android Vitals, and why do they affect visibility?",
+      "What is the practical difference between organic installs and paid attribution?",
+      "How do store pre-orders or pre-registrations count toward my initial launch metrics?"
     ]
   }
 }

@@ -1,83 +1,77 @@
-<p align="center">
-  <img src="images/logo.png" alt="AppRankly Logo" width="128" />
-</p>
+<img src="images/logo.png" alt="AppRankly Logo" width="128">
 
 # AppRankly — Open-Source Mobile App Analytics & ASO Dashboard
 
 > **Self-hosted iOS & Android analytics toolkit.** A private, unified alternative to App Store Connect and Google Play Console — keep 100% of your data and credentials on your own server.
 
-[![Live Demo](https://img.shields.io/badge/demo-live%20interactive-success?style=flat-square)](https://zmsp.github.io/AppRankly/#demo)
-[![Docker Pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fzmsp%2FAppRankly%2Fapprankly&query=%24.downloadCount&label=docker%20pulls&style=flat-square&color=blue&logo=docker&logoColor=white)](https://github.com/zmsp/AppRankly/pkgs/container/apprankly)
-[![Unraid Template](https://img.shields.io/badge/unraid-community%20apps-orange?style=flat-square)](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy)
-[![Latest Version](https://img.shields.io/github/v/release/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/releases)
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square)](https://github.com/zmsp/AppRankly/blob/main/LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/zmsp/AppRankly?style=flat-square)](https://github.com/zmsp/AppRankly/stargazers)
+<p align="center">
+  <a href="https://zmsp.github.io/AppRankly/#demo"><img src="https://img.shields.io/badge/demo-live%20interactive-success?style=flat-square" alt="Live Demo"></a>
+  <a href="https://github.com/zmsp/AppRankly/pkgs/container/apprankly"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fghcr-badge.elias.eu.org%2Fapi%2Fzmsp%2FAppRankly%2Fapprankly&query=%24.downloadCount&label=docker%20pulls&style=flat-square&color=blue&logo=docker&logoColor=white" alt="Docker Pulls"></a>
+  <a href="https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy"><img src="https://img.shields.io/badge/unraid-community%20apps-orange?style=flat-square" alt="Unraid Template"></a>
+  <a href="https://github.com/zmsp/AppRankly/releases"><img src="https://img.shields.io/github/v/release/zmsp/AppRankly?style=flat-square" alt="Latest Version"></a>
+  <a href="https://github.com/zmsp/AppRankly/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?style=flat-square" alt="License: AGPL v3"></a>
+  <a href="https://github.com/zmsp/AppRankly/stargazers"><img src="https://img.shields.io/github/stars/zmsp/AppRankly?style=flat-square" alt="GitHub Stars"></a>
+</p>
 
 ---
 
 ### Privacy-First Cross-Platform Analytics & Keyword Intelligence
 
-Stop context-switching between App Store Connect and Google Play Console. **AppRankly** unifies your iOS and Android app performance into a single self-hosted dashboard. Monitor **installs, uninstalls, active devices, retention cohorts, user survival curves, and release markers** side-by-side.
+Stop context-switching between App Store Connect and Google Play Console. **AppRankly** unifies your iOS and Android app performance into a single, sleek, self-hosted dashboard. Monitor **installs, uninstalls, active devices, retention cohorts, user survival curves, and release markers** side-by-side.
 
-Features an **AI-Assisted ASO Studio** for zero-cost store autocomplete keyword discovery, keyword ranking checks, competitor comparisons, and metadata listing audits using your choice of OpenAI, Anthropic, or Gemini — with 100% of your analytics and API keys remaining on your server.
+Features an **AI-Assisted ASO Studio** for zero-cost store autocomplete keyword discovery, keyword ranking checks, competitor comparisons, and metadata listing audits using your choice of OpenAI, Anthropic, or Gemini — with 100% of your analytics and API keys remaining securely on your server.
 
-**[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no install needed, runs on sample data.
+**[▶ Try the Live Interactive Demo](https://zmsp.github.io/AppRankly/#demo)** — no installation required, pre-loaded with sample data.
 
-**Contents:** [Screenshots](#screenshots) · [Quick Start](#quick-start) · [Features](#key-features) · [Credentials Setup](#authentication--credentials-setup) · [Configuration](#configuration-reference) · [CLI](#headless-cli-utility) · [Architecture](#architecture--tech-stack) · [FAQ](#troubleshooting--faq) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+---
+
+## 📖 Table of Contents
+* [Screenshots](#screenshots)
+* [Quick Start](#quick-start)
+* [Key Features](#key-features)
+* [Authentication & Credentials Setup](#authentication--credentials-setup)
+* [Configuration Reference](#configuration-reference)
+* [Headless CLI Utility](#headless-cli-utility)
+* [Architecture & Tech Stack](#architecture--tech-stack)
+* [Troubleshooting & FAQ](#troubleshooting--faq)
+* [Contributing & Support](#contributing)
+
+---
 
 ## Screenshots
 
-<p align="center">
-  <img src="images/screenshot/carousel.gif" alt="AppRankly Dashboard Showcase Carousel" width="100%" />
-</p>
+![AppRankly Dashboard Showcase Carousel](images/screenshot/carousel.gif)
 
 <details>
-<summary><b>📷 Click to view individual full-resolution screenshots</b></summary>
-<br />
-
-
-
-
+<summary>**📷 Click to view individual full-resolution screenshots**</summary>
 
 ### Unified Analytics Dashboard
 Installs, uninstalls, active devices, and country breakdowns across Google Play & Apple App Store in one glassmorphic interface.
-
 ![Overview Dashboard](images/screenshot/overview.png)
 
 ### Detailed App Metrics
 Per-app drill-down: version performance, daily trends, retention, and country-level distribution.
-
 ![App Details View](images/screenshot/app_details.png)
 
 ### Retention & User Survival Analytics
 Cohort retention heatmaps, active retention proxies, survival curves, stickiness index, and churn risk intelligence.
-
 ![Retention Analytics](images/screenshot/retention.png)
 
 ### AI-Powered ASO Studio
 Mine store autocomplete for zero-cost keyword discovery, check keyword ranks, audit listing health, and generate metadata variants with your choice of AI provider (OpenAI, Anthropic, or Gemini).
-
 ![AI-Powered ASO Studio](images/screenshot/aso_screenshot.png)
 
 ### Reports & Data Exports
 Export overview stats, daily trends, dimension breakdowns, or full raw data archive bundles for offline analysis.
-
 ![Reports & Data Exports](images/screenshot/reports.png)
 
 ### Configuration Editor
 Form editor, raw JSON manager, test connection tools, and built-in setup guide for credentials and data sources.
-
 ![Configuration Editor](images/screenshot/config.png)
 
 ### Metrics Glossary & Formulas
-Authoritative mathematical formulas, interpretation guides, platform origins, and data lag disclosures I have used to draw out metrics. 
-
+Authoritative mathematical formulas, interpretation guides, platform origins, and data lag disclosures used to compute metrics.
 ![Metrics Glossary & Formulas](images/screenshot/glossary.png)
-
-### App Notes & AI Insights
-Persistent per-app notes with AI-generated summaries of reviews and sentiment trends.
-
-![App Notes](images/screenshot/notes.png)
 
 </details>
 
@@ -85,51 +79,49 @@ Persistent per-app notes with AI-generated summaries of reviews and sentiment tr
 
 ## Quick Start
 
-Pick a deployment method. **Note where `config.json` lives for each** — it differs:
+Pick your preferred deployment method. Note where `config.json` lives for each ecosystem:
 
-| Method | Put `config.json` in | Dashboard URL |
-|---|---|---|
-| Docker Compose | `./config/` | `http://localhost:3000` |
-| Pre-built image (`docker run`) | `./data/config/` | `http://localhost:3000` |
-| Unraid | `/mnt/user/appdata/AppRankly/config/` | `http://[SERVER-IP]:3020` |
-| Docker Compose (Build from source) | `./config/` | `http://localhost:3000` |
-| Local Node.js | `./data/config/` | `http://localhost:3000` |
+| Deployment Method | Directory for `config.json` | Default Dashboard URL |
+| :--- | :--- | :--- |
+| **Docker Compose** | `./config/` | `http://localhost:3000` |
+| **Pre-built Image (`docker run`)** | `./data/config/` | `http://localhost:3000` |
+| **Unraid** | `/mnt/user/appdata/AppRankly/config/` | `http://[SERVER-IP]:3020` |
+| **Docker Compose (Source Build)** | `./config/` | `http://localhost:3000` |
+| **Local Node.js Development** | `./data/config/` | `http://localhost:3000` |
 
-> [!NOTE]
-> **Why are API keys needed?** AppRankly fetches stats directly from official store APIs (Google Cloud Storage reports and Apple App Store Connect API) so your analytics remain 100% self-hosted and private. Before launching any deployment option below, obtain your API keys using the setup guides:
-> - **Google Play**: [Google Play Credentials Setup](#1-google-play-via-gcs-reports) (Service Account `.json` key)
-> - **Apple App Store**: [Apple Credentials Setup](#2-apple-app-store-connect-via-api) (`.p8` API key, Issuer ID & Key ID)
+> [!IMPORTANT]
+> **Prerequisite:** AppRankly fetches data directly from official store APIs (Google Cloud Storage reports and Apple App Store Connect API) to ensure complete privacy. Before launching, configure your access keys following the [Credentials Setup](#authentication--credentials-setup) guide.
 
-### Option 1: Docker Compose (recommended)
+### Option 1: Docker Compose (Recommended)
 
 ```bash
-# 1. Clone
+# 1. Clone the repository
 git clone https://github.com/zmsp/AppRankly.git
 cd AppRankly
 
-# 2. Create config (compose mounts ./config into the container)
+# 2. Setup config files (mounts ./config into the container)
 mkdir -p config/keys
 cp example.config.json config/config.json
-# Edit config/config.json, drop API key files (.json for Google, .p8 for Apple) into config/keys/
+# Edit config/config.json and place API key files (.json for Google, .p8 for Apple) in config/keys/
 
-# 3. Launch
+# 3. Launch the container stack
 docker compose up -d
 ```
 
-Open **http://localhost:3000**.
+Access the dashboard at **http://localhost:3000**.
 
-### Option 2: Pre-built Docker image
+### Option 2: Pre-built Docker Image
 
 ```bash
-# 1. Pull from GitHub Container Registry
+# 1. Pull the container
 docker pull ghcr.io/zmsp/apprankly:main
 
-# 2. Create config under ./data (this method mounts the whole data dir)
+# 2. Prepare data directory mappings
 mkdir -p data/config/keys
 cp example.config.json data/config/config.json
-# Edit data/config/config.json and add key files to data/config/keys/
+# Edit data/config/config.json and place API keys in data/config/keys/
 
-# 3. Run
+# 3. Spin up the container
 docker run -d \
   --name AppRankly \
   -p 3000:3000 \
@@ -140,53 +132,33 @@ docker run -d \
 
 ### Option 3: Unraid
 
-AppRankly is listed on [Unraid Community Applications](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy).
+AppRankly is available natively via [Unraid Community Applications](https://ca.unraid.net/apps/apprankly-1bdjnw60t14ouy).
 
-1. Search **AppRankly** in the Unraid **Apps** tab and install.
-2. Or add the template manually:
-   ```bash
-   curl -o /boot/config/plugins/dockerMan/templates-user/apprankly.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml
-   ```
-3. Fix path permissions: `chown -R 1000:1000 /mnt/user/appdata/AppRankly/`
-4. Open `http://[YOUR-SERVER-IP]:3020`.
-
-Full guide: [unraid/README.md](unraid/README.md).
-
-### Option 4: Docker Compose (build from source)
-
-Build and run the container locally from source code:
-
+1. Search for **AppRankly** in your Unraid **Apps** tab and click Install.
+2. *Alternative Manual Setup:* Download the XML template directly:
 ```bash
-# 1. Clone
-git clone https://github.com/zmsp/AppRankly.git
-cd AppRankly
-
-# 2. Create config
-mkdir -p config/keys
-cp example.config.json config/config.json
-# Edit config/config.json, drop API key files into config/keys/
-
-# 3. Launch with local build
-docker compose -f docker-compose.build.yml up -d --build
+curl -o /boot/config/plugins/dockerMan/templates-user/apprankly.xml https://raw.githubusercontent.com/zmsp/AppRankly/main/unraid/apprankly.xml
 ```
 
-Open **http://localhost:3000**.
+3. Set appropriate permissions for the mapped directory: `chown -R 1000:1000 /mnt/user/appdata/AppRankly/`
+4. Access via `http://[YOUR-SERVER-IP]:3020`.
 
-### Option 5: Local Node.js development
+*(See the detailed [unraid/README.md](unraid/README.md) for deeper customization options).*
 
-Requires Node 20+ (**22.5+ recommended** — the SQLite cache layer uses the built-in `node:sqlite` and disables itself on older versions).
+### Option 4: Local Node.js Development
+
+Requires Node.js 20+ (**Node 22.5+ highly recommended** — the SQLite caching layer relies on native `node:sqlite` features and safely degrades on older versions).
 
 ```bash
 git clone https://github.com/zmsp/AppRankly.git
 cd AppRankly
 
-# Config (local dev reads ./data/config/config.json)
+# Setup local workspace configuration
 mkdir -p data/config/keys
 cp example.config.json data/config/config.json
 
-# Install server + frontend deps, then start (Express + Vite watch)
+# Install workspace & UI dependencies, then launch development hot-reload
 cd app && npm install
-npm run download-model # Fetches the local AI model (112MB)
 npm --prefix frontend install
 npm run dev
 ```
@@ -195,16 +167,13 @@ npm run dev
 
 ## Key Features
 
-- **App-specific notes & AI insights** — keep track of changes with persistent notes for each app; generate AI summaries of recent user reviews and sentiment trends to inform your strategy.
-- **Unified cross-platform metrics** — installs, uninstalls, active devices, upgrades, and country/device/version breakdowns for Google Play and Apple App Store in one UI.
-- **AI-powered ASO studio** — autocomplete keyword mining, keyword rank checks, competitor comparison, listing health audits, metadata variant generation, and review digests. Bring your own key: **OpenAI, Anthropic, or Gemini** (pick per provider in config).
-- **SQLite caching layer** — daily facts and AI results are cached locally (`node:sqlite`, zero native deps), so repeat queries never re-download or re-bill.
-- **Background scheduler + push alerts** — auto-syncs on an interval and sends install/uninstall alerts to your phone via [ntfy.sh](https://ntfy.sh/) (free, optional).
-- **Release tracking** — log releases (or auto-detect them) and see them as markers on every trend chart.
-- **Grafana-style date ranges** — quick presets (7/30/90 days, 1 year) plus custom ranges and single-day drill-downs.
-- **Headless CLI** — pull metrics, backfill the database, or wire into cron jobs and notification bots.
-- **Private by design** — JWT-authenticated, self-hosted; store keys and analytics never leave your server.
-- **Container-ready** — multi-stage `node:22-alpine` image, non-root user, Unraid template included.
+* 🎯 **Unified Cross-Platform Core**: Access installs, uninstalls, active devices, software upgrades, and country/device breakdowns across Google and Apple under one cohesive UI.
+* 🤖 **AI-Powered ASO Studio**: Autocomplete keyword mining, keyword rank checks, competitor parsing, metadata health checks, and review sentiment synthesis. Use **OpenAI, Anthropic, or Gemini** natively.
+* ⚡ **Zero-Dependency SQLite Cache**: Store historical metrics, aggregates, and expensive AI results safely inside `node:sqlite` so you never pay double API bills or redundant fetch times.
+* 📝 **Contextual Notebooks**: Save persistent notes per application to mark feature additions or marketing campaigns directly inline with data trends.
+* 🔔 **Background Scheduler & Push Notifications**: Automated cron sync cycles that broadcast performance thresholds to your phone using [ntfy.sh](https://ntfy.sh/) (free, privacy-preserving, and optional).
+* 🚀 **Release Tracking**: Tag specific application releases or let the app auto-detect updates to trace impact visually across data timelines.
+* 🛠 **Headless CLI Companion**: Pull data payloads, migrate states, or perform manual historical database backfills over custom chron ranges using a scriptable terminal tool.
 
 ---
 
@@ -212,35 +181,33 @@ npm run dev
 
 ### 1. Google Play (via GCS reports)
 
-Google Play exports daily CSV reports into a private Google Cloud Storage bucket. AppRankly reads them with a service account.
+Google Play exports structured performance metrics into a private Google Cloud Storage bucket daily. AppRankly authenticates against this bucket securely.
 
-1. **Create a GCP service account key**
-   - [Google Cloud IAM Console](https://console.cloud.google.com/iam-admin/serviceaccounts) → create service account (e.g. `playstore-stats-reader`).
-   - **Keys** → **Add Key** → **Create New Key (JSON)** → save as `config/keys/google_key.json` (or `data/config/keys/` — see the table above).
-2. **Grant access in Play Console**
-   - [Play Console](https://play.google.com/apps/publish) → **Users and Permissions** → invite the service account email.
-   - Grant **"View app information and download bulk reports (read-only)"**.
-   - *Bucket permissions can take up to 24h to propagate.*
-3. **Find your bucket name**
-   - Play Console → **Download reports** → **Statistics** → **Copy Cloud Storage URI** (e.g. `gs://pubsite_prod_12345678/stats/installs/`).
-   - The bucket name is the part between `gs://` and the first slash.
+1. **Generate a GCP Service Account Key**:
+* Visit the [Google Cloud IAM Console](https://console.cloud.google.com/iam-admin/serviceaccounts) and create a service account (e.g., `playstore-stats-reader`).
+* Navigate to **Keys** → **Add Key** → **Create New Key (JSON)**. Save this file to your mapped volume as `keys/google_key.json`.
+
+2. **Assign Play Console Access**:
+* Navigate to the [Google Play Console](https://play.google.com/apps/publish) → **Users and Permissions** and invite the newly created service account email.
+* Assign the **"View app information and download bulk reports (read-only)"** permissions.
+* *Note: Permissions across GCS can sometimes take up to 24 hours to replicate completely.*
+
+3. **Capture Your Bucket Endpoint**:
+* In the Play Console, head to **Download reports** → **Statistics** and select **Copy Cloud Storage URI** (e.g., `gs://pubsite_prod_12345678/stats/installs/`).
+* Your target bucket name is the unique string value located between `gs://` and the subsequent forward slash.
 
 ### 2. Apple App Store Connect (via API)
 
-1. [App Store Connect](https://appstoreconnect.apple.com/) → **Users and Access** → **Integrations (Keys)** → **Generate API Key** with **Sales and Reports** role.
-2. Download the `.p8` key into your `keys/` folder.
-3. Note the **Issuer ID** (top of the Keys page) and the 10-character **Key ID**.
-
-### 3. Push notifications (optional, via ntfy.sh)
-
-1. Set `"ntfyTopic"` in `config.json` to a unique secret string (empty `""` = alerts off).
-2. Install the free [ntfy app](https://ntfy.sh/) and subscribe to that topic — you'll get a push whenever a sync finds new installs/uninstalls, within your configured active hours.
+1. Navigate to [App Store Connect](https://appstoreconnect.apple.com/) → **Users and Access** → **Integrations (Keys)**.
+2. Generate an API Key with the **Sales and Reports** access role.
+3. Download the provided `.p8` credential token into your designated `keys/` directory mapping.
+4. Record the **Issuer ID** listed at the top of the interface and the specific 10-character **Key ID**.
 
 ---
 
 ## Configuration Reference
 
-Copy `example.config.json` to your config location (see Quick Start table) and fill in your values:
+Duplicate `example.config.json` inside your designated configuration target directory and adjust the payload schema values:
 
 ```json
 {
@@ -265,59 +232,44 @@ Copy `example.config.json` to your config location (see Quick Start table) and f
   "ai": {
     "defaultProvider": "openai",
     "providers": {
-      "openai":    { "apiKey": "sk-...", "model": "gpt-4.1-nano" },
-      "anthropic": { "apiKey": "sk-ant-...", "model": "claude-opus-4-8" },
-      "gemini":    { "apiKey": "...", "model": "gemini-3.6-flash" }
+      "openai":    { "apiKey": "sk-...", "model": "gpt-4.5-preview" },
+      "anthropic": { "apiKey": "sk-ant-...", "model": "claude-3-5-sonnet" },
+      "gemini":    { "apiKey": "...", "model": "gemini-1.5-flash" }
     }
   }
 }
 ```
 
-### Configuration fields
+### Configuration Fields
 
-| Field | Platform | Description | Required |
-|-------|----------|-------------|----------|
-| `name` | Both | Display label for this account | Yes |
-| `projectID` | Google | Google Cloud project ID | For Google Play |
-| `bucketName` | Google | GCS bucket from Play Console URI | For Google Play |
-| `keyFilePath` | Google | Service-account JSON key path, relative to `config.json` | For Google Play |
-| `appleIssuerId` | Apple | App Store Connect Issuer ID | For Apple |
-| `appleKeyId` | Apple | App Store Connect Key ID | For Apple |
-| `keyFilePath_apple` | Apple | `.p8` key path, relative to `config.json` | For Apple |
-| `appleVendorId` | Apple | 8-digit vendor number (Payments & Financial Reports) | Optional |
-| `PlaystoreConsoleUrl` | Google | Console base URL for deep links | Optional |
-| `ntfyTopic` | Alerts | ntfy.sh topic; `""` disables push alerts | Optional |
-| `refreshIntervalHours` | Scheduler | Auto-sync frequency (default `1`) | Optional |
-| `statsCheckRangeDays` | Scheduler | Sync lookback window in days (default `30`) | Optional |
-| `activeStartHour` / `activeEndHour` | Scheduler | Notification window, local hours 0–23 (default `9`–`20`) | Optional |
-| `appMetadata` | Google | Per-package extras (e.g. `consoleAppId` for deep links) | Optional |
-| `ignoredPackages` | Both | Package/bundle IDs to hide from the dashboard | Optional |
-| `ai` | ASO | AI provider keys + models; only providers with a key show up in the UI | Optional |
-
-> **AI models**: any current model ID works — the string passes straight through to the provider. Cheaper tiers (e.g. `gpt-4.1-nano`, `claude-haiku-4-5`, Gemini Flash) are plenty for ASO tasks; verify current names on your provider's model page.
-
-### Environment variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | HTTP port |
-| `JWT_SECRET` | auto-generated & persisted | Auth token secret — set explicitly in production |
-| `CONFIG_PATH` | `<DATA_DIR>/config/config.json` | Config file location |
-| `DATA_DIR` | `/app/data` (Docker) · `./data` (local dev) | Persistent storage: SQLite DB, CSV cache, auth state |
-| `NTFY_TOPIC` | `""` | Fallback ntfy topic (config value wins) |
+| Field | Context Ecosystem | Purpose and Definition | Mandate |
+| --- | --- | --- | --- |
+| `name` | Core Environment | Human-readable identity tag for the accounts dashboard. | Required |
+| `projectID` | Google Play | The target identifier matching your Google Cloud Console project. | Optional |
+| `bucketName` | Google Play | Extracted Cloud Storage ID value containing metric exports. | Optional |
+| `keyFilePath` | Google Play | Relative directory reference parsing your Google IAM `.json` token file. | Optional |
+| `appleIssuerId` | App Store Connect | Universal API UUID extracted from your Connect keys management area. | Optional |
+| `appleKeyId` | App Store Connect | Explicit 10-character reference code matching your downloaded key token. | Optional |
+| `keyFilePath_apple` | App Store Connect | Relative directory reference parsing the generated `.p8` access key. | Optional |
+| `ntfyTopic` | Alert Framework | Unique secret path defining your subscription string. Leave empty `""` to turn off. | Optional |
+| `refreshIntervalHours` | Worker Lifecycle | Defines the lookup intervals checking for fresh metrics upstream. | Default: `1` |
+| `statsCheckRangeDays` | Data Aggregation | Window depth processing past timeline metrics during cron sync updates. | Default: `30` |
+| `ai` | Optimization Lab | Object mappings storing keys and customized models across AI vendors. | Optional |
 
 ---
 
 ## Headless CLI Utility
 
+Run maintenance operations, sync metrics, or handle migrations cleanly via the integrated command interface:
+
 ```bash
-# Sync + report for the first configured project
+# Sync + verify configuration against index position zero
 node app/cli.js -s 0
 
-# By project name
+# Target historical sync tasks by custom environment name
 node app/cli.js -s "Production Apps"
 
-# Explicit parameters (no config file)
+# Fully decoupled ingestion parameters bypassing file configurations
 node app/cli.js \
   --key="data/config/keys/google_key.json" \
   --projectID="your-gcp-project-id" \
@@ -325,34 +277,26 @@ node app/cli.js \
   --packageName="com.example.app"
 ```
 
-Database maintenance (run from `app/`):
+### Internal Engine Maintenance Targets
+
+Execute these utilities directly from inside the localized `/app` path workspace:
 
 ```bash
-npm run db:migrate    # apply schema migrations
-npm run db:backfill   # ingest all downloaded reports (cli.js backfill --since YYYY-MM)
-npm run db:status     # per-app coverage & row counts
-npm run cache:clear   # drop cached aggregates
+npm run db:migrate    # Force target and process outstanding schema changes
+npm run db:backfill   # Pull file archives historically (e.g., cli.js backfill --since YYYY-MM)
+npm run db:status     # Output active table indices, row weight, and localized scope coverage
+npm run cache:clear   # Drop cached timeline states to force total downstream cache regeneration
 ```
-
-| Argument | Short | Description |
-|----------|-------|-------------|
-| `--project` | `-s` | Name or zero-based index of a project in `config.json` |
-| `--config` | `-c` | Path to `config.json` |
-| `--key` | `-k` | Google service-account JSON key path |
-| `--projectID` | `-g` | Google Cloud project ID |
-| `--bucketName` | `-b` | Play Console GCS bucket |
-| `--packageName` | `-p` | Target a single app package |
 
 ---
 
 ## Architecture & Tech Stack
 
-- **Backend**: Node.js 20+ / Express, JWT auth, `node:sqlite` cache (22.5+), Fast-CSV (UTF-16 Play reports), Google Cloud Storage SDK, ES256-signed App Store Connect client, background scheduler + ntfy notifier.
-- **Frontend**: React 18 + Vite, Tailwind CSS (glassmorphic dark theme), Chart.js via react-chartjs-2, React Router.
-- **ASO / AI**: `google-play-scraper` + iTunes Search API for listings, ranks, and reviews; provider-agnostic AI adapter for OpenAI / Anthropic (`@anthropic-ai/sdk`) / Gemini (`@google/genai`).
-- **Packaging**: multi-stage `node:22-alpine` Docker image (non-root), Unraid XML template, static demo build published to GitHub Pages.
+* **Backend Application Core**: Node.js 20+ alongside Express. Secured with JWT tokens. Employs zero-native dependency performance pipelines like `node:sqlite`, raw UTF-16 streaming buffers using Fast-CSV, and native cryptographic integrations signing asymmetric ES256 tokens for Apple integrations.
+* **User Interface Engineering**: React 18 powered alongside Vite. Implements fully dynamic visual charting using `react-chartjs-2` running over an adaptive Tailwind CSS engine optimized for fluid dark environments.
+* **Scraping, Optimization & LLM Adapters**: Integrates multi-channel store hooks parsing active listings data concurrently while standardizing multi-tenant inference models cleanly across the native SDK layers of OpenAI, Anthropic, and Google Gemini.
 
-### System architecture
+### Flow Architecture
 
 ```mermaid
 graph TD
@@ -375,69 +319,26 @@ graph TD
     ASO --> AI{{"AI Provider<br/>OpenAI · Anthropic · Gemini"}}
 ```
 
-### Data lookup waterfall
-
-Every stats request resolves through a fixed cache hierarchy — the network is the last resort, and lower tiers backfill the faster ones:
-
-```mermaid
-flowchart LR
-    Q([Request]) --> M{"Memory<br/>cache?"}
-    M -->|hit| R([Respond])
-    M -->|miss| S{"SQLite<br/>facts?"}
-    S -->|hit| R
-    S -->|miss| F{"Downloaded<br/>file?"}
-    F -->|hit| R
-    F -->|miss| N["External API<br/>GCS · Apple · scrape"]
-    N --> R
-    N -.->|backfill| F
-    F -.->|backfill| S
-    S -.->|backfill| M
-```
-
 ---
 
 ## Troubleshooting & FAQ
-
-<details>
-<summary><b>Google Play shows 0 stats or permission-denied errors</b></summary>
-GCS bucket permissions can take up to 24 hours to propagate after inviting the service account in Play Console. Confirm the account has <i>"View app information and download bulk reports (read-only)"</i>.
-</details>
-
-<details>
-<summary><b>Permission errors on Unraid / Docker volumes</b></summary>
-The container runs as non-root UID 1000 (<code>node</code>). Make the host data folder writable:
-<code>chown -R 1000:1000 /path/to/data</code>
-</details>
-
-<details>
-<summary><b>Log says "node:sqlite module not available"</b></summary>
-The SQLite cache layer needs Node ≥ 22.5 and disables itself gracefully on older versions (everything still works, just without local caching). The official Docker image ships Node 22, so this only affects bare-metal installs.
-</details>
-
-<details>
-<summary><b>Can I evaluate it without any credentials?</b></summary>
-Yes — use the <a href="https://zmsp.github.io/AppRankly/#demo">hosted live demo</a>, or toggle <b>Demo Mode</b> in the sidebar of your own instance to explore with simulated data.
-</details>
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for step-by-step instructions on setting up your local development environment, submitting feature requests, and opening pull requests.
+We love contributions! Review our detailed [CONTRIBUTING.md](CONTRIBUTING.md) to learn how to prepare local tracking environments, map diagnostic test workflows, and open up performance patches inside our pipelines cleanly.
 
-For security concerns and vulnerability reporting, please review our [Security Policy](SECURITY.md).
+For security concerns, vulnerabilities, and disclosures, please see our [Security Policy](SECURITY.md).
 
 ---
 
-## Support & My Apps
+## ☕ Support & Ecosystem
 
-Explore more self-hosted tools at **[apps.shahadat.us](https://apps.shahadat.us/)** or support development:
-
-[![My Apps](https://img.shields.io/badge/My%20Apps-apps.shahadat.us-indigo.svg?style=for-the-badge&logo=googleplay&logoColor=white)](https://apps.shahadat.us/)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-orange.svg?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white)](https://buymeacoffee.com/zprimecreates)
+Discover additional utilities and self-hosted tools on my homepage at **[apps.shahadat.us](https://apps.shahadat.us/)** or support ongoing open-source maintenance here:
 
 ---
 
 ## License
 
-Open-source under the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.
+AppRankly is distributed as open-source software protected under the terms of the **[GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE)**.
