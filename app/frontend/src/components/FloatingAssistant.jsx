@@ -335,18 +335,18 @@ export default function FloatingAssistant({
 
       <div className="flex items-center p-1 bg-white/5 rounded-xl border border-white/10">
         <button
-          onClick={() => setActiveTab('chat')}
-          className={`flex-1 flex items-center justify-center space-x-1.5 py-1 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'chat' ? 'bg-accent-blue text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
-        >
-          <Sparkles size={12} />
-          <span>Ask Rankly</span>
-        </button>
-        <button
           onClick={() => setActiveTab('notes')}
           className={`flex-1 flex items-center justify-center space-x-1.5 py-1 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'notes' ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
         >
           <Notebook size={12} />
           <span>Quick Notes</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`flex-1 flex items-center justify-center space-x-1.5 py-1 rounded-lg text-[10px] font-bold transition-all ${activeTab === 'chat' ? 'bg-accent-blue text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+        >
+          <Sparkles size={12} />
+          <span>Ask Rankly</span>
         </button>
       </div>
     </div>
@@ -357,23 +357,23 @@ export default function FloatingAssistant({
       {/* Integrated Floating Buttons (Square Block Style) */}
       <div className="fixed bottom-6 right-6 z-40 flex items-stretch bg-slate-900/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden p-1.5 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <button
-          onClick={() => toggleOpen('notes')}
-          className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-xl transition-all ${activeTab === 'notes' && isOpen ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-          title="Quick Notes"
-        >
-          <Notebook size={22} className={activeTab === 'notes' && isOpen ? 'scale-110' : ''} />
-          <span className="text-[10px] font-bold">Notes</span>
-        </button>
-
-        <div className="w-[1px] self-center h-10 bg-white/10 mx-1.5" />
-
-        <button
           onClick={() => toggleOpen('chat')}
           className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-xl transition-all ${activeTab === 'chat' && isOpen ? 'bg-accent-blue text-white shadow-lg shadow-accent-blue/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
           title="Ask Rankly AI"
         >
           <Sparkles size={22} className={activeTab === 'chat' && isOpen ? 'animate-pulse scale-110' : ''} />
           <span className="text-[10px] font-bold leading-tight text-center px-1">Ask Rankly</span>
+        </button>
+
+        <div className="w-[1px] self-center h-10 bg-white/10 mx-1.5" />
+
+        <button
+          onClick={() => toggleOpen('notes')}
+          className={`flex flex-col items-center justify-center gap-1 w-16 h-16 rounded-xl transition-all ${activeTab === 'notes' && isOpen ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+          title="Quick Notes"
+        >
+          <Notebook size={22} className={activeTab === 'notes' && isOpen ? 'scale-110' : ''} />
+          <span className="text-[10px] font-bold">Notes</span>
         </button>
       </div>
 
