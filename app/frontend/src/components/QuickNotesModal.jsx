@@ -45,6 +45,13 @@ export default function QuickNotesModal({
   const [pinned, setPinned] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingAso, setIsGeneratingAso] = useState(false);
+  const [lastSavedState, setLastSavedState] = useState({ title: '', content: '', tags: [], pinned: false });
+
+  const hasUnsavedChanges =
+    title !== lastSavedState.title ||
+    content !== lastSavedState.content ||
+    JSON.stringify(tags) !== JSON.stringify(lastSavedState.tags) ||
+    pinned !== lastSavedState.pinned;
 
   // Sync state when modal opens or active app package changes
   useEffect(() => {
@@ -52,53 +59,80 @@ export default function QuickNotesModal({
 
     if (appNotes.length > 0) {
       const selected = appNotes[0];
+      const state = {
+        title: selected.title || '',
+        content: selected.content || '',
+        tags: selected.tags || [],
+        pinned: Boolean(selected.pinned)
+      };
       setActiveNoteId(selected.id);
-      setTitle(selected.title || '');
-      setContent(selected.content || '');
-      setTags(selected.tags || []);
-      setPinned(Boolean(selected.pinned));
+      setTitle(state.title);
+      setContent(state.content);
+      setTags(state.tags);
+      setPinned(state.pinned);
+      setLastSavedState(state);
     } else {
       setActiveNoteId(null);
-      setTitle(`Notes: ${appName}`);
-      setContent(`# Notes for ${appName}\n\nJot down brainstorming ideas, ASO strategies, release notes, or TODO items here...\n`);
-      setTags(['brainstorm']);
-      setPinned(false);
+      const state = {
+        title: `Notes: ${appName}`,
+        content: `# Notes for ${appName}\n\nJot down brainstorming ideas, ASO strategies, release notes, or TODO items here...\n`,
+        tags: ['brainstorm'],
+        pinned: false
+      };
+      setTitle(state.title);
+      setContent(state.content);
+      setTags(state.tags);
+      setPinned(state.pinned);
+      setLastSavedState(state);
     }
   }, [isOpen, pkgName, appName]);
 
+  // Auto-save logic (Draft only)
+  useEffect(() => {
+    if (!isOpen || !hasUnsavedChanges || isSaving) return;
+
+    const timer = setTimeout(() => {
+      handleSave(true); // Silent draft save
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [content, title, tags, pinned, isOpen]);
+
   if (!isOpen) return null;
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleSave = async (silent = false) => {
+    if (silent && !hasUnsavedChanges) return;
+    if (!silent) setIsSaving(true);
     try {
+      const defaultId = `${appPlatform === 'google' ? 'android' : appPlatform}.${pkgName}`;
+
+      const noteData = {
+        id: activeNoteId || defaultId,
+        title: title || 'Untitled Note',
+        content,
+        packageName: pkgName,
+        platform: appPlatform,
+        tags,
+        pinned,
+        skipGit: silent
+      };
+
       if (activeNoteId) {
-        await updateNote(activeNoteId, {
-          title: title || 'Untitled Note',
-          content,
-          packageName: pkgName,
-          platform: appPlatform,
-          tags,
-          pinned
-        });
-        toast.success('Note updated');
+        await updateNote(activeNoteId, noteData);
+        setLastSavedState({ title, content, tags, pinned });
+        if (!silent) toast.success('Note committed & synced');
       } else {
-        const res = await addNote({
-          title: title || `Notes: ${appName}`,
-          content,
-          packageName: pkgName,
-          platform: appPlatform,
-          tags,
-          pinned
-        });
+        const res = await addNote(noteData);
         if (res?.note?.id) {
           setActiveNoteId(res.note.id);
+          setLastSavedState({ title, content, tags, pinned });
         }
-        toast.success('Note saved');
+        if (!silent) toast.success('Note created & committed');
       }
     } catch (err) {
-      toast.error('Failed to save note');
+      if (!silent) toast.error('Failed to save note');
     } finally {
-      setIsSaving(false);
+      if (!silent) setIsSaving(false);
     }
   };
 
@@ -229,8 +263,14 @@ export default function QuickNotesModal({
 
             <button
               onClick={() => {
+                const displayPlat = appPlatform === 'google' ? 'Android' : appPlatform === 'apple' ? 'Apple' : 'Global';
+                const displayAppName = activeProject ? activeProject.name : 'Portfolio';
+                const defaultTitle = pkgName === 'all'
+                    ? `${displayPlat} Portfolio Notes`
+                    : `${displayPlat} - ${displayAppName} - ${pkgName}`;
+
                 setActiveNoteId(null);
-                setTitle(`New Note for ${appName}`);
+                setTitle(defaultTitle);
                 setContent(TEMPLATES.system_new_note?.content || '# Brainstorming\n\n- ');
                 setTags(['idea']);
                 setPinned(false);
@@ -268,12 +308,19 @@ export default function QuickNotesModal({
               </button>
 
               <button
-                onClick={handleSave}
+                onClick={() => handleSave(false)}
                 disabled={isSaving}
-                className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-all text-xs font-semibold shadow-lg shadow-emerald-500/10"
+                className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow-lg ${
+                  hasUnsavedChanges
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 shadow-emerald-500/10'
+                    : 'bg-slate-800/40 text-slate-500 border border-white/5 shadow-none'
+                }`}
               >
                 {isSaving ? <Check size={16} className="animate-bounce" /> : <Save size={16} />}
-                <span>Save</span>
+                <span>{hasUnsavedChanges ? 'Commit Changes' : 'Synced'}</span>
+                {hasUnsavedChanges && (
+                   <span className="ml-1 w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
               </button>
 
               {activeNoteId && (

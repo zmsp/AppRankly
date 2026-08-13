@@ -354,19 +354,20 @@ app.get("/api/notes", authenticate, async (req, res) => {
 });
 
 app.post("/api/notes", authenticate, async (req, res) => {
-  const { title, content, packageName, platform, tags, pinned } = req.body;
+  const { title, content, packageName, platform, tags, pinned, skipGit } = req.body;
   const now = new Date().toISOString();
   const note = { id: req.body.id || `note_${Date.now()}`, title: title || 'Untitled Note', content: content || '', packageName: packageName || 'all', platform: platform || 'all', tags: Array.isArray(tags) ? tags : [], pinned: !!pinned, createdAt: now, updatedAt: now };
-  await saveNoteToStorage(note);
+  await saveNoteToStorage(note, { skipGit: !!skipGit });
   res.json({ success: true, note });
 });
 
 app.put("/api/notes/:id", authenticate, async (req, res) => {
+  const { skipGit } = req.body;
   const notes = await getNotesFromStorage();
   const existing = notes.find(n => String(n.id) === String(req.params.id));
   if (!existing) return res.status(404).json({ error: "Not found" });
   const updated = { ...existing, ...req.body, updatedAt: new Date().toISOString() };
-  await saveNoteToStorage(updated);
+  await saveNoteToStorage(updated, { skipGit: !!skipGit });
   res.json({ success: true, note: updated });
 });
 

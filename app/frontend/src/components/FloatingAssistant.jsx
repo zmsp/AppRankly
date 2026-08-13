@@ -117,9 +117,15 @@ export default function FloatingAssistant({
   const appPlatform = activeProject ? activeProject.platform : (platform || 'all');
   const appName = activeProject ? activeProject.name : 'All Apps';
 
-  // Specific format: "{platform} {packageName} notes"
-  const quickNoteTitle = `${appPlatform} ${pkgName} notes`;
-  const quickNoteId = `quick_note_${appPlatform}_${pkgName.replace(/\./g, '_')}`;
+  // Specific format: "[Platform] - [AppName] - [PackageName]"
+  const displayPlat = appPlatform === 'google' ? 'Android' : appPlatform === 'apple' ? 'Apple' : 'Global';
+  const displayAppName = activeProject ? activeProject.name : 'Portfolio';
+
+  const quickNoteTitle = pkgName === 'all'
+    ? `${displayPlat} Portfolio Notes`
+    : `${displayPlat} - ${displayAppName} - ${pkgName}`;
+
+  const quickNoteId = `${appPlatform === 'google' ? 'android' : appPlatform}.${pkgName}`;
 
   const [noteTitle, setNoteTitle] = useState(quickNoteTitle);
   const [noteContent, setNoteContent] = useState('');
@@ -167,7 +173,8 @@ export default function FloatingAssistant({
         packageName: pkgName,
         platform: appPlatform,
         tags: ['quick-note'],
-        pinned: true
+        pinned: true,
+        skipGit: silent
       };
 
       if (activeNoteId) {

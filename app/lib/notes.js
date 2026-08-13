@@ -32,7 +32,8 @@ const gitQueue = new TaskQueue();
  */
 function sanitizeId(id) {
   if (typeof id !== 'string') return `note_${Date.now()}`;
-  return id.replace(/[^a-zA-Z0-9_-]/g, '');
+  // Allow dots, spaces, and dashes for descriptive filenames
+  return id.replace(/[^a-zA-Z0-9._\s-]/g, '').trim();
 }
 
 /**
@@ -335,13 +336,18 @@ async function getNotesFromStorage() {
           if (f.endsWith('.md')) {
             const raw = await fs.readFile(path.join(pkgDir, f), 'utf8');
             const { metadata, content } = parseNoteMarkdown(raw);
-            fileNotes.push({ ...metadata, content, id: metadata.id || path.basename(f, '.md'), packageName: item.name });
+            const id = metadata.id || path.basename(f, '.md');
+            // Prefer packageName from metadata, fallback to folder name
+            const pkg = metadata.packageName || item.name;
+            fileNotes.push({ ...metadata, content, id, packageName: pkg });
           }
         }
       } else if (item.isFile() && item.name.endsWith('.md')) {
         const raw = await fs.readFile(path.join(NOTES_DIR, item.name), 'utf8');
         const { metadata, content } = parseNoteMarkdown(raw);
-        fileNotes.push({ ...metadata, content, id: metadata.id || path.basename(item.name, '.md'), packageName: 'all' });
+        const id = metadata.id || path.basename(item.name, '.md');
+        const pkg = metadata.packageName || 'all';
+        fileNotes.push({ ...metadata, content, id, packageName: pkg });
       }
     }
   } catch (err) { console.error("[Notes] Storage scan error:", err); }
@@ -364,7 +370,8 @@ async function getNotesFromStorage() {
   return fileNotes.sort((a, b) => (b.pinned - a.pinned) || (new Date(b.updatedAt) - new Date(a.updatedAt)));
 }
 
-async function saveNoteToStorage(note) {
+async function saveNoteToStorage(note, options = {}) {
+  const { skipGit = false } = options;
   const sid = sanitizeId(note.id);
   const pkgDirName = sanitizePackageName(note.packageName);
   const targetDir = path.join(NOTES_DIR, pkgDirName);
@@ -385,7 +392,10 @@ async function saveNoteToStorage(note) {
       `).run(sid, note.packageName || 'all', note.platform || 'all', note.title || 'Untitled Note', note.content || '', JSON.stringify(note.tags || []), note.pinned ? 1 : 0, note.createdAt || new Date().toISOString(), note.updatedAt || new Date().toISOString());
     } catch (e) { console.error(`[Notes] DB save error:`, e.message); }
   }
-  syncNotesToGit(`docs(notes): update note "${note.title || sid}"`);
+
+  if (!skipGit) {
+    syncNotesToGit(`docs(notes): update note "${note.title || sid}"`);
+  }
 }
 
 async function deleteNoteFromStorage(id) {

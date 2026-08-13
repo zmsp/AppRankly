@@ -90,15 +90,26 @@ export default function Notes({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [viewMode, setViewMode] = useState('write');
 
-  // Track initial state to detect changes
+  // Dual-state tracking for Draft vs Commit workflow
+  const [committedState, setCommittedState] = useState({ title: '', content: '', tags: [], pinned: false });
   const [savedState, setSavedState] = useState({ title: '', content: '', tags: [], pinned: false });
 
-  // Deriving "dirty" state
-  const hasChanges =
+  // 1. Has user typed anything since the last server sync?
+  const hasUnsavedChanges =
     title !== savedState.title ||
     content !== savedState.content ||
     JSON.stringify(tags) !== JSON.stringify(savedState.tags) ||
     pinned !== savedState.pinned;
+
+  // 2. Is the current state different from the last Git Commit?
+  const hasUncommittedChanges =
+    title !== committedState.title ||
+    content !== committedState.content ||
+    JSON.stringify(tags) !== JSON.stringify(committedState.tags) ||
+    pinned !== committedState.pinned;
+
+  // Track the last loaded note ID to prevent redundant syncs
+  const lastLoadedNoteId = useRef(null);
 
   // Sync state with selected note
   useEffect(() => {
@@ -107,55 +118,71 @@ export default function Notes({
     if (urlNoteId) {
       const match = notes.find(n => n && n.id === urlNoteId);
       if (match) {
-        const newState = {
+        const state = {
           title: match.title || '',
           content: match.content || '',
           tags: match.tags || [],
           pinned: Boolean(match.pinned)
         };
-        setActiveNoteId(match.id);
-        setTitle(newState.title);
-        setContent(newState.content);
-        setTags(newState.tags);
-        setPinned(newState.pinned);
-        setSavedState(newState);
-        setNoteAppPkg(match.packageName || 'all');
-        setNoteAppPlat(match.platform || 'all');
-        setMobileView('editor');
+
+        // If we switched notes, or if we don't have local unsaved changes,
+        // sync the content from the notes prop.
+        if (lastLoadedNoteId.current !== urlNoteId || !hasUnsavedChanges) {
+          if (lastLoadedNoteId.current !== urlNoteId) {
+            setActiveNoteId(match.id);
+            setNoteAppPkg(match.packageName || 'all');
+            setNoteAppPlat(match.platform || 'all');
+            setMobileView('editor');
+            lastLoadedNoteId.current = urlNoteId;
+          }
+          setTitle(state.title);
+          setContent(state.content);
+          setTags(state.tags);
+          setPinned(state.pinned);
+          setSavedState(state);
+          // Note: committedState should ideally come from backend metadata if available,
+          // but here we use the loaded state as the baseline.
+          setCommittedState(state);
+        } else {
+          // Keep the baseline updated so the UI indicators stay accurate
+          setSavedState(state);
+        }
         return;
       }
     }
-    if (window.innerWidth >= 768 && activeNoteId === null && notes.length > 0) {
+
+    // Default to first note on desktop if none selected
+    if (window.innerWidth >= 768 && activeNoteId === null && notes.length > 0 && !urlNoteId) {
       handleSelectNote(notes[0]);
     }
-  }, [urlNoteId, notes?.length]);
+  }, [urlNoteId, notes]);
 
-  // Auto-save logic
+  // Auto-save logic (Identical to Mini Notes)
   useEffect(() => {
-    if (!hasChanges || isSaving) return;
+    if (!hasUnsavedChanges || isSaving) return;
 
     const timer = setTimeout(() => {
-      handleSave(true); // Silent save
+      handleSave(true); // Silent draft save
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [hasChanges, isSaving]);
+  }, [content, title, tags, pinned, isSaving]);
 
   // Navigation blocker
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (hasChanges) {
+      if (hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = '';
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasChanges]);
+  }, [hasUnsavedChanges]);
 
   const confirmDiscard = () => {
-    if (hasChanges) {
-      return window.confirm("You have unsaved changes. Discard them?");
+    if (hasUnsavedChanges) {
+      return window.confirm("Your latest changes haven't been saved to the server yet. Leave anyway?");
     }
     return true;
   };
@@ -165,17 +192,18 @@ export default function Notes({
     if (!confirmDiscard()) return;
 
     setActiveNoteId(n.id);
-    const newState = {
+    const state = {
       title: n.title || '',
       content: n.content || '',
       tags: n.tags || [],
       pinned: Boolean(n.pinned)
     };
-    setTitle(newState.title);
-    setContent(newState.content);
-    setTags(newState.tags);
-    setPinned(newState.pinned);
-    setSavedState(newState);
+    setTitle(state.title);
+    setContent(state.content);
+    setTags(state.tags);
+    setPinned(state.pinned);
+    setCommittedState(state);
+    setSavedState(state);
     setNoteAppPkg(n.packageName || 'all');
     setNoteAppPlat(n.platform || 'all');
     setMobileView('editor');
@@ -185,44 +213,61 @@ export default function Notes({
   const handleCreateNewNote = () => {
     if (!confirmDiscard()) return;
 
+    const displayPlat = appPlatform === 'google' ? 'Android' : appPlatform === 'apple' ? 'Apple' : 'Global';
+    const displayAppName = activeProject ? activeProject.name : 'Portfolio';
+    const defaultTitle = pkgName === 'all'
+      ? `${displayPlat} Portfolio Notes`
+      : `${displayPlat} - ${displayAppName} - ${pkgName}`;
+
     setActiveNoteId(null);
     const template = TEMPLATES.system_aso_audit;
-    const newState = {
-      title: `ASO Recommendations & Audit:`,
+    const state = {
+      title: defaultTitle,
       content: `${template.content}\n\n> Generated on: ${new Date().toLocaleDateString()}\n> App Package: \`${pkgName}\` | Platform: \`${appPlatform.toUpperCase()}\` \n\n---\n`,
       tags: ['aso', 'audit'],
       pinned: false
     };
-    setTitle(newState.title);
-    setContent(newState.content);
-    setTags(newState.tags);
-    setPinned(newState.pinned);
-    setSavedState(newState);
+    setTitle(state.title);
+    setContent(state.content);
+    setTags(state.tags);
+    setPinned(state.pinned);
+    setCommittedState(state);
+    setSavedState(state);
     setNoteAppPkg(pkgName === 'all' ? (projects[0]?.packageName || 'all') : pkgName);
     setNoteAppPlat(appPlatform);
     setMobileView('editor');
   };
 
   const handleSave = async (silent = false) => {
-    if (silent && !hasChanges) return;
+    if (silent && !hasUnsavedChanges) return;
     if (!silent) setIsSaving(true);
+    const payload = {
+        id: `${appPlatform === 'google' ? 'android' : appPlatform}.${noteAppPkg}`,
+        title, content, packageName: noteAppPkg, platform: noteAppPlat, tags, pinned,
+        skipGit: silent // Draft saves skip Git
+    };
+
     try {
+      const newState = { title, content, tags, pinned };
+
       if (activeNoteId) {
-        await updateNote(activeNoteId, {
-          title, content, packageName: noteAppPkg, platform: noteAppPlat, tags, pinned
-        });
-        setSavedState({ title, content, tags, pinned });
-        if (!silent) toast.success('Record synchronized');
+        await updateNote(activeNoteId, payload);
+        setSavedState(newState);
+        if (!silent) {
+          setCommittedState(newState);
+          toast.success('Committed to Git & Synced');
+        }
       } else {
-        const res = await addNote({
-          title, content, packageName: noteAppPkg, platform: noteAppPlat, tags, pinned
-        });
+        const res = await addNote(payload);
         if (res?.note?.id) {
           setActiveNoteId(res.note.id);
-          setSavedState({ title, content, tags, pinned });
-          navigate(`/notes/id/${res.note.id}`, { replace: true });
+          setSavedState(newState);
+          if (!silent) {
+            setCommittedState(newState);
+            navigate(`/notes/id/${res.note.id}`, { replace: true });
+            toast.success('Record created & Committed');
+          }
         }
-        if (!silent) toast.success('Record created');
       }
     } catch (err) {
       if (!silent) toast.error('Sync failed');
@@ -475,11 +520,15 @@ export default function Notes({
               <button
                 onClick={() => handleSave(false)}
                 disabled={isSaving}
-                className="flex items-center gap-2 bg-[#00d2ff] text-[#0d1117] text-[11px] font-bold px-5 py-2 rounded shadow-[0_0_20px_rgba(0,210,255,0.2)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 shrink-0"
+                className={`flex items-center gap-2 text-[11px] font-bold px-5 py-2 rounded transition-all shrink-0 ${
+                  hasUncommittedChanges
+                    ? 'bg-[#00d2ff] text-[#0d1117] shadow-[0_0_20px_rgba(0,210,255,0.2)] hover:brightness-110 active:scale-95'
+                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                }`}
               >
                 {isSaving ? <Check size={16} className="animate-pulse" /> : <Save size={16} />}
-                Save
-                {hasChanges && (
+                {hasUncommittedChanges ? 'Commit & Sync' : 'Synced'}
+                {hasUnsavedChanges && (
                   <span className="text-[10px] bg-black/20 px-1 rounded ml-1 animate-pulse font-black text-amber-400 opacity-80">
                     !
                   </span>
@@ -544,11 +593,15 @@ export default function Notes({
                 </div>
               </div>
 
-              {hasChanges && (
+              {hasUncommittedChanges && (
                 <div className="flex items-center gap-2 ml-auto">
-                  <span className="text-[10px] text-accent-blue font-bold animate-pulse px-2 py-1 rounded bg-accent-blue/10 border border-accent-blue/20 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-accent-blue animate-ping" />
-                    Auto-saving...
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1.5 border ${
+                    hasUnsavedChanges
+                      ? 'text-amber-400 bg-amber-400/10 border-amber-400/20'
+                      : 'text-accent-blue bg-accent-blue/10 border-accent-blue/20'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${hasUnsavedChanges ? 'bg-amber-400 animate-pulse' : 'bg-accent-blue'}`} />
+                    {hasUnsavedChanges ? 'Drafting...' : 'Local Draft Saved'}
                   </span>
                 </div>
               )}

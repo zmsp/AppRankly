@@ -46,7 +46,7 @@ COPY --from=builder --chown=node:node /app ./
 
 # Copy built frontend static assets from frontend-builder into the expected backend public directory
 # Adjust the source path to match where your frontend build outputs assets (usually dist or public)
-COPY --from=frontend-builder --chown=node:node /app/frontend/public ./public
+COPY --from=frontend-builder --chown=node:node /app/public ./public
 
 # Expose backend application port
 EXPOSE 3000
