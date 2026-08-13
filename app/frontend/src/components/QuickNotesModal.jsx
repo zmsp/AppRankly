@@ -12,7 +12,7 @@ import {
   Plus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import MarkdownEditor from './MarkdownEditor';
+import MarkdownEditor, { TEMPLATES } from './MarkdownEditor';
 import AppIcon from './AppIcon';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -64,7 +64,7 @@ export default function QuickNotesModal({
       setTags(['brainstorm']);
       setPinned(false);
     }
-  }, [isOpen, pkgName]);
+  }, [isOpen, pkgName, appName]);
 
   if (!isOpen) return null;
 
@@ -231,7 +231,7 @@ export default function QuickNotesModal({
               onClick={() => {
                 setActiveNoteId(null);
                 setTitle(`New Note for ${appName}`);
-                setContent('# Brainstorming\n\n- ');
+                setContent(TEMPLATES.system_new_note?.content || '# Brainstorming\n\n- ');
                 setTags(['idea']);
                 setPinned(false);
               }}

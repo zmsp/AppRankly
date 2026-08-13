@@ -202,11 +202,11 @@ export default function FloatingAssistant({
 
     if (action === 'replace') {
       if (noteContent.trim() && !window.confirm('Replace current note content with template?')) return;
-      setNoteContent(template);
-      toast.success(`Applied ${templateKey} template`);
+      setNoteContent(template.content);
+      toast.success(`Applied ${template.label || templateKey} template`);
     } else {
-      setNoteContent(prev => prev + (prev.endsWith('\n') ? '' : '\n\n') + template);
-      toast.success(`Appended ${templateKey} template`);
+      setNoteContent(prev => prev + (prev.endsWith('\n') ? '' : '\n\n') + template.content);
+      toast.success(`Appended ${template.label || templateKey} template`);
     }
     setShowSettings(false);
   };
@@ -426,10 +426,10 @@ export default function FloatingAssistant({
                 <div className="flex flex-col gap-2">
                   <label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold ml-1">Note Templates</label>
                   <div className="grid grid-cols-1 gap-1">
-                    {Object.keys(TEMPLATES).map((key) => (
+                    {Object.keys(TEMPLATES).filter(k => !k.startsWith('system_')).map((key) => (
                       <div key={key} className="flex items-center justify-between p-2 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 transition-colors group">
                         <span className="text-[11px] text-slate-300 font-bold capitalize pl-1">
-                          {key}
+                          {TEMPLATES[key].label || key}
                         </span>
                         <div className="flex items-center space-x-1">
                           <button

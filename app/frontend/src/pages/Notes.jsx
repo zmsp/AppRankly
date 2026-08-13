@@ -34,106 +34,14 @@ import {
   Quote,
   Copy,
   Download,
-  FileText
+  FileText,
+  FilePlus
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
 import NoteHistoryModal from '../components/NoteHistoryModal';
 import { findProject } from '../lib/projectUtils';
-
-const TEMPLATES = {
-  release: {
-    label: '🚀 Release Changelog',
-    content: `# 🚀 Release Notes & Changelog (vX.Y.Z)
-
-## 📱 App Store & Play Store Release Copy
-What's New in this Version:
-- ✨ Major feature: [Describe key new feature]
-- ⚡ Performance optimizations and faster load times
-- 🐛 Resolved minor UI layout and text clipping bugs
-
-## 📋 Pre-Submission QA Checklist
-- [ ] Unit tests & static analysis pass cleanly
-- [ ] App build compiled for production release
-- [ ] Localized store screenshots & previews updated
-- [ ] Verified in-app review prompts and deep links
-`
-  },
-  telemetry: {
-    label: '📊 Telemetry & Performance',
-    content: `# 📊 Performance & Telemetry Brief
-
-## 📱 App Overview & Release Info
-- **Target App**: [App Name]
-- **Target Platform**: iOS / Android
-- **App Version**: [Target Version]
-
-## 📈 Summarized Telemetry Metrics
-- **Total Installs**: [Installs]
-- **Total Uninstalls**: [Uninstalls]
-- **Net Growth**: [Net Growth]
-- **Active Devices**: [Active Devices]
-
-## 🔬 Key Telemetry Observations & Action Items
-- [ ] Monitor post-update uninstall ratio vs previous version
-- [ ] Evaluate acquisition channels for high-converting keywords
-- [ ] Track D1/D7 user retention cohorts
-`
-  },
-  aso: {
-    label: '🎯 ASO Experiment',
-    content: `# 🎯 ASO Experiment Hypothesis
-
-## 🔬 Hypothesis Statement
-Changing the primary title and screenshot slide 1 headline to focus on "Privacy & Speed" will increase Store Listing Conversion Rate (CVR) by +8%.
-
-## 📊 Baseline & Target Metrics
-- **Current Baseline CVR**: 14.2%
-- **Target Experiment CVR**: 16.5%
-- **Traffic Split**: 50/50 Control vs Variant
-
-## 🧪 Variants to Test
-- [ ] **Control**: Original screenshots with dark theme
-- [ ] **Variant A**: High-contrast blue gradient with 3-word bold headlines
-- [ ] **Variant B**: Feature callouts with star rating social proof
-`
-  },
-  bug: {
-    label: '🐛 Bug & Crash Triage',
-    content: `# 🐛 Bug & Crash Triage Report
-
-## 🚨 Issue Overview
-- **Impact**: High / Moderate / Low
-- **Affected OS & Devices**: iOS 17.5+ / Android 14
-- **App Version**: v2.3.1
-
-## 🔄 Steps to Reproduce
-1. Launch app on target device
-2. Tap on settings menu
-3. Select date range filter -> observe crash or blank screen
-
-## 🛠️ Fix & Verification Notes
-- [ ] Reproduce issue in local environment
-- [ ] Apply fix in pull request
-- [ ] Verify fix with regression test suite
-`
-  },
-  feature: {
-    label: '💡 Feature Pitch',
-    content: `# 💡 Feature Pitch & User Feedback
-
-## 🎯 Target Problem
-Users struggle to track retention cohorts over custom date ranges.
-
-## 🚀 Proposed Solution
-Add custom date range selector with preset shortcuts (7d, 14d, 30d, 90d).
-
-## 📊 Success Metrics
-- **Activation Rate**: +12% increase in weekly active users
-- **User Engagement**: +5% higher daily session duration
-`
-  }
-};
+import TEMPLATES from '../data/note_templates.json';
 
 /**
  * ASO Intelligence Notes Redesign - Full Functional Version
@@ -222,6 +130,17 @@ export default function Notes({
     }
   }, [urlNoteId, notes?.length]);
 
+  // Auto-save logic
+  useEffect(() => {
+    if (!hasChanges || isSaving) return;
+
+    const timer = setTimeout(() => {
+      handleSave(true); // Silent save
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [hasChanges, isSaving]);
+
   // Navigation blocker
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -267,9 +186,10 @@ export default function Notes({
     if (!confirmDiscard()) return;
 
     setActiveNoteId(null);
+    const template = TEMPLATES.system_aso_audit;
     const newState = {
       title: `ASO Recommendations & Audit:`,
-      content: `# ASO Audit & Strategy: New Record\n\n> Generated on: ${new Date().toLocaleDateString()}\n> App Package: \`${pkgName}\` | Platform: \`${appPlatform.toUpperCase()}\` \n\n---\n\n## 🎯 1. Title & Subtitle Keywords Optimization\n\n- [ ] **Title Keyword Placement**\n- [ ] **Subtitle / Short Description**\n`,
+      content: `${template.content}\n\n> Generated on: ${new Date().toLocaleDateString()}\n> App Package: \`${pkgName}\` | Platform: \`${appPlatform.toUpperCase()}\` \n\n---\n`,
       tags: ['aso', 'audit'],
       pinned: false
     };
@@ -283,15 +203,16 @@ export default function Notes({
     setMobileView('editor');
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleSave = async (silent = false) => {
+    if (silent && !hasChanges) return;
+    if (!silent) setIsSaving(true);
     try {
       if (activeNoteId) {
         await updateNote(activeNoteId, {
           title, content, packageName: noteAppPkg, platform: noteAppPlat, tags, pinned
         });
         setSavedState({ title, content, tags, pinned });
-        toast.success('Record synchronized');
+        if (!silent) toast.success('Record synchronized');
       } else {
         const res = await addNote({
           title, content, packageName: noteAppPkg, platform: noteAppPlat, tags, pinned
@@ -301,12 +222,12 @@ export default function Notes({
           setSavedState({ title, content, tags, pinned });
           navigate(`/notes/id/${res.note.id}`, { replace: true });
         }
-        toast.success('Record created');
+        if (!silent) toast.success('Record created');
       }
     } catch (err) {
-      toast.error('Sync failed');
+      if (!silent) toast.error('Sync failed');
     } finally {
-      setIsSaving(false);
+      if (!silent) setIsSaving(false);
     }
   };
 
@@ -354,11 +275,18 @@ export default function Notes({
     }
   };
 
-  const handleApplyTemplate = (tmplKey) => {
-    if (!tmplKey || !TEMPLATES[tmplKey]) return;
-    if (content.trim() && !window.confirm('Replace current content with template?')) return;
-    setContent(TEMPLATES[tmplKey].content);
-    toast.success('Template applied');
+  const handleTemplateAction = (action, tmplKey) => {
+    const template = TEMPLATES[tmplKey];
+    if (!template) return;
+
+    if (action === 'replace') {
+      if (content.trim() && !window.confirm('Replace current note content with template?')) return;
+      setContent(template.content);
+      toast.success(`Applied ${template.label}`);
+    } else {
+      setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n\n') + template.content);
+      toast.success(`Appended ${template.label}`);
+    }
     setShowTemplateMenu(false);
   };
 
@@ -545,11 +473,17 @@ export default function Notes({
                 <History size={16} /> <span className="hidden sm:inline">History</span>
               </button>
               <button
-                onClick={handleSave}
+                onClick={() => handleSave(false)}
                 disabled={isSaving}
                 className="flex items-center gap-2 bg-[#00d2ff] text-[#0d1117] text-[11px] font-bold px-5 py-2 rounded shadow-[0_0_20px_rgba(0,210,255,0.2)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 shrink-0"
               >
-                {isSaving ? <Check size={16} className="animate-pulse" /> : <Save size={16} />} Save {hasChanges && <span className="text-[10px] bg-black/20 px-1 rounded ml-1 animate-pulse font-black text-amber-400 opacity-80">!</span>}
+                {isSaving ? <Check size={16} className="animate-pulse" /> : <Save size={16} />}
+                Save
+                {hasChanges && (
+                  <span className="text-[10px] bg-black/20 px-1 rounded ml-1 animate-pulse font-black text-amber-400 opacity-80">
+                    !
+                  </span>
+                )}
               </button>
               <button
                 onClick={handleDelete}
@@ -609,6 +543,15 @@ export default function Notes({
                   </div>
                 </div>
               </div>
+
+              {hasChanges && (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-[10px] text-accent-blue font-bold animate-pulse px-2 py-1 rounded bg-accent-blue/10 border border-accent-blue/20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-blue animate-ping" />
+                    Auto-saving...
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -662,18 +605,30 @@ export default function Notes({
                   <div className="fixed inset-0 z-40" onClick={() => setShowTemplateMenu(false)} />
                   <div className="absolute top-full left-0 mt-2 w-64 bg-[#161b22] border border-slate-700 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] py-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-xl ring-1 ring-white/5">
                     <div className="px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800 mb-1">ASO_STRATEGY_TEMPLATES</div>
-                    <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                      {Object.keys(TEMPLATES).map(key => (
-                        <button
-                          key={key}
-                          onClick={() => handleApplyTemplate(key)}
-                          className="w-full text-left px-4 py-3 text-[13px] text-slate-200 hover:bg-[#30363d] hover:text-[#00d2ff] capitalize flex items-center gap-3 transition-colors border-l-2 border-transparent hover:border-[#00d2ff]"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center shrink-0">
-                             <Layout size={16} className="text-slate-400" />
+                    <div className="max-h-[300px] overflow-y-auto custom-scrollbar divide-y divide-slate-800/40">
+                      {Object.keys(TEMPLATES).filter(k => !k.startsWith('system_')).map(key => (
+                        <div key={key} className="px-4 py-3 hover:bg-slate-800/40 transition-colors">
+                          <div className="flex items-center gap-3 mb-2.5">
+                             <div className="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center shrink-0">
+                                <Layout size={16} className="text-slate-400" />
+                             </div>
+                             <span className="text-[12px] text-slate-200 font-bold capitalize">{TEMPLATES[key].label}</span>
                           </div>
-                          {TEMPLATES[key].label}
-                        </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleTemplateAction('insert', key)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all text-[10px] font-bold"
+                            >
+                              <FilePlus size={12} /> Append
+                            </button>
+                            <button
+                              onClick={() => handleTemplateAction('replace', key)}
+                              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all text-[10px] font-bold"
+                            >
+                              <FileText size={12} /> Replace
+                            </button>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -28,86 +28,9 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MarkdownViewer from './MarkdownViewer';
+import NOTE_TEMPLATES from '../data/note_templates.json';
 
-export const TEMPLATES = {
-  release: `# 🚀 Release Notes & Changelog (vX.Y.Z)
-
-## 📱 App Store & Play Store Release Copy
-What's New in this Version:
-- ✨ Major feature: [Describe key new feature]
-- ⚡ Performance optimizations and faster load times
-- 🐛 Resolved minor UI layout and text clipping bugs
-
-## 📋 Pre-Submission QA Checklist
-- [ ] Unit tests & static analysis pass cleanly
-- [ ] App build compiled for production release
-- [ ] Localized store screenshots & previews updated
-- [ ] Verified in-app review prompts and deep links
-`,
-  aso: `# 🎯 ASO Experiment Hypothesis
-
-## 🔬 Hypothesis Statement
-Changing the primary title and screenshot slide 1 headline to focus on "Privacy & Speed" will increase Store Listing Conversion Rate (CVR) by +8%.
-
-## 📊 Baseline & Target Metrics
-- **Current Baseline CVR**: 14.2%
-- **Target Experiment CVR**: 16.5%
-- **Test Duration**: 14 Days
-- **Traffic Split**: 50/50 Control vs Variant
-
-## 🧪 Variants to Test
-- [ ] **Control**: Original screenshots with dark theme
-- [ ] **Variant A**: High-contrast blue gradient with 3-word bold headlines
-- [ ] **Variant B**: Feature callouts with star rating social proof
-`,
-  bug: `# 🐛 Bug & Crash Triage Report
-
-## 🚨 Issue Overview
-- **Impact**: High / Moderate / Low
-- **Affected OS & Devices**: iOS 17.5+ / Android 14
-- **App Version**: v2.3.1
-
-## 🔄 Steps to Reproduce
-1. Launch app on target device
-2. Tap on settings menu
-3. Select date range filter -> observe crash or blank screen
-
-## 🛠️ Fix & Verification Notes
-- [ ] Reproduce issue in local environment
-- [ ] Apply fix in pull request
-- [ ] Verify fix with regression test suite
-`,
-  feature: `# 💡 Feature Pitch & User Feedback
-
-## 🎯 Target Problem
-Users struggle to track retention cohorts over custom date ranges.
-
-## 🚀 Proposed Solution
-Add custom date range selector with preset shortcuts (7d, 14d, 30d, 90d).
-
-## 📊 Success Metrics
-- **Activation Rate**: +12% increase in weekly active users
-- **User Engagement**: +5% higher daily session duration
-`,
-  telemetry: `# 📊 Performance & Telemetry Brief
-
-## 📱 App Overview & Release Info
-- **Target App**: [App Name]
-- **Target Platform**: iOS / Android
-- **App Version**: [Target Version]
-
-## 📈 Summarized Telemetry Metrics
-- **Total Installs**: [Installs]
-- **Total Uninstalls**: [Uninstalls]
-- **Net Growth**: [Net Growth]
-- **Active Devices**: [Active Devices]
-
-## 🔬 Key Telemetry Observations & Action Items
-- [ ] Monitor post-update uninstall ratio vs previous version
-- [ ] Evaluate acquisition channels for high-converting keywords
-- [ ] Track D1/D7 user retention cohorts
-`
-};
+export const TEMPLATES = NOTE_TEMPLATES;
 
 export default function MarkdownEditor({
   value = '',
@@ -130,11 +53,11 @@ export default function MarkdownEditor({
 
     if (action === 'replace') {
       if (value.trim() && !window.confirm('Replace current note content with template?')) return;
-      onChange?.(template);
-      toast.success(`Applied ${templateKey} template`);
+      onChange?.(template.content);
+      toast.success(`Applied ${template.label || templateKey} template`);
     } else {
-      insertSnippet(template, '');
-      toast.success(`Inserted ${templateKey} snippet`);
+      insertSnippet(template.content, '');
+      toast.success(`Inserted ${template.label || templateKey} snippet`);
     }
     setShowTemplateMenu(false);
   };
@@ -322,10 +245,10 @@ export default function MarkdownEditor({
               <div className="absolute left-0 top-full mt-1.5 w-64 glass-card bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
                 <div className="text-[10px] uppercase tracking-wider text-slate-500 font-bold px-2 py-1 mb-1">Select Template Action</div>
                 <div className="space-y-1">
-                  {Object.keys(TEMPLATES).map((key) => (
+                  {Object.keys(TEMPLATES).filter(k => !k.startsWith('system_')).map((key) => (
                     <div key={key} className="flex items-center justify-between p-1.5 hover:bg-white/5 rounded-xl transition-colors group">
                       <span className="text-xs text-slate-300 font-medium capitalize pl-1">
-                        {key === 'aso' ? 'ASO Experiment' : key === 'bug' ? 'Bug Triage' : key === 'feature' ? 'Feature Pitch' : key === 'release' ? 'Release Notes' : 'Telemetry Brief'}
+                        {TEMPLATES[key].label || key}
                       </span>
                       <div className="flex items-center space-x-1 transition-opacity">
                         <button

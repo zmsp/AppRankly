@@ -1,0 +1,30 @@
+{
+  "release": {
+    "label": "🚀 Release Changelog",
+    "content": "# 🚀 Release Notes & Changelog (vX.Y.Z)\n\n## 📱 App Store & Play Store Release Copy\nWhat's New in this Version:\n- ✨ Major feature: [Describe key new feature]\n- ⚡ Performance optimizations and faster load times\n- 🐛 Resolved minor UI layout and text clipping bugs\n\n## 📋 Pre-Submission QA Checklist\n- [ ] Unit tests & static analysis pass cleanly\n- [ ] App build compiled for production release\n- [ ] Localized store screenshots & previews updated\n- [ ] Verified in-app review prompts and deep links\n"
+  },
+  "aso": {
+    "label": "🎯 ASO Experiment",
+    "content": "# 🎯 ASO Experiment Hypothesis\n\n## 🔬 Hypothesis Statement\nChanging the primary title and screenshot slide 1 headline to focus on \"Privacy & Speed\" will increase Store Listing Conversion Rate (CVR) by +8%.\n\n## 📊 Baseline & Target Metrics\n- **Current Baseline CVR**: 14.2%\n- **Target Experiment CVR**: 16.5%\n- **Test Duration**: 14 Days\n- **Traffic Split**: 50/50 Control vs Variant\n\n## 🧪 Variants to Test\n- [ ] **Control**: Original screenshots with dark theme\n- [ ] **Variant A**: High-contrast blue gradient with 3-word bold headlines\n- [ ] **Variant B**: Feature callouts with star rating social proof\n"
+  },
+  "bug": {
+    "label": "🐛 Bug & Crash Triage",
+    "content": "# 🐛 Bug & Crash Triage Report\n\n## 🚨 Issue Overview\n- **Impact**: High / Moderate / Low\n- **Affected OS & Devices**: iOS 17.5+ / Android 14\n- **App Version**: v2.3.1\n\n## 🔄 Steps to Reproduce\n1. Launch app on target device\n2. Tap on settings menu\n3. Select date range filter -> observe crash or blank screen\n\n## 🛠️ Fix & Verification Notes\n- [ ] Reproduce issue in local environment\n- [ ] Apply fix in pull request\n- [ ] Verify fix with regression test suite\n"
+  },
+  "feature": {
+    "label": "💡 Feature Pitch",
+    "content": "# 💡 Feature Pitch & User Feedback\n\n## 🎯 Target Problem\nUsers struggle to track retention cohorts over custom date ranges.\n\n## 🚀 Proposed Solution\nAdd custom date range selector with preset shortcuts (7d, 14d, 30d, 90d).\n\n## 📊 Success Metrics\n- **Activation Rate**: +12% increase in weekly active users\n- **User Engagement**: +5% higher daily session duration\n"
+  },
+  "telemetry": {
+    "label": "📊 Telemetry & Performance",
+    "content": "# 📊 Performance & Telemetry Brief\n\n## 📱 App Overview & Release Info\n- **Target App**: [App Name]\n- **Target Platform**: iOS / Android\n- **App Version**: [Target Version]\n\n## 📈 Summarized Telemetry Metrics\n- **Total Installs**: [Installs]\n- **Total Uninstalls**: [Uninstalls]\n- **Net Growth**: [Net Growth]\n- **Active Devices**: [Active Devices]\n\n## 🔬 Key Telemetry Observations & Action Items\n- [ ] Monitor post-update uninstall ratio vs previous version\n- [ ] Evaluate acquisition channels for high-converting keywords\n- [ ] Track D1/D7 user retention cohorts\n"
+  },
+  "system_new_note": {
+    "label": "📝 New Scratchpad",
+    "content": "# Brainstorming\n\n- "
+  },
+  "system_aso_audit": {
+    "label": "🎯 ASO Audit Template",
+    "content": "# ASO Audit & Strategy: New Record\n\n## 🎯 1. Title & Subtitle Keywords Optimization\n\n- [ ] **Title Keyword Placement**\n- [ ] **Subtitle / Short Description**\n"
+  }
+}
