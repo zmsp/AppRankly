@@ -4,7 +4,7 @@
   "description": "Google Play Store app statistics viewer with interactive dashboard and CLI utility",
   "main": "server.js",
   "scripts": {
-    "test": "node test/metrics.test.js && node test/resolver.test.js && node test/v150_features.test.js && node test/v160_v200_features.test.js && node test/v160_features.test.js && node test/aso_scraped_cache_and_job.test.js && node test/ai_audit_prompt.test.js",
+    "test": "node test/metrics.test.js && node test/resolver.test.js && node test/v150_features.test.js && node test/v160_v200_features.test.js && node test/v160_features.test.js && node test/aso_scraped_cache_and_job.test.js && node test/ai_audit_prompt.test.js && node test/apple_in_app_revenue.test.js",
     "start": "node server.js",
     "server": "node --watch server.js",
     "cli": "node cli.js",
