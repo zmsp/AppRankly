@@ -294,7 +294,9 @@ class AppleAppStoreStatsViewer {
           // Vendor not active/authorized or invalid
           console.warn(`[Apple API] Sales reports unavailable for vendor ${this.vendorId} (HTTP ${err.response.status}). Disabling further sales report requests.`);
           AppleAppStoreStatsViewer.disabledVendors.add(this.vendorId);
-          try { fs.writeFileSync(cacheFile, '__EMPTY__', 'utf8'); } catch {}
+          // No negative cache entry here: the error is about the vendor or the key, not about
+          // this date. An __EMPTY__ file would hide the day's sales permanently once access works,
+          // because empty days older than two days are never requested again.
           return null;
         }
         console.error(`[DEBUG] Error fetching sales report for ${dateStr}:`, err.message);
