@@ -25,6 +25,7 @@ const asoRouter = require("./routes/aso");
 const { sendNtfyNotification, sendWebhookNotification, sendTelegramNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus, checkNegativeReviewAlerts } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
+const { recordCampaignClick } = require("./lib/aso/campaignLinks");
 const { db } = require("./lib/db");
 
 const execFileAsync = util.promisify(execFile);
@@ -240,6 +241,39 @@ app.get("/api/analytics/revenue", authenticate, (req, res) => {
 
 app.get("/api/status", (req, res) => res.json({ status: "healthy", timestamp: new Date().toISOString() }));
 app.get("/healthz", (req, res) => res.json({ status: "ok", version: require("./package.json").version || "1.0.0", uptime: Math.round(process.uptime()), dbOpen: true }));
+
+// --- Public Smart Redirect for Campaign Attribution Links ---
+app.get("/l/:slug", (req, res) => {
+  try {
+    const link = recordCampaignClick(req.params.slug);
+    if (!link) {
+      return res.status(404).send("Campaign attribution link not found");
+    }
+
+    const ua = (req.headers["user-agent"] || "").toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isAndroid = /android/.test(ua);
+
+    if (isIos && link.apple_url) {
+      return res.redirect(link.apple_url);
+    }
+    if (isAndroid && link.play_url) {
+      return res.redirect(link.play_url);
+    }
+
+    const destination = link.platform === "apple"
+      ? (link.apple_url || link.play_url)
+      : (link.play_url || link.apple_url);
+
+    if (destination) {
+      return res.redirect(destination);
+    }
+
+    res.status(404).send("No active store target configured for this campaign");
+  } catch (err) {
+    res.status(500).send("Redirect error: " + err.message);
+  }
+});
 
 // --- Public SVG Badge Endpoint (Shields.io Compatible) ---
 function generateBadgeSvg(label, value, color = '#3b82f6') {

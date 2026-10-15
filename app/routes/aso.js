@@ -11,6 +11,7 @@ const { startPortfolioJob, cancelPortfolioJob, getPortfolioJobStatus, ensureAppS
 const { getKeywordHints } = require('../lib/aso/keywordHints');
 const { lintMetadata } = require('../lib/aso/metadataLinter');
 const { calculatePppPricing } = require('../lib/aso/pppPricing');
+const { saveCampaignLink, getCampaignLinks, deleteCampaignLink } = require('../lib/aso/campaignLinks');
 
 const AI_PRICING = {
   openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
@@ -993,6 +994,66 @@ function handlePppPricing(req, res) {
 
 router.get('/aso/ppp-pricing', handlePppPricing);
 router.post('/aso/ppp-pricing', handlePppPricing);
+
+/**
+ * Zero-SDK Campaign Link Builder & Registry
+ */
+router.get('/aso/campaign-links', (req, res) => {
+  const packageName = req.query.packageName;
+  try {
+    const links = getCampaignLinks(packageName);
+    res.json({ links });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/aso/campaign-links', (req, res) => {
+  const {
+    packageName,
+    platform = 'all',
+    name,
+    channel = 'social',
+    utmSource,
+    utmMedium = 'referral',
+    utmCampaign,
+    appleAppId,
+    appleProviderToken,
+    customProductPageId
+  } = req.body;
+
+  if (!packageName || !name || !utmSource || !utmCampaign) {
+    return res.status(400).json({ error: 'packageName, name, utmSource, and utmCampaign are required' });
+  }
+
+  try {
+    const link = saveCampaignLink({
+      packageName,
+      platform,
+      name,
+      channel,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      appleAppId,
+      appleProviderToken,
+      customProductPageId
+    });
+    res.json({ success: true, link });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/aso/campaign-links/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const success = deleteCampaignLink(id);
+    res.json({ success });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * Competitor Gap Analysis
