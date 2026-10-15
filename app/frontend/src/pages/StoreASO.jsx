@@ -1864,7 +1864,7 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
       {activeTab === 'keywords' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           <KeywordHintsRadar
-            packageName={currentPackage}
+            packageName={packageName}
             platform={platform}
             onKeywordAdded={fetchAsoOverview}
           />
@@ -2957,7 +2957,7 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
       {/* TAB 8: ZERO-SDK CAMPAIGN LINKS & ATTRIBUTION */}
       {activeTab === 'campaigns' && (
         <div className="space-y-6 animate-in fade-in duration-150">
-          <CampaignLinksManager packageName={currentPackage} />
+          <CampaignLinksManager packageName={packageName} />
         </div>
       )}
     </div>
