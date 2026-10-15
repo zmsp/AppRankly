@@ -8,6 +8,7 @@ const prompts = require('../lib/ai/prompts');
 const scraper = require('../lib/aso/scraper');
 const { validateMetadata, simulateCoverage } = require('../lib/aso/coverage');
 const { startPortfolioJob, cancelPortfolioJob, getPortfolioJobStatus, ensureAppSnapshot } = require('../lib/aso/portfolioJob');
+const { getKeywordHints } = require('../lib/aso/keywordHints');
 
 const AI_PRICING = {
   openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
@@ -310,6 +311,35 @@ router.post('/aso/keywords/expand', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Zero-Auth Keyword Hints & Volume Radar (Apple MZSearchHints & Google Play Suggest)
+ */
+async function handleKeywordHints(req, res) {
+  const term = req.query.term || req.body?.term || req.query.seed || req.body?.seed;
+  const platform = req.query.platform || req.body?.platform || 'all';
+  const country = req.query.country || req.body?.country || 'us';
+  const expand = req.query.expand === 'true' || req.query.expand === '1' || Boolean(req.body?.expand);
+
+  if (!term || !String(term).trim()) {
+    return res.status(400).json({ error: 'term or seed query parameter is required' });
+  }
+
+  try {
+    const hints = await getKeywordHints({
+      term: String(term),
+      platform: String(platform),
+      country: String(country),
+      expand
+    });
+    res.json(hints);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+router.get('/aso/keywords/hints', handleKeywordHints);
+router.post('/aso/keywords/hints', handleKeywordHints);
 
 router.post('/aso/keywords/track', (req, res) => {
   const { packageName, platform = 'play', keywordId, tracked } = req.body;

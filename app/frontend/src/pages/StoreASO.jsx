@@ -13,6 +13,7 @@ import { saveCachedAudit, getCachedAudit, getCachedAuditStats, getAppAsoAudit } 
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
+import KeywordHintsRadar from '../components/KeywordHintsRadar';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -1857,6 +1858,12 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
       {/* TAB 2: KEYWORD DISCOVERY & FAN-OUT */}
       {activeTab === 'keywords' && (
         <div className="space-y-6 animate-in fade-in duration-150">
+          <KeywordHintsRadar
+            packageName={currentPackage}
+            platform={platform}
+            onKeywordAdded={fetchAsoOverview}
+          />
+
           <div className="glass-card p-6 border border-white/10 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
