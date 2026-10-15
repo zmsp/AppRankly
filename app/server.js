@@ -26,6 +26,7 @@ const { sendNtfyNotification, sendWebhookNotification, sendTelegramNotification,
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus, checkNegativeReviewAlerts } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
 const { recordCampaignClick } = require("./lib/aso/campaignLinks");
+const { runNaturalLanguageSql, generateExecutiveBrief } = require("./lib/ai/textToSql");
 const { db } = require("./lib/db");
 
 const execFileAsync = util.promisify(execFile);
@@ -421,6 +422,34 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
     });
     res.json({ reply: aiResponse.data?.reply || "I'm sorry, I couldn't generate a response." });
   } catch (err) { res.json({ reply: `Note Assistant: Error contacting AI service (${err.message}).` }); }
+});
+
+// --- AskRankly 2.0: Autonomous Text-to-SQL Analyst ---
+app.post("/api/ai/ask-sql", authenticate, async (req, res) => {
+  const { question, provider, model } = req.body;
+  if (!question || !String(question).trim()) {
+    return res.status(400).json({ success: false, error: "Question is required" });
+  }
+  try {
+    const result = await runNaturalLanguageSql({
+      question: String(question),
+      provider,
+      model
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- AskRankly Portfolio Executive Digest ---
+app.get("/api/ai/executive-brief", authenticate, async (req, res) => {
+  try {
+    const brief = await generateExecutiveBrief();
+    res.json({ success: true, ...brief });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post("/api/test/apple", authenticate, async (req, res) => {

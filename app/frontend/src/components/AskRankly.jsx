@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Bot, Send, Sparkles, X, User, Loader2, Plus, Cpu, RotateCcw, Compass, HelpCircle } from 'lucide-react';
+import { Bot, Send, Sparkles, X, User, Loader2, Plus, Cpu, RotateCcw, Compass, HelpCircle, Database, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import pageContexts from '../data/pageContexts.json';
 import MarkdownViewer from './MarkdownViewer';
@@ -54,6 +54,7 @@ export default function AskRankly({
   const currentPageContext = getPageContext(location.pathname);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [isSqlMode, setIsSqlMode] = useState(false);
 
   // Derive model options from aiStatus if available
   const [modelOptions, setModelOptions] = useState(DEFAULT_MODEL_OPTIONS);
@@ -197,8 +198,67 @@ export default function AskRankly({
     toast.success(`Synced page context: ${currentPageContext.title}`);
   };
 
+  const formatRowsAsMarkdownTable = (columns, rows) => {
+    if (!rows || rows.length === 0) return '_No records returned._';
+    const header = '| ' + columns.join(' | ') + ' |';
+    const divider = '| ' + columns.map(() => '---').join(' | ') + ' |';
+    const body = rows.slice(0, 15).map(r => 
+      '| ' + columns.map(c => String(r[c] !== null && r[c] !== undefined ? r[c] : '')).join(' | ') + ' |'
+    ).join('\n');
+    return `${header}\n${divider}\n${body}${rows.length > 15 ? `\n\n_Showing first 15 of ${rows.length} records_` : ''}`;
+  };
+
+  const handleExecutiveBrief = async () => {
+    setIsSending(true);
+    try {
+      const res = await fetch('/api/ai/executive-brief');
+      if (res.ok) {
+        const data = await res.json();
+        const briefContent = `### 📊 Portfolio Executive Digest (${new Date(data.timestamp).toLocaleDateString()})\n\n` +
+          data.summaryBullets.map(b => `- ${b}`).join('\n');
+        setMessages(prev => [...prev, { role: 'assistant', content: briefContent }]);
+        toast.success('Generated Executive Digest');
+      } else {
+        toast.error('Failed to generate executive brief');
+      }
+    } catch (err) {
+      toast.error('Brief error: ' + err.message);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const executeChatRequest = async (userMessages) => {
     setIsSending(true);
+
+    if (isSqlMode) {
+      try {
+        const lastMsg = userMessages[userMessages.length - 1].content;
+        const res = await fetch('/api/ai/ask-sql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: lastMsg,
+            provider: activeOption.provider,
+            model: activeOption.model
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const tableMd = formatRowsAsMarkdownTable(data.columns, data.rows);
+          const reply = `**Generated Safe SQL:**\n\`\`\`sql\n${data.sql}\n\`\`\`\n\n**Database Results (${data.rowCount} records):**\n\n${tableMd}`;
+          setMessages([...userMessages, { role: 'assistant', content: reply }]);
+        } else {
+          setMessages([...userMessages, { role: 'assistant', content: `⚠️ **SQL Error:** ${data.error || 'Failed to execute query against database.'}` }]);
+        }
+      } catch (err) {
+        toast.error('SQL query execution failed');
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
+
     try {
       const res = await sendNoteAiChat(
         currentContextText,
@@ -258,6 +318,24 @@ export default function AskRankly({
             </div>
           </div>
           <div className="flex items-center space-x-1">
+            <button
+              onClick={() => setIsSqlMode(!isSqlMode)}
+              title={isSqlMode ? "Switch to General Assistant" : "Switch to Direct SQL Database Analyst Mode"}
+              className={`p-1.5 rounded-lg transition-all flex items-center space-x-1 ${isSqlMode ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'hover:bg-white/10 text-slate-400'}`}
+            >
+              <Database size={13} />
+              <span className="text-[10px] hidden sm:inline font-bold">SQL Mode</span>
+            </button>
+
+            <button
+              onClick={handleExecutiveBrief}
+              title="Generate quick Portfolio Executive Brief"
+              className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-amber-300 transition-all flex items-center space-x-1"
+            >
+              <FileText size={13} />
+              <span className="text-[10px] hidden sm:inline font-medium">Brief</span>
+            </button>
+
             <button
               onClick={() => setShowContext(!showContext)}
               title="Toggle injected context inspector"
