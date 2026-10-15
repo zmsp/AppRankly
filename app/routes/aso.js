@@ -10,6 +10,7 @@ const { validateMetadata, simulateCoverage } = require('../lib/aso/coverage');
 const { startPortfolioJob, cancelPortfolioJob, getPortfolioJobStatus, ensureAppSnapshot } = require('../lib/aso/portfolioJob');
 const { getKeywordHints } = require('../lib/aso/keywordHints');
 const { lintMetadata } = require('../lib/aso/metadataLinter');
+const { calculatePppPricing } = require('../lib/aso/pppPricing');
 
 const AI_PRICING = {
   openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
@@ -976,6 +977,22 @@ router.post('/aso/lint-metadata', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Purchasing Power Parity (PPP) Pricing Calculator
+ */
+function handlePppPricing(req, res) {
+  const basePrice = req.query.basePrice || req.body?.basePrice || 9.99;
+  try {
+    const result = calculatePppPricing(Number(basePrice));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+router.get('/aso/ppp-pricing', handlePppPricing);
+router.post('/aso/ppp-pricing', handlePppPricing);
 
 /**
  * Competitor Gap Analysis

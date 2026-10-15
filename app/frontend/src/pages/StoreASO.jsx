@@ -5,7 +5,7 @@ import {
   TrendingUp, Key, Globe, Shield, RefreshCw, Copy, Plus, AlertCircle, Bot,
   Users, MessageSquare, Sliders, CheckSquare, BookOpen, Info, HelpCircle, Zap,
   BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText,
-  LayoutGrid, Star, Target, Calendar, Award, Trash2, Camera, Check
+  LayoutGrid, Star, Target, Calendar, Award, Trash2, Camera, Check, DollarSign
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import PortfolioAsoScores from '../components/PortfolioAsoScores';
@@ -15,6 +15,7 @@ import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
 import KeywordHintsRadar from '../components/KeywordHintsRadar';
 import MetadataLinterPanel from '../components/MetadataLinterPanel';
+import PppPricingCalculator from '../components/PppPricingCalculator';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -1375,6 +1376,7 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
           { id: 'reviews', label: 'Review Sentiment', icon: MessageSquare, badge: (asoData?.reviewThemes || []).length },
           { id: 'timeline', label: 'Metadata Timeline', icon: Calendar, badge: (asoData?.timeline || []).length || null },
           { id: 'builder', label: 'Metadata Builder', icon: FileText, badge: 'Live Limits' },
+          { id: 'pricing', label: 'PPP Pricing', icon: DollarSign, badge: 'Global Lift' },
           { id: 'action_plan', label: 'Action Plan', icon: CheckSquare, badge: `${actionItems.filter(i => i.status === 'completed').length}/${actionItems.length}` }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -2940,6 +2942,13 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 7: PURCHASING POWER PARITY (PPP) PRICING */}
+      {activeTab === 'pricing' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <PppPricingCalculator />
         </div>
       )}
     </div>
