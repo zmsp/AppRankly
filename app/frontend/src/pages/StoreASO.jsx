@@ -14,6 +14,7 @@ import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
 import KeywordHintsRadar from '../components/KeywordHintsRadar';
+import MetadataLinterPanel from '../components/MetadataLinterPanel';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -2566,6 +2567,12 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
               </p>
             </div>
           )}
+
+          <MetadataLinterPanel
+            platform={platform}
+            metadata={metadataInputs}
+            onApplyFixes={(fixes) => setMetadataInputs(prev => ({ ...prev, ...fixes }))}
+          />
 
           <div className="glass-card p-6 border border-white/10 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -9,6 +9,7 @@ const scraper = require('../lib/aso/scraper');
 const { validateMetadata, simulateCoverage } = require('../lib/aso/coverage');
 const { startPortfolioJob, cancelPortfolioJob, getPortfolioJobStatus, ensureAppSnapshot } = require('../lib/aso/portfolioJob');
 const { getKeywordHints } = require('../lib/aso/keywordHints');
+const { lintMetadata } = require('../lib/aso/metadataLinter');
 
 const AI_PRICING = {
   openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
@@ -950,6 +951,27 @@ router.post('/aso/coverage', (req, res) => {
 
     const simulation = simulateCoverage(trackedKeywords, metadata || {}, platform);
     res.json(simulation);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Pre-Flight Store Policy & Metadata Linter (Byte counting, banned terms, policy violations)
+ */
+router.post('/aso/lint-metadata', (req, res) => {
+  const { platform = 'apple', title, subtitle, shortDescription, keywords, description, promoText } = req.body;
+  try {
+    const result = lintMetadata({
+      platform,
+      title,
+      subtitle,
+      shortDescription,
+      keywords,
+      description,
+      promoText
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
