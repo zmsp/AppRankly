@@ -25,6 +25,8 @@ console.log('Testing parseGitHubUrl...');
     { input: 'github.com/facebook/react', expected: { owner: 'facebook', repo: 'react', canonicalUrl: 'https://github.com/facebook/react' } },
     { input: 'facebook/react', expected: { owner: 'facebook', repo: 'react', canonicalUrl: 'https://github.com/facebook/react' } },
     { input: 'https://github.com/facebook/react?utm_source=test#readme', expected: { owner: 'facebook', repo: 'react', canonicalUrl: 'https://github.com/facebook/react' } },
+    { input: 'https://github.com/facebook/react.git?utm_source=test#readme', expected: { owner: 'facebook', repo: 'react', canonicalUrl: 'https://github.com/facebook/react' } },
+    { input: 'git@github.com:facebook/react.git', expected: { owner: 'facebook', repo: 'react', canonicalUrl: 'https://github.com/facebook/react' } },
     { input: 'https://github.com/zmsp/AppRankly/pkgs/container/apprankly', expected: { owner: 'zmsp', repo: 'AppRankly', isPackage: true, packageType: 'container', packageName: 'apprankly', canonicalUrl: 'https://github.com/zmsp/AppRankly/pkgs/container/apprankly' } },
     { input: 'https://github.com/users/zmsp/packages/container/package/apprankly', expected: { owner: 'zmsp', repo: 'apprankly', isPackage: true, packageType: 'container', packageName: 'apprankly', canonicalUrl: 'https://github.com/users/zmsp/packages/container/package/apprankly' } },
     { input: '', expected: null },
@@ -246,7 +248,8 @@ console.log('Testing fetchGitHubStats with mocked client...');
       getBaseConfig: () => mockConfig,
       DATA_DIR: tmpDataDir,
       db: testDb,
-      force: false
+      force: false,
+      axiosInstance: trackingMockAxios
     });
 
     assert.strictEqual(pollResult.totalConfigured, 2);

@@ -4,6 +4,7 @@ import { Bot, Send, Sparkles, X, User, Loader2, Plus, Cpu, RotateCcw, Compass, H
 import toast from 'react-hot-toast';
 import pageContexts from '../data/pageContexts.json';
 import MarkdownViewer from './MarkdownViewer';
+import { apiFetch } from '../lib/api';
 
 const DEFAULT_MODEL_OPTIONS = [
   { id: 'gemini:gemini-3.8-flash', name: 'Google (Gemini 3.8 Flash - Latest)', provider: 'gemini', model: 'gemini-3.8-flash' },
@@ -48,7 +49,9 @@ export default function AskRankly({
   dateRange = null,
   activeDimension = null,
   dimensionStats = null,
-  aiStatus = null
+  aiStatus = null,
+  authToken = null,
+  isStaticMode = false
 }) {
   const location = useLocation();
   const currentPageContext = getPageContext(location.pathname);
@@ -211,7 +214,7 @@ export default function AskRankly({
   const handleExecutiveBrief = async () => {
     setIsSending(true);
     try {
-      const res = await fetch('/api/ai/executive-brief');
+      const res = await apiFetch('/api/ai/executive-brief', {}, authToken, isStaticMode);
       if (res.ok) {
         const data = await res.json();
         const briefContent = `### 📊 Portfolio Executive Digest (${new Date(data.timestamp).toLocaleDateString()})\n\n` +
@@ -234,15 +237,14 @@ export default function AskRankly({
     if (isSqlMode) {
       try {
         const lastMsg = userMessages[userMessages.length - 1].content;
-        const res = await fetch('/api/ai/ask-sql', {
+        const res = await apiFetch('/api/ai/ask-sql', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             question: lastMsg,
             provider: activeOption.provider,
             model: activeOption.model
           })
-        });
+        }, authToken, isStaticMode);
         const data = await res.json();
         if (data.success) {
           const tableMd = formatRowsAsMarkdownTable(data.columns, data.rows);

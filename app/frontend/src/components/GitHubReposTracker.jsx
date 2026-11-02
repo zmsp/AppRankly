@@ -86,7 +86,7 @@ export default function GitHubReposTracker({ authToken, isStaticMode }) {
             <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               GitHub Repositories
               <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-mono">
-                {repos.length} {repos.length === 1 ? 'tracked' : 'tracked'}
+                {repos.length} {repos.length === 1 ? 'repo tracked' : 'repos tracked'}
               </span>
             </h3>
             <p className="text-xs text-slate-400">

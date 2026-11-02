@@ -18,11 +18,14 @@ function parseGitHubUrl(rawUrl) {
   let cleaned = rawUrl.trim();
   // Strip protocol
   cleaned = cleaned.replace(/^https?:\/\//i, '');
+  // Strip git@github.com: prefix (SSH URLs)
+  cleaned = cleaned.replace(/^git@github\.com:/i, '');
   // Strip github.com/ prefix
   cleaned = cleaned.replace(/^github\.com\//i, '');
-  // Strip .git suffix and query params/hashes
-  cleaned = cleaned.replace(/\.git$/i, '');
+  // Strip query params and hashes first before stripping extensions
   cleaned = cleaned.split('?')[0].split('#')[0];
+  // Strip .git suffix
+  cleaned = cleaned.replace(/\.git$/i, '');
   // Strip trailing slashes
   cleaned = cleaned.replace(/\/+$/, '');
 
@@ -500,6 +503,7 @@ function saveDailySnapshot(stats, { db, dataDir, date = null }) {
         totalDownloads: stats.totalDownloads || 0,
         releaseCount: stats.releaseCount || 0,
         latestReleaseTag: stats.latestRelease?.tag || null,
+        details_json: detailsJson,
         polledAt: stats.polledAt
       };
 
@@ -564,6 +568,7 @@ function getRepoHistory(url, { db, dataDir, days = 30 }) {
             total_downloads: h.totalDownloads,
             release_count: h.releaseCount,
             latest_release_tag: h.latestReleaseTag,
+            details_json: h.details_json || null,
             polled_at: h.polledAt
           }));
         }
@@ -705,7 +710,7 @@ async function checkAndSendGrowthNotification(stats, prevRecord, baseConfig, DAT
  * Polls all configured GitHub repos daily.
  * Skips repos that have already been polled today unless `force: true`.
  */
-async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = false, token = null }) {
+async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = false, token = null, axiosInstance = null }) {
   const baseConfig = typeof getBaseConfig === 'function' ? getBaseConfig() : getBaseConfig;
   const repos = getConfiguredRepos(baseConfig);
   const today = new Date().toISOString().split('T')[0];
@@ -777,8 +782,18 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
         if (fs.existsSync(jsonFile)) {
           try {
             const cache = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
-            if (cache[repoUrl]?.history?.some(h => h.date === today)) {
+            const todayItem = cache[repoUrl]?.history?.find(h => h.date === today);
+            if (todayItem) {
               alreadyPolledToday = true;
+              if (todayItem.details_json) {
+                try {
+                  const parsed = JSON.parse(todayItem.details_json);
+                  if (parsed.notifiedToday) alreadyNotifiedToday = true;
+                } catch (e) {}
+              }
+            }
+            if (cache[repoUrl]?.latest?.notifiedToday && cache[repoUrl]?.latest?.polledAt?.startsWith(today)) {
+              alreadyNotifiedToday = true;
             }
           } catch (e) {}
         }
@@ -791,7 +806,7 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
       }
 
       console.log(`[GitHubTracker] Polling stats for ${repoUrl}...`);
-      const stats = await fetchGitHubStats(repoUrl, { token: authToken });
+      const stats = await fetchGitHubStats(repoUrl, { token: authToken, axiosInstance });
 
       // Check if today's count is higher than previous day -> send notification
       let notified = false;

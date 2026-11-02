@@ -191,7 +191,10 @@ export default function GitHubRepoModal({
   if (!isOpen || !repo) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md animate-fadeIn"
+      onClick={onClose}
+    >
       <div
         className="glass-card w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 shadow-2xl overflow-hidden bg-slate-950/90 text-white"
         onClick={(e) => e.stopPropagation()}

@@ -29,6 +29,18 @@ export async function apiFetch(url, options = {}, authToken = null, isStaticMode
     if (url.startsWith('/api/notifications')) {
       return new Response(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }), { status: 200 });
     }
+    if (url.startsWith('/api/github')) {
+      return new Response(JSON.stringify({ success: true, repos: [], history: [] }), { status: 200 });
+    }
+    if (url.startsWith('/api/ai/executive-brief')) {
+      return new Response(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        summaryBullets: ['Demo Mode: All portfolio services reporting normal.']
+      }), { status: 200 });
+    }
+    if (url.startsWith('/api/ai/ask-sql')) {
+      return new Response(JSON.stringify({ success: false, error: 'Database querying not supported in static mode.' }), { status: 200 });
+    }
   }
 
   const headers = {
