@@ -484,6 +484,8 @@ export default function Dashboard({
           setPlatform={setPlatform}
           setPlatformAndProject={setPlatformAndProject}
           pairings={pairings}
+          authToken={authToken}
+          isStaticMode={isStaticMode}
         />
 
         {/* Combined Portfolio Installs & Dimension Analysis */}

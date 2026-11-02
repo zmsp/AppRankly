@@ -28,6 +28,7 @@ const { calculateAppHealthScore } = require("./lib/healthScore");
 const { recordCampaignClick } = require("./lib/aso/campaignLinks");
 const { runNaturalLanguageSql, generateExecutiveBrief } = require("./lib/ai/textToSql");
 const { db } = require("./lib/db");
+const { getTrackedReposSummary, getRepoHistory, pollAllConfiguredRepos, fetchGitHubStats, parseGitHubUrl } = require("./lib/githubTracker");
 
 const execFileAsync = util.promisify(execFile);
 
@@ -504,6 +505,60 @@ app.post("/api/test/git", authenticate, async (req, res) => {
   } catch (err) {
     const message = (err.message || '').replace(/:[^@:]+@/g, ':***@');
     res.json({ success: false, error: `Failed: ${message}` });
+  }
+});
+
+app.post("/api/test/github", authenticate, async (req, res) => {
+  try {
+    const { url, token } = req.body || {};
+    if (!url) return res.json({ success: false, error: "Repository URL is required" });
+    const baseConfig = getBaseConfig() || {};
+    const authToken = token || baseConfig.githubToken || baseConfig.gitNotes?.password || null;
+    const stats = await fetchGitHubStats(url, { token: authToken });
+    res.json({
+      success: true,
+      message: `Verified GitHub repo "${stats.fullName}". Stars: ${stats.stars}, Downloads: ${stats.totalDownloads}`,
+      stats
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/github/repos", authenticate, (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 30;
+    const repos = getTrackedReposSummary({ getBaseConfig, DATA_DIR, db, days });
+    res.json({ success: true, repos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/github/history", authenticate, (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "url query parameter is required" });
+    const days = parseInt(req.query.days, 10) || 30;
+    const history = getRepoHistory(url, { db, dataDir: DATA_DIR, days });
+    res.json({ success: true, url, history });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/github/poll", authenticate, async (req, res) => {
+  try {
+    const { force = true } = req.body || {};
+    const result = await pollAllConfiguredRepos({
+      getBaseConfig,
+      DATA_DIR,
+      db,
+      force: Boolean(force)
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

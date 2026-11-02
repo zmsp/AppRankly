@@ -351,12 +351,31 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
     saveLastKnownStats(DATA_DIR, lastKnownStats);
 
+    // Daily polling of configured GitHub repositories (downloads, stars, releases)
+    let githubPollResult = null;
+    try {
+      const { pollAllConfiguredRepos } = require('./githubTracker');
+      const { db } = require('./db');
+      githubPollResult = await pollAllConfiguredRepos({
+        getBaseConfig,
+        DATA_DIR,
+        db,
+        force: Boolean(options.force)
+      });
+      if (githubPollResult?.polledCount > 0) {
+        console.log(`[Scheduler] Polled ${githubPollResult.polledCount} GitHub repo(s) for daily download and star counts.`);
+      }
+    } catch (ghErr) {
+      console.warn('[Scheduler] GitHub polling error:', ghErr.message);
+    }
+
     lastSchedulerRun = new Date();
     lastSchedulerStatus = {
       status: 'completed',
       lastRun: lastSchedulerRun.toISOString(),
       appsChecked,
       notificationsSent,
+      githubPoll: githubPollResult,
       hoursInterval,
       rangeDays,
       activeStartHour: startHour,
@@ -462,5 +481,15 @@ module.exports = {
   checkAndNotifyStats,
   startPeriodicScheduler,
   getSchedulerStatus,
-  checkNegativeReviewAlerts
+  checkNegativeReviewAlerts,
+  pollGithubRepos: (helpers, options) => {
+    const { pollAllConfiguredRepos } = require('./githubTracker');
+    const { db } = require('./db');
+    return pollAllConfiguredRepos({
+      getBaseConfig: helpers.getBaseConfig,
+      DATA_DIR: helpers.DATA_DIR,
+      db,
+      force: Boolean(options?.force)
+    });
+  }
 };

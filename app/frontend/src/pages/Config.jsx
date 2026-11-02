@@ -4,7 +4,8 @@ import {
   Zap, Code2, Sliders, Eye, EyeOff,
   Folder, Key, Database, Globe, Copy, RotateCcw, Bot, Coffee,
   Bell, Clock, BookOpen, HelpCircle, ChevronDown, ChevronRight, Search, FileText,
-  Layers, Plus, Trash2, GitBranch, Users, UserPlus, ShieldCheck, RefreshCw, Lock
+  Layers, Plus, Trash2, GitBranch, Users, UserPlus, ShieldCheck, RefreshCw, Lock,
+  Github
 } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { TOP_10_TIMEZONES } from '../lib/constants';
@@ -86,6 +87,8 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
         setResult({ success: true, message: `Test message sent to Telegram chat '${payload?.chatId || 'demo_chat'}' (demo mode)` });
       } else if (platform === 'git') {
         setResult({ success: true, message: `Successfully connected to Git remote repository and verified branch '${payload?.branch || 'main'}' (demo mode)` });
+      } else if (platform === 'github') {
+        setResult({ success: true, message: `Verified GitHub repository "${payload?.url || 'demo'}". Stars: 1,420, Downloads: 8,950 (demo mode)` });
       } else {
         setResult({ success: true, appCount: 3, apps: [{ name: 'Demo App One', bundleId: 'com.demo.one' }, { name: 'Demo App Two', bundleId: 'com.demo.two' }] });
       }
@@ -132,7 +135,9 @@ function TestButton({ platform, payload, authToken, isStaticMode, isDemoMode }) 
               ? 'Telegram Bot'
               : platform === 'git'
                 ? 'Git Remote Repository'
-                : `AI Provider (${payload?.provider || 'active'})`;
+                : platform === 'github'
+                  ? 'GitHub Repository'
+                  : `AI Provider (${payload?.provider || 'active'})`;
 
   return (
     <div className="space-y-3">
@@ -1713,6 +1718,80 @@ export default function Config({ authToken, isStaticMode, isDemoMode, fetchAiSta
             </div>
           </div>
 
+          {/* GitHub Repository Tracking */}
+          <div className="glass-card p-6 space-y-5">
+            <SectionHeader
+              icon={Github}
+              title="GitHub Repository Tracking"
+              subtitle="Track public repository star counts and package/release asset downloads via daily polling"
+            />
+
+            <div className="space-y-4">
+              <p className="text-xs text-white/50">
+                List GitHub repository URLs in the configuration array. AppRankly utilizes GitHub's public API to track and save stars and package release downloads by daily polling.
+              </p>
+
+              <div className="space-y-3">
+                {Array.isArray(entry.githubRepos) && entry.githubRepos.map((repoUrl, idx) => {
+                  const urlValue = typeof repoUrl === 'string' ? repoUrl : (repoUrl?.url || '');
+                  return (
+                    <div key={idx} className="flex flex-col md:flex-row items-stretch md:items-center gap-2 p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="flex-1">
+                        <Input
+                          value={urlValue}
+                          onChange={newVal => {
+                            const updated = [...(entry.githubRepos || [])];
+                            updated[idx] = newVal;
+                            updateEntry('githubRepos', updated);
+                          }}
+                          placeholder="https://github.com/owner/repository"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <TestButton
+                          platform="github"
+                          payload={{ url: urlValue }}
+                          authToken={authToken}
+                          isStaticMode={isStaticMode}
+                          isDemoMode={isDemoMode}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = (entry.githubRepos || []).filter((_, i) => i !== idx);
+                            updateEntry('githubRepos', updated);
+                          }}
+                          className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20"
+                          title="Remove repository"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {(!entry.githubRepos || entry.githubRepos.length === 0) && (
+                  <div className="text-xs text-white/40 italic p-4 border border-dashed border-white/10 rounded-xl text-center">
+                    No GitHub repositories configured for tracking yet. Click below to add one.
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const current = Array.isArray(entry.githubRepos) ? [...entry.githubRepos] : [];
+                    current.push('');
+                    updateEntry('githubRepos', current);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-accent-blue bg-accent-blue/10 hover:bg-accent-blue/20 border border-accent-blue/20 rounded-xl transition-colors cursor-pointer"
+                >
+                  <Plus size={14} /> Add GitHub Repository URL
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="glass-card p-6 space-y-5">
 
             <SectionHeader icon={Bot} title="AI & ASO Configuration" subtitle="Configure AI models (OpenAI, Anthropic Claude, Google Gemini) for automated ASO analysis">
@@ -2176,6 +2255,25 @@ export default function Config({ authToken, isStaticMode, isDemoMode, fetchAiSta
                 branch: entry?.gitNotes?.branch,
                 username: entry?.gitNotes?.username,
                 password: entry?.gitNotes?.password
+              }}
+              authToken={authToken}
+              isStaticMode={isStaticMode}
+              isDemoMode={isDemoMode}
+            />
+          </div>
+
+          <div className="glass-card p-6">
+            <SectionHeader icon={Github} title="GitHub Repository Tracking" subtitle="Test public GitHub API connection, star counts, and package download calculations" />
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <InfoRow label="Configured Repositories" value={`${Array.isArray(entry?.githubRepos) ? entry.githubRepos.length : 0} configured`} />
+              <InfoRow label="First Target URL" value={Array.isArray(entry?.githubRepos) && entry.githubRepos[0] ? (typeof entry.githubRepos[0] === 'string' ? entry.githubRepos[0] : entry.githubRepos[0].url) : '— (None)'} mono />
+            </div>
+            <TestButton
+              platform="github"
+              payload={{
+                url: Array.isArray(entry?.githubRepos) && entry.githubRepos[0]
+                  ? (typeof entry.githubRepos[0] === 'string' ? entry.githubRepos[0] : entry.githubRepos[0].url)
+                  : 'https://github.com/expressjs/express'
               }}
               authToken={authToken}
               isStaticMode={isStaticMode}
