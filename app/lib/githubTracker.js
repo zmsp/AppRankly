@@ -410,7 +410,8 @@ function saveDailySnapshot(stats, { db, dataDir, date = null }) {
     isArchived: stats.isArchived,
     isPackage: stats.isPackage,
     packageType: stats.packageType,
-    packageName: stats.packageName
+    packageName: stats.packageName,
+    notifiedToday: Boolean(stats.notifiedToday)
   });
 
   // 1. SQLite storage
@@ -639,6 +640,68 @@ function getConfiguredRepos(baseConfig) {
 }
 
 /**
+ * Sends a notification via ntfy (and broadcast channels) when today's downloads/pulls or stars increase over previous day.
+ */
+async function checkAndSendGrowthNotification(stats, prevRecord, baseConfig, DATA_DIR) {
+  if (!prevRecord) return false;
+
+  const prevStars = prevRecord.stars || 0;
+  const prevDownloads = prevRecord.total_downloads !== undefined ? prevRecord.total_downloads : (prevRecord.totalDownloads || 0);
+
+  const deltaStars = Math.max(0, (stats.stars || 0) - prevStars);
+  const deltaDownloads = Math.max(0, (stats.totalDownloads || 0) - prevDownloads);
+
+  if (deltaStars <= 0 && deltaDownloads <= 0) {
+    return false;
+  }
+
+  const ntfyTopic = baseConfig?.ntfyTopic || process.env.NTFY_TOPIC || '';
+  const lines = [];
+
+  if (deltaDownloads > 0) {
+    lines.push(`📦 +${deltaDownloads.toLocaleString()} pull/download${deltaDownloads > 1 ? 's' : ''} (Total: ${(stats.totalDownloads || 0).toLocaleString()})`);
+  }
+  if (deltaStars > 0) {
+    lines.push(`⭐ +${deltaStars.toLocaleString()} new star${deltaStars > 1 ? 's' : ''} (Total: ${(stats.stars || 0).toLocaleString()})`);
+  }
+
+  lines.push(`Target: ${stats.fullName || stats.name}`);
+  if (prevRecord.date) {
+    lines.push(`Benchmark: More than count on ${prevRecord.date}`);
+  }
+
+  let titlePrefix = '⭐📦 GitHub Growth';
+  if (deltaStars > 0 && deltaDownloads === 0) {
+    titlePrefix = '⭐ GitHub Star Alert';
+  } else if (deltaDownloads > 0 && deltaStars === 0) {
+    titlePrefix = '📦 GitHub Pull/Download Alert';
+  }
+
+  const title = `${titlePrefix}: ${stats.name}`;
+  const message = lines.join('\n');
+
+  try {
+    const { broadcastAlert } = require('./notifier');
+    await broadcastAlert({
+      title,
+      message,
+      priority: 'default',
+      tags: deltaStars > 0 ? 'star,chart_with_upwards_trend' : 'package,chart_with_upwards_trend',
+      topic: ntfyTopic,
+      dataDir: DATA_DIR,
+      webhookUrl: baseConfig?.webhookUrl || process.env.WEBHOOK_URL,
+      slackWebhookUrl: baseConfig?.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+      telegram: baseConfig?.telegram
+    });
+    console.log(`[GitHubTracker] Sent growth notification for ${stats.name}: +${deltaStars} stars, +${deltaDownloads} pulls/downloads.`);
+    return true;
+  } catch (err) {
+    console.warn(`[GitHubTracker] Notification error for ${stats.name}:`, err.message);
+    return false;
+  }
+}
+
+/**
  * Polls all configured GitHub repos daily.
  * Skips repos that have already been polled today unless `force: true`.
  */
@@ -653,19 +716,63 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
   let polledCount = 0;
   let skippedCount = 0;
   let errorCount = 0;
+  let notificationsSent = 0;
 
   for (const repoUrl of repos) {
     try {
-      // Check if already polled today
-      let alreadyPolledToday = false;
-      if (db && !force) {
+      // 1. Look up previous record prior to today
+      let prevRecord = null;
+      if (db) {
         try {
-          const row = db.prepare('SELECT date FROM github_repo_daily WHERE url = ? AND date = ?').get(repoUrl, today);
-          if (row) alreadyPolledToday = true;
+          prevRecord = db.prepare(`
+            SELECT stars, total_downloads, date
+            FROM github_repo_daily
+            WHERE url = ? AND date < ?
+            ORDER BY date DESC
+            LIMIT 1
+          `).get(repoUrl, today);
         } catch (e) {}
       }
 
-      if (!alreadyPolledToday && !force && DATA_DIR) {
+      if (!prevRecord && DATA_DIR) {
+        const jsonFile = path.join(DATA_DIR, 'github_stats.json');
+        if (fs.existsSync(jsonFile)) {
+          try {
+            const cache = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+            const history = cache[repoUrl]?.history || [];
+            const past = history.filter(h => h.date < today);
+            if (past.length > 0) {
+              const last = past[past.length - 1];
+              prevRecord = {
+                stars: last.stars,
+                total_downloads: last.totalDownloads,
+                date: last.date
+              };
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Check if already polled today
+      let alreadyPolledToday = false;
+      let alreadyNotifiedToday = false;
+
+      if (db) {
+        try {
+          const row = db.prepare('SELECT date, details_json FROM github_repo_daily WHERE url = ? AND date = ?').get(repoUrl, today);
+          if (row) {
+            alreadyPolledToday = true;
+            if (row.details_json) {
+              try {
+                const parsed = JSON.parse(row.details_json);
+                if (parsed.notifiedToday) alreadyNotifiedToday = true;
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!alreadyPolledToday && DATA_DIR) {
         const jsonFile = path.join(DATA_DIR, 'github_stats.json');
         if (fs.existsSync(jsonFile)) {
           try {
@@ -685,17 +792,33 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
 
       console.log(`[GitHubTracker] Polling stats for ${repoUrl}...`);
       const stats = await fetchGitHubStats(repoUrl, { token: authToken });
+
+      // Check if today's count is higher than previous day -> send notification
+      let notified = false;
+      if (!alreadyNotifiedToday) {
+        notified = await checkAndSendGrowthNotification(stats, prevRecord, baseConfig, DATA_DIR);
+        if (notified) notificationsSent++;
+      }
+      stats.notifiedToday = notified || alreadyNotifiedToday;
+
       saveDailySnapshot(stats, { db, dataDir: DATA_DIR, date: today });
       polledCount++;
+
+      const deltaStars = prevRecord ? Math.max(0, (stats.stars || 0) - (prevRecord.stars || 0)) : 0;
+      const prevDl = prevRecord ? (prevRecord.total_downloads !== undefined ? prevRecord.total_downloads : prevRecord.totalDownloads) : 0;
+      const deltaDownloads = prevRecord ? Math.max(0, (stats.totalDownloads || 0) - prevDl) : 0;
 
       results.push({
         url: repoUrl,
         status: 'polled',
         stars: stats.stars,
         totalDownloads: stats.totalDownloads,
+        deltaStars,
+        deltaDownloads,
+        notified: Boolean(notified),
         latestRelease: stats.latestRelease?.tag || null
       });
-      console.log(`[GitHubTracker] Saved ${repoUrl}: ${stats.stars} stars, ${stats.totalDownloads} total downloads.`);
+      console.log(`[GitHubTracker] Saved ${repoUrl}: ${stats.stars} stars (+${deltaStars}), ${stats.totalDownloads} downloads (+${deltaDownloads}). Notified: ${notified}`);
     } catch (err) {
       errorCount++;
       console.error(`[GitHubTracker] Failed polling ${repoUrl}:`, err.message);
@@ -709,6 +832,7 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
     polledCount,
     skippedCount,
     errorCount,
+    notificationsSent,
     results
   };
 }
@@ -791,6 +915,7 @@ module.exports = {
   getRepoHistory,
   getConfiguredRepos,
   pollAllConfiguredRepos,
-  getTrackedReposSummary
+  getTrackedReposSummary,
+  checkAndSendGrowthNotification
 };
 

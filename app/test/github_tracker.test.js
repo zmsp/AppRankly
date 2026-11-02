@@ -273,6 +273,39 @@ console.log('Testing fetchGitHubStats with mocked client...');
 
     console.log('✓ getTrackedReposSummary verified');
 
+    // 5. Growth Notification Tests
+    console.log('Testing checkAndSendGrowthNotification...');
+    const { checkAndSendGrowthNotification } = require('../lib/githubTracker');
+
+    // Case A: Stars increased
+    const notifiedStars = await checkAndSendGrowthNotification(
+      { name: 'AppRankly', fullName: 'zmsp/AppRankly', stars: 35, totalDownloads: 2000 },
+      { stars: 28, total_downloads: 2000, date: '2026-11-01' },
+      { ntfyTopic: '' },
+      tmpDataDir
+    );
+    assert.strictEqual(notifiedStars, true, 'Expected notification when stars increase');
+
+    // Case B: Downloads increased
+    const notifiedDownloads = await checkAndSendGrowthNotification(
+      { name: 'AppRankly', fullName: 'zmsp/AppRankly', stars: 28, totalDownloads: 2150 },
+      { stars: 28, total_downloads: 2000, date: '2026-11-01' },
+      { ntfyTopic: '' },
+      tmpDataDir
+    );
+    assert.strictEqual(notifiedDownloads, true, 'Expected notification when downloads increase');
+
+    // Case C: No increase
+    const noNotification = await checkAndSendGrowthNotification(
+      { name: 'AppRankly', fullName: 'zmsp/AppRankly', stars: 28, totalDownloads: 2000 },
+      { stars: 28, total_downloads: 2000, date: '2026-11-01' },
+      { ntfyTopic: '' },
+      tmpDataDir
+    );
+    assert.strictEqual(noNotification, false, 'Expected no notification when count did not increase');
+
+    console.log('✓ checkAndSendGrowthNotification delta logic verified');
+
   } finally {
     // Cleanup temp files
     if (fs.existsSync(tmpDataDir)) {
