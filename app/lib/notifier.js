@@ -145,9 +145,11 @@ function markNotificationsRead(dataDir, id = null) {
 /**
  * Sends a notification via ntfy.sh
  */
-async function sendNtfyNotification({ message, title = 'New Data Alert', priority = 'high', tags = 'chart_with_upwards_trend,package', topic, dataDir }) {
-  // Record notification in local storage
-  addNotificationRecord(dataDir, { title, message, priority, tags, topic, source: 'ntfy' });
+async function sendNtfyNotification({ message, title = 'New Data Alert', priority = 'high', tags = 'chart_with_upwards_trend,package', topic, dataDir, dryRun = false }) {
+  if (!dryRun) {
+    // Record notification in local storage
+    addNotificationRecord(dataDir, { title, message, priority, tags, topic, source: 'ntfy' });
+  }
 
   const targetTopic = topic !== undefined ? topic : (process.env.NTFY_TOPIC || '');
   if (!targetTopic || !targetTopic.trim()) {

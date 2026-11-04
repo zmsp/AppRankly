@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { PackageUtils, parseNumeric, getParsedInt } = require('../lib/PackageUtils');
 const { sendWebhookNotification, sendTelegramNotification, broadcastAlert } = require('../lib/notifier');
 const resolver = require('../lib/resolver');
@@ -78,7 +79,9 @@ async function testNotifier() {
     topic: '',
     webhookUrl: '',
     slackWebhookUrl: '',
-    telegram: { botToken: '', chatId: '' }
+    telegram: { botToken: '', chatId: '' },
+    dryRun: true,
+    dataDir: os.tmpdir()
   });
 
   assert.ok(broadcastRes.webhookResult.skipped);
