@@ -173,6 +173,7 @@ npm run dev
 * 📝 **Contextual Notebooks**: Save persistent notes per application to mark feature additions or marketing campaigns directly inline with data trends.
 * 🔔 **Background Scheduler & Push Notifications**: Automated cron sync cycles that broadcast performance thresholds to your phone using [ntfy.sh](https://ntfy.sh/) (free, privacy-preserving, and optional).
 * 🚀 **Release Tracking**: Tag specific application releases or let the app auto-detect updates to trace impact visually across data timelines.
+* 🐙 **GitHub Repository & Ecosystem Tracking**: Monitor stars, forks, watchers, and open issues/PRs alongside daily package downloads (npm, PyPI, RubyGems, Docker) with historical trend modals and automated daily delta snapshots.
 * 🛠 **Headless CLI Companion**: Pull data payloads, migrate states, or perform manual historical database backfills over custom chron ranges using a scriptable terminal tool.
 
 ---
@@ -249,6 +250,9 @@ Duplicate `example.config.json` inside your designated configuration target dire
       "gemini":    { "apiKey": "...", "model": "gemini-1.5-flash" }
     }
   },
+  "githubRepos": [
+    "https://github.com/youruser/your-repo"
+  ],
   "gitNotes": {
     "remoteUrl": "https://github.com/youruser/your-notes-repo.git",
     "username": "your-github-username",
@@ -272,6 +276,7 @@ Duplicate `example.config.json` inside your designated configuration target dire
 | `ntfyTopic` | Alert Framework | Unique secret path defining your subscription string. Leave empty `""` to turn off. | Optional |
 | `refreshIntervalHours` | Worker Lifecycle | Defines the lookup intervals checking for fresh metrics upstream. | Default: `1` |
 | `statsCheckRangeDays` | Data Aggregation | Window depth processing past timeline metrics during cron sync updates. | Default: `30` |
+| `githubRepos` | Ecosystem Tracking | Array of GitHub repository URLs to poll and monitor for stars, forks, and package download volume. | Optional |
 | `gitNotes` | Version Control | Configuration for syncing local notes to a remote Git repository (GitHub/GitLab). | Optional |
 | `ai` | Optimization Lab | Object mappings storing keys and customized models across AI vendors. | Optional |
 
@@ -294,6 +299,12 @@ node app/cli.js \
   --projectID="your-gcp-project-id" \
   --bucketName="pubsite_prod_12345678" \
   --packageName="com.example.app"
+
+# Poll all configured GitHub repositories and record snapshot deltas
+node app/cli.js github-poll
+
+# Print summary metrics for tracked repositories and ecosystem downloads
+node app/cli.js github-stats
 ```
 
 ### Internal Engine Maintenance Targets
