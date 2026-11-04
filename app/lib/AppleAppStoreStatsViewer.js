@@ -26,6 +26,21 @@ function formatDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * Picks the app whose bundle ID matches exactly.
+ * App Store Connect's `filter[bundleId]` also returns apps whose bundle ID merely
+ * starts with the filter value (`com.example.app` also yields `com.example.app.pro`),
+ * so taking the first result can resolve to a different app.
+ * @param {Array<{id: string, attributes?: {bundleId?: string}}>} apps
+ * @param {string} bundleId
+ * @returns {object|null}
+ */
+function selectAppByBundleId(apps, bundleId) {
+  const wanted = String(bundleId || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return (apps || []).find(a => String(a?.attributes?.bundleId || '').trim().toLowerCase() === wanted) || null;
+}
+
 function generateDateArray(startDateStr, endDateStr) {
   let start = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 86400000);
   let end = endDateStr ? new Date(endDateStr) : new Date(Date.now() - 86400000);
@@ -89,10 +104,14 @@ class AppleAppStoreStatsViewer {
       const url = `https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=${this.appId}`;
       try {
         const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const match = selectAppByBundleId(res.data.data, this.appId);
+        if (match) {
+          console.log(`[DEBUG] Resolved ${this.appId} to numeric ID: ${match.id}`);
+          return match.id;
+        }
         if (res.data.data && res.data.data.length > 0) {
-          const resolvedId = res.data.data[0].id;
-          console.log(`[DEBUG] Resolved ${this.appId} to numeric ID: ${resolvedId}`);
-          return resolvedId;
+          const others = res.data.data.map(a => a?.attributes?.bundleId).join(', ');
+          console.warn(`[Apple API] filter[bundleId]=${this.appId} returned only other apps (${others}); none matches exactly.`);
         }
       } catch (err) {
         console.error(`[DEBUG] Failed to resolve bundleId ${this.appId}:`, err.response?.data || err.message);
@@ -551,3 +570,4 @@ class AppleAppStoreStatsViewer {
 }
 
 module.exports = AppleAppStoreStatsViewer;
+module.exports.selectAppByBundleId = selectAppByBundleId;
