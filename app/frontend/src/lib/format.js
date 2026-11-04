@@ -59,6 +59,21 @@ export function formatValueOrDash(value, formatter = formatNumber) {
 }
 
 /**
+ * Formats a clean date label for latest available data point (e.g. "As of Nov 2")
+ */
+export function formatAsOfDate(dateInput) {
+  if (!dateInput) return null;
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return `As of ${dateInput}`;
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Use UTC values if date string is YYYY-MM-DD format to avoid off-by-one day timezone shifts
+  const isDateOnly = typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput);
+  const month = isDateOnly ? monthNames[d.getUTCMonth()] : monthNames[d.getMonth()];
+  const day = isDateOnly ? d.getUTCDate() : d.getDate();
+  return `As of ${month} ${day}`;
+}
+
+/**
  * Calculates and formats data freshness statement from last recorded date string or timestamp
  */
 export function formatDataFreshness(lastDateInput) {

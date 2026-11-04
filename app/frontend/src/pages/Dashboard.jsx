@@ -136,6 +136,7 @@ export default function Dashboard({
   setSelectedProjectIndex,
   authToken,
   isStaticMode,
+  isDemoMode,
   refreshData,
   switchToDemoMode,
   viewMode,
@@ -484,6 +485,9 @@ export default function Dashboard({
           setPlatform={setPlatform}
           setPlatformAndProject={setPlatformAndProject}
           pairings={pairings}
+          authToken={authToken}
+          isStaticMode={isStaticMode}
+          isDemoMode={isDemoMode}
         />
 
         {/* Combined Portfolio Installs & Dimension Analysis */}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { apiFetch } from '../lib/api';
-import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS } from '../lib/mockData';
+import { MOCK_DATA, generateDemoTrends, MOCK_PROJECTS, MOCK_RELEASES } from '../lib/mockData';
 import { getPresetDateRange, parseDateExpression, formatDateISO } from '../lib/dateUtils';
 import { buildCacheKey, getCached, setCached, cachedFetch, clearCache } from '../lib/statsCache';
 import { sortProjectsByPlatformAndName, findProject, getProjectUrlSegment } from '../lib/projectUtils';
@@ -392,11 +392,15 @@ export function useAppState() {
   }, [isStaticMode, authToken, isDemoMode, platform, selectedProjectIndex, location.pathname]);
 
   const fetchReleases = useCallback(async () => {
+    if (isDemoMode) {
+      setReleases(MOCK_RELEASES);
+      return;
+    }
     try {
       const res = await apiFetch('/api/releases', {}, authToken, isStaticMode);
       if (res.ok) {
         const data = await res.json();
-        setReleases(data);
+        setReleases(Array.isArray(data) && data.length > 0 ? data : (isDemoMode || isStaticMode ? MOCK_RELEASES : []));
       }
     } catch (err) {
       if (err.message === 'Unauthorized') {
@@ -404,8 +408,11 @@ export function useAppState() {
         localStorage.removeItem('apprankly_token');
       }
       console.error('Failed to fetch releases', err);
+      if (isDemoMode || isStaticMode) {
+        setReleases(MOCK_RELEASES);
+      }
     }
-  }, [authToken, isStaticMode]);
+  }, [authToken, isStaticMode, isDemoMode]);
 
   const fetchNotes = useCallback(async () => {
     if (isDemoMode) {

@@ -28,6 +28,10 @@ function loadNotificationStore(dataDir) {
 function saveNotificationStore(dataDir, store) {
   const filePath = getNotificationsFilePath(dataDir);
   try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
     const tempPath = filePath + '.tmp';
     fs.writeFileSync(tempPath, JSON.stringify(store, null, 2), 'utf8');
     fs.renameSync(tempPath, filePath);

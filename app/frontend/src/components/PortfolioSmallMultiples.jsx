@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Sparkline from './Sparkline';
 import { Layers, ArrowUpDown, Flame } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
-import { formatNumber } from '../lib/format';
+import { formatNumber, formatAsOfDate } from '../lib/format';
 import AppIcon from './AppIcon';
 import { getProjectUrlSegment } from '../lib/projectUtils';
 import { clsx } from 'clsx';
@@ -193,6 +193,8 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
       }
     }
 
+    const latestDate = allDates.length > 0 ? allDates[allDates.length - 1] : null;
+
     return {
       proj,
       totalInstalls,
@@ -205,6 +207,7 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
       momentumStr,
       momentumType,
       isQuiet,
+      latestDate,
       asoScore: proj.asoScore || proj.aso
     };
   });
@@ -278,7 +281,7 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {sorted.map(({ proj, totalInstalls, googleInstalls, appleInstalls, points, googlePoints, applePoints, momentumStr, momentumType, asoScore }) => {
+        {sorted.map(({ proj, totalInstalls, googleInstalls, appleInstalls, points, googlePoints, applePoints, momentumStr, momentumType, asoScore, latestDate }) => {
           const hasTrends = points.length > 1 && points.some(v => v > 0);
           const isPairedMerged = proj.isMerged && proj.googleApp && proj.appleApp;
 
@@ -326,14 +329,24 @@ export default function PortfolioSmallMultiples({ projects = [], appTrends = {},
                     </div>
                   </div>
 
-                  {asoScore != null && asoScore > 0 && (
-                    <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-mono shrink-0"
-                      title={`ASO Score: ${asoScore}`}
-                    >
-                      ASO {asoScore}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {latestDate && (
+                      <span
+                        className="text-[10px] font-semibold text-slate-400 bg-white/5 border border-white/5 px-2 py-0.5 rounded-lg font-mono"
+                        title={`Latest data pulled for ${latestDate}`}
+                      >
+                        {formatAsOfDate(latestDate)}
+                      </span>
+                    )}
+                    {asoScore != null && asoScore > 0 && (
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-mono"
+                        title={`ASO Score: ${asoScore}`}
+                      >
+                        ASO {asoScore}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Period Installs & Platform Breakdown Pill */}
