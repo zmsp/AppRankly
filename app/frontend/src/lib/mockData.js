@@ -199,3 +199,226 @@ export const generateDemoTrends = (startDateStr, endDateStr) => {
   return { dailyTrends, appTrends, platformTotals };
 };
 
+export const MOCK_RELEASES = [
+  {
+    id: "demo_rel_1",
+    version: "2.4.0",
+    platform: "google",
+    packageName: "com.demo.alpha",
+    date: "2026-10-28T14:30:00Z",
+    notes: "Release 2.4.0: Added smart task reminders, subtasks nesting, and performance optimizations.",
+    source: "manual",
+    churnRate: 0.038,
+    churnImpact: "positive",
+    deltaRate: -0.012
+  },
+  {
+    id: "demo_rel_2",
+    version: "2.3.1",
+    platform: "google",
+    packageName: "com.demo.alpha",
+    date: "2026-09-18T10:15:00Z",
+    notes: "Hotfix release addressing recurring alarm sync edge cases.",
+    source: "auto",
+    churnRate: 0.052,
+    churnImpact: "neutral",
+    deltaRate: 0.002
+  },
+  {
+    id: "demo_rel_3",
+    version: "3.1.0",
+    platform: "google",
+    packageName: "com.demo.beta",
+    date: "2026-10-20T16:00:00Z",
+    notes: "Major update: Barcode scanner redesign, micro-nutrient tracking, Apple Health sync.",
+    source: "manual",
+    churnRate: 0.029,
+    churnImpact: "positive",
+    deltaRate: -0.015
+  },
+  {
+    id: "demo_rel_4",
+    version: "1.5.0",
+    platform: "apple",
+    packageName: "com.demo.gamma",
+    date: "2026-10-25T09:00:00Z",
+    notes: "iOS 18 Widget interactive controls, recurring budget categories, CSV statements export.",
+    source: "manual",
+    churnRate: 0.032,
+    churnImpact: "positive",
+    deltaRate: -0.008
+  },
+  {
+    id: "demo_rel_5",
+    version: "1.4.2",
+    platform: "apple",
+    packageName: "com.demo.gamma",
+    date: "2026-09-12T11:20:00Z",
+    notes: "Biometric FaceID unlock reliability update.",
+    source: "auto",
+    churnRate: 0.041,
+    churnImpact: "neutral",
+    deltaRate: -0.001
+  }
+];
+
+export const MOCK_GITHUB_REPOS = [
+  {
+    url: "https://github.com/zmsp/AppRankly",
+    owner: "zmsp",
+    repo: "AppRankly",
+    isPackage: false,
+    packageType: null,
+    packageName: null,
+    description: "Self-hosted, open-source mobile app analytics & ASO dashboard for Google Play Store and Apple App Store.",
+    isPolledToday: true,
+    latestDate: new Date().toISOString().split('T')[0],
+    stars: 36,
+    dailyStars: 5,
+    totalDownloads: 2149,
+    dailyDownloads: 47,
+    releaseDownloads: 28,
+    packageDownloads: 2121,
+    packages: [
+      {
+        name: "apprankly",
+        type: "container",
+        url: "https://github.com/users/zmsp/packages/container/package/apprankly",
+        downloads: 2121
+      }
+    ],
+    forks: 7,
+    openIssues: 0,
+    openIssuesOnly: 0,
+    openPullRequests: 3,
+    totalCommits: 134,
+    latestCommit: {
+      message: "chore: bump version to 2.2.0",
+      date: "2026-11-02T17:12:51Z",
+      author: "Zobair S",
+      sha: "6c3e361"
+    },
+    primaryLanguage: "JavaScript",
+    languages: {
+      JavaScript: 1565258,
+      HTML: 5432,
+      Dockerfile: 1757,
+      CSS: 1705,
+      Shell: 853
+    },
+    languagePercentages: [
+      { language: "JavaScript", bytes: 1565258, percentage: 99.4 },
+      { language: "HTML", bytes: 5432, percentage: 0.3 },
+      { language: "Dockerfile", bytes: 1757, percentage: 0.1 },
+      { language: "CSS", bytes: 1705, percentage: 0.1 },
+      { language: "Shell", bytes: 853, percentage: 0.1 }
+    ],
+    sizeKb: 20172,
+    license: "NOASSERTION",
+    topics: [
+      "android",
+      "app-store-connect",
+      "apple-app-store",
+      "aso",
+      "dashboards",
+      "docker",
+      "google-play",
+      "google-play-console",
+      "ios",
+      "mobile-analytics",
+      "nodejs",
+      "play-store",
+      "privacy",
+      "react",
+      "retention-analytics",
+      "self-hosted",
+      "store-analytics",
+      "unraid"
+    ],
+    createdAt: "2026-07-23T15:44:45Z",
+    pushedAt: "2026-11-02T17:13:26Z",
+    isArchived: false,
+    watchers: 36,
+    latestReleaseTag: "v2.2.0",
+    latestRelease: {
+      tag: "v2.2.0",
+      name: "v2.2.0 — GitHub Repository Tracking & AskRankly AI Intelligence",
+      publishedAt: "2026-11-02T17:13:36Z",
+      downloads: 16,
+      assets: [
+        { name: "github-repo-trends-modal.png", downloadCount: 4, size: 110155 },
+        { name: "github-repos-overview.png", downloadCount: 12, size: 161074 }
+      ]
+    },
+    topAssets: [
+      {
+        releaseTag: "v2.2.0",
+        name: "github-repos-overview.png",
+        size: 161074,
+        contentType: "image/png",
+        downloadCount: 12,
+        updatedAt: "2026-11-02T17:13:36Z"
+      },
+      {
+        releaseTag: "v2.2.0",
+        name: "github-repo-trends-modal.png",
+        size: 110155,
+        contentType: "image/png",
+        downloadCount: 4,
+        updatedAt: "2026-11-02T17:13:36Z"
+      }
+    ],
+    history: [
+      {
+        date: "2026-10-25",
+        stars: 22,
+        dailyStars: 2,
+        forks: 5,
+        openIssues: 0,
+        watchers: 22,
+        totalDownloads: 1820,
+        dailyDownloads: 45,
+        releaseCount: 6,
+        latestReleaseTag: "v2.0.0"
+      },
+      {
+        date: "2026-10-28",
+        stars: 25,
+        dailyStars: 3,
+        forks: 6,
+        openIssues: 0,
+        watchers: 25,
+        totalDownloads: 1940,
+        dailyDownloads: 60,
+        releaseCount: 7,
+        latestReleaseTag: "v2.1.0"
+      },
+      {
+        date: "2026-11-02",
+        stars: 31,
+        dailyStars: 6,
+        forks: 7,
+        openIssues: 0,
+        watchers: 31,
+        totalDownloads: 2102,
+        dailyDownloads: 162,
+        releaseCount: 7,
+        latestReleaseTag: "v2.1.0"
+      },
+      {
+        date: "2026-11-04",
+        stars: 36,
+        dailyStars: 5,
+        forks: 7,
+        openIssues: 0,
+        watchers: 36,
+        totalDownloads: 2149,
+        dailyDownloads: 47,
+        releaseCount: 8,
+        latestReleaseTag: "v2.2.0"
+      }
+    ]
+  }
+];
+
+

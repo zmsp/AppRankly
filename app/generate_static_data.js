@@ -292,6 +292,7 @@ async function generate() {
               console.error(`    Error getting overview for ${app.packageName}:`, err.message);
             }
 
+            const metadata = baseConfig.appMetadata?.[app.packageName] || {};
             const storeUrl = metadata.storeUrl || appleMeta?.url || appleMeta?.trackViewUrl || (app.adamId ? `https://apps.apple.com/app/id${app.adamId}` : null);
             const consoleUrl = metadata.consoleUrl || `https://appstoreconnect.apple.com/apps`;
             const iconUrl = metadata.iconUrl || appleMeta?.iconUrl || appleMeta?.icon || `https://s2.googleusercontent.com/s2/favicons?domain=apps.apple.com&sz=128`;
@@ -430,6 +431,15 @@ async function generate() {
     fs.copyFileSync(notesPath, path.join(docsDataDir, "notes.json"));
   } else {
     fs.writeFileSync(path.join(docsDataDir, "notes.json"), JSON.stringify([], null, 2));
+  }
+
+  // Copy or write github_stats.json
+  const githubStatsPath = path.join(__dirname, "..", "data", "github_stats.json");
+  const localGithubStatsPath = path.join(__dirname, "data", "github_stats.json");
+  if (fs.existsSync(githubStatsPath)) {
+    fs.copyFileSync(githubStatsPath, path.join(docsDataDir, "github_stats.json"));
+  } else if (fs.existsSync(localGithubStatsPath)) {
+    fs.copyFileSync(localGithubStatsPath, path.join(docsDataDir, "github_stats.json"));
   }
 
   fs.writeFileSync(path.join(docsDataDir, "projects.json"), JSON.stringify(projectList, null, 2));

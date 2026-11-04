@@ -89,6 +89,29 @@ if (command === "backfill") {
     process.exit(1);
   });
   return;
+} else if (command === "github-poll") {
+  const { pollAllConfiguredRepos } = require("./lib/githubTracker");
+  const { getBaseConfig, DATA_DIR } = require("./lib/config");
+  const { db } = require("./lib/db");
+  pollAllConfiguredRepos({
+    getBaseConfig,
+    DATA_DIR,
+    db,
+    force: true
+  }).then(result => {
+    console.log(JSON.stringify(result, null, 2));
+  }).catch(err => {
+    console.error("GitHub poll failed:", err);
+    process.exit(1);
+  });
+  return;
+} else if (command === "github-stats") {
+  const { getTrackedReposSummary } = require("./lib/githubTracker");
+  const { getBaseConfig, DATA_DIR } = require("./lib/config");
+  const { db } = require("./lib/db");
+  const summary = getTrackedReposSummary({ getBaseConfig, DATA_DIR, db });
+  console.log(JSON.stringify(summary, null, 2));
+  return;
 }
 
 const GooglePlayStoreStatsViewer = require("./lib/GooglePlayStoreStatsViewer");
