@@ -808,20 +808,13 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
       console.log(`[GitHubTracker] Polling stats for ${repoUrl}...`);
       const stats = await fetchGitHubStats(repoUrl, { token: authToken, axiosInstance });
 
-      // Check if today's count is higher than previous day -> send notification
-      let notified = false;
-      if (!alreadyNotifiedToday) {
-        notified = await checkAndSendGrowthNotification(stats, prevRecord, baseConfig, DATA_DIR);
-        if (notified) notificationsSent++;
-      }
-      stats.notifiedToday = notified || alreadyNotifiedToday;
-
-      saveDailySnapshot(stats, { db, dataDir: DATA_DIR, date: today });
-      polledCount++;
-
       const deltaStars = prevRecord ? Math.max(0, (stats.stars || 0) - (prevRecord.stars || 0)) : 0;
       const prevDl = prevRecord ? (prevRecord.total_downloads !== undefined ? prevRecord.total_downloads : prevRecord.totalDownloads) : 0;
       const deltaDownloads = prevRecord ? Math.max(0, (stats.totalDownloads || 0) - prevDl) : 0;
+
+      stats.notifiedToday = alreadyNotifiedToday;
+      saveDailySnapshot(stats, { db, dataDir: DATA_DIR, date: today });
+      polledCount++;
 
       results.push({
         url: repoUrl,
@@ -830,14 +823,70 @@ async function pollAllConfiguredRepos({ getBaseConfig, DATA_DIR, db, force = fal
         totalDownloads: stats.totalDownloads,
         deltaStars,
         deltaDownloads,
-        notified: Boolean(notified),
+        notified: false,
+        alreadyNotifiedToday,
+        stats,
+        prevRecord,
         latestRelease: stats.latestRelease?.tag || null
       });
-      console.log(`[GitHubTracker] Saved ${repoUrl}: ${stats.stars} stars (+${deltaStars}), ${stats.totalDownloads} downloads (+${deltaDownloads}). Notified: ${notified}`);
+      console.log(`[GitHubTracker] Saved ${repoUrl}: ${stats.stars} stars (+${deltaStars}), ${stats.totalDownloads} downloads (+${deltaDownloads}).`);
     } catch (err) {
       errorCount++;
       console.error(`[GitHubTracker] Failed polling ${repoUrl}:`, err.message);
       results.push({ url: repoUrl, status: 'error', error: err.message });
+    }
+  }
+
+  // Consolidated notification across all configured GitHub repos
+  const reposToNotify = results.filter(r => r.status === 'polled' && !r.alreadyNotifiedToday && (r.deltaStars > 0 || r.deltaDownloads > 0));
+
+  if (reposToNotify.length > 0) {
+    const ntfyTopic = baseConfig?.ntfyTopic || process.env.NTFY_TOPIC || '';
+    let totalDeltaStars = 0;
+    let totalDeltaDownloads = 0;
+
+    const repoLines = reposToNotify.map(r => {
+      totalDeltaStars += r.deltaStars;
+      totalDeltaDownloads += r.deltaDownloads;
+      const parts = [];
+      if (r.deltaDownloads > 0) parts.push(`+${r.deltaDownloads.toLocaleString()} dl`);
+      if (r.deltaStars > 0) parts.push(`+${r.deltaStars.toLocaleString()} ⭐`);
+      return `* ${r.stats.name || r.url}: ${parts.join(', ')}`;
+    });
+
+    const title = reposToNotify.length === 1
+      ? `[GitHub] ${reposToNotify[0].stats.name}`
+      : `[GitHub] Combined Stats (${reposToNotify.length} Repos)`;
+
+    const summaryParts = [];
+    if (totalDeltaDownloads > 0) summaryParts.push(`+${totalDeltaDownloads.toLocaleString()} downloads/pulls`);
+    if (totalDeltaStars > 0) summaryParts.push(`+${totalDeltaStars.toLocaleString()} stars`);
+
+    const message = `${repoLines.join('\n')}\n\nCombined Total: ${summaryParts.join(', ')} across ${reposToNotify.length} repo(s)`;
+
+    try {
+      const { broadcastAlert } = require('./notifier');
+      await broadcastAlert({
+        title,
+        message,
+        priority: 'default',
+        tags: 'github,chart_with_upwards_trend,package,star',
+        topic: ntfyTopic,
+        dataDir: DATA_DIR,
+        webhookUrl: baseConfig?.webhookUrl || process.env.WEBHOOK_URL,
+        slackWebhookUrl: baseConfig?.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+        telegram: baseConfig?.telegram
+      });
+
+      notificationsSent = 1;
+      for (const r of reposToNotify) {
+        r.notified = true;
+        r.stats.notifiedToday = true;
+        saveDailySnapshot(r.stats, { db, dataDir: DATA_DIR, date: today });
+      }
+      console.log(`[GitHubTracker] Sent consolidated growth notification for ${reposToNotify.length} repo(s): +${totalDeltaStars} stars, +${totalDeltaDownloads} dl.`);
+    } catch (err) {
+      console.warn('[GitHubTracker] Consolidated notification error:', err.message);
     }
   }
 

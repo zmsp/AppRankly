@@ -95,7 +95,12 @@ export default function TopBar({
         </button>
         {/* ── AppRankly Overview ── */}
         <button
-          onClick={() => navigate('/all/all')}
+          onClick={() => {
+            if (setPlatform) setPlatform('all');
+            if (setSelectedProjectIndex) setSelectedProjectIndex('all');
+            if (setDateRange) setDateRange(getPresetDateRange('7d'), '7d');
+            navigate('/all/all?range=7d');
+          }}
           className={clsx(
             "w-8 h-8 sm:w-9 sm:h-9 rounded-[10px] flex items-center justify-center transition-all overflow-hidden border shrink-0",
             (location.pathname === '/' || location.pathname.startsWith('/all/all'))
@@ -120,6 +125,14 @@ export default function TopBar({
 
         {/* ── Notification ── */}
         <NotificationPopover authToken={authToken} isDemoMode={isDemoMode} />
+
+        {/* ── Demo Mode Indicator Pill ── */}
+        {isDemoMode && (
+          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 border border-cyan-500/30 text-[11px] font-semibold text-cyan-300 shadow-sm shadow-cyan-500/10 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span>Interactive Demo</span>
+          </div>
+        )}
 
         {/* ── Toggle Apps List (Down Arrow) ── */}
         <button

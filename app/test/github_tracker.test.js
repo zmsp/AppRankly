@@ -188,13 +188,14 @@ console.log('Testing fetchGitHubStats with mocked client...');
     };
     saveDailySnapshot(day1Stats, { db: testDb, dataDir: tmpDataDir, date: '2026-11-01' });
 
-    // Save Day 2
+    // Save Day 2 (use current date so daily polling idempotency check triggers)
+    const todayStr = new Date().toISOString().split('T')[0];
     const day2Stats = {
       ...stats,
       stars: 5420,
       totalDownloads: 10700
     };
-    saveDailySnapshot(day2Stats, { db: testDb, dataDir: tmpDataDir, date: '2026-11-02' });
+    saveDailySnapshot(day2Stats, { db: testDb, dataDir: tmpDataDir, date: todayStr });
 
     // Query history
     const history = getRepoHistory('https://github.com/acme/sample-app', {
@@ -207,7 +208,7 @@ console.log('Testing fetchGitHubStats with mocked client...');
     assert.strictEqual(history[0].totalDownloads, 10000);
     assert.strictEqual(history[0].dailyDownloads, 0); // Day 1 baseline
 
-    assert.strictEqual(history[1].date, '2026-11-02');
+    assert.strictEqual(history[1].date, todayStr);
     assert.strictEqual(history[1].totalDownloads, 10700);
     assert.strictEqual(history[1].dailyDownloads, 700); // 10700 - 10000
     assert.strictEqual(history[1].dailyStars, 20); // 5420 - 5400

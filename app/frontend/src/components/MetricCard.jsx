@@ -4,7 +4,7 @@ import InfoTooltip from './InfoTooltip';
 import { Copy, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function MetricCard({ label, value, sublabel, trend, icon: Icon, color, progress, tooltipSubheader, tooltipText, contextRange }) {
+export default function MetricCard({ label, value, sublabel, trend, icon: Icon, color, progress, tooltipSubheader, tooltipText, contextRange, contextLabel = "Data through" }) {
   const colorMap = {
     blue: "text-accent-blue bg-accent-blue/10 border-accent-blue/20",
     emerald: "text-accent-emerald bg-accent-emerald/10 border-accent-emerald/20",
@@ -86,8 +86,8 @@ export default function MetricCard({ label, value, sublabel, trend, icon: Icon, 
 
       {contextRange && (
         <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
-          <span>90d range</span>
-          <span className="font-mono text-slate-300">{contextRange}</span>
+          <span>{contextLabel}</span>
+          <span className="font-mono text-slate-300 font-semibold">{contextRange}</span>
         </div>
       )}
 

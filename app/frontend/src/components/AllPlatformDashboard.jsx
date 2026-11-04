@@ -4,11 +4,11 @@ import GitHubReposTracker from './GitHubReposTracker';
 import MetricCard from './MetricCard';
 import { Download } from 'lucide-react';
 import { PlayStoreIcon, AppleStoreIcon } from './icons/StoreIcons';
-import { formatNumber } from '../lib/format';
+import { formatNumber, formatAsOfDate } from '../lib/format';
 import { groupProjectsByPair } from '../lib/projectUtils';
 import { clsx } from 'clsx';
 
-export default function AllPlatformDashboard({ projects = [], filteredProjects, stats, platform = 'all', setSelectedProjectIndex, setPlatform, setPlatformAndProject, pairings, authToken, isStaticMode }) {
+export default function AllPlatformDashboard({ projects = [], filteredProjects, stats, platform = 'all', setSelectedProjectIndex, setPlatform, setPlatformAndProject, pairings, authToken, isStaticMode, isDemoMode }) {
   const displayProjects = useMemo(() => {
     if (platform === 'all') {
       return groupProjectsByPair(projects, pairings?.paired || pairings);
@@ -18,12 +18,42 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
       : projects.filter(p => p.platform === platform);
   }, [projects, filteredProjects, platform, pairings]);
 
-  const { appleTotal, googleTotal, combinedTotal, appleCount, googleCount } = useMemo(() => {
+  const { appleTotal, googleTotal, combinedTotal, appleCount, googleCount, appleLatestDate, googleLatestDate, combinedLatestDate } = useMemo(() => {
     let appleC = 0, googleC = 0;
+    let appleLatest = null;
+    let googleLatest = null;
+
     projects.forEach(proj => {
       if (proj.platform === 'apple') appleC++;
       else googleC++;
     });
+
+    // Scan app trends for latest dates per store
+    if (stats?.appTrends) {
+      Object.entries(stats.appTrends).forEach(([key, entry]) => {
+        const trendData = entry?.dailyTrends || entry?.trends || (Array.isArray(entry) ? entry : []);
+        if (trendData.length > 0) {
+          const lastPoint = trendData[trendData.length - 1];
+          if (lastPoint?.date) {
+            const isApple = entry?.platform === 'apple' || key.startsWith('apple:');
+            if (isApple) {
+              if (!appleLatest || lastPoint.date > appleLatest) appleLatest = lastPoint.date;
+            } else {
+              if (!googleLatest || lastPoint.date > googleLatest) googleLatest = lastPoint.date;
+            }
+          }
+        }
+      });
+    }
+
+    if (!appleLatest && stats?.dailyTrends?.length > 0) {
+      appleLatest = stats.dailyTrends[stats.dailyTrends.length - 1]?.date || null;
+    }
+    if (!googleLatest && stats?.dailyTrends?.length > 0) {
+      googleLatest = stats.dailyTrends[stats.dailyTrends.length - 1]?.date || null;
+    }
+
+    const combinedLatest = [appleLatest, googleLatest].filter(Boolean).sort().reverse()[0] || null;
 
     // Prefer server-computed platform totals (reliable, no key-matching fragility)
     if (stats?.platformTotals) {
@@ -36,7 +66,10 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
         googleTotal: googleT,
         combinedTotal: appleT + googleT,
         appleCount: appleC,
-        googleCount: googleC
+        googleCount: googleC,
+        appleLatestDate: appleLatest,
+        googleLatestDate: googleLatest,
+        combinedLatestDate: combinedLatest
       };
     }
 
@@ -60,7 +93,10 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
       googleTotal: googleT,
       combinedTotal: appleT + googleT,
       appleCount: appleC,
-      googleCount: googleC
+      googleCount: googleC,
+      appleLatestDate: appleLatest,
+      googleLatestDate: googleLatest,
+      combinedLatestDate: combinedLatest
     };
   }, [projects, stats]);
 
@@ -111,7 +147,8 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
             <MetricCard
               label="Combined Installs"
               value={formatNumber(combinedTotal)}
-              sublabel={`${projects.length} Total ${projects.length === 1 ? 'App' : 'Apps'} Tracked • All Scope`}
+              sublabel={`${projects.length} Total ${projects.length === 1 ? 'App' : 'Apps'} Tracked • ${appleShare} iOS / ${googleShare} Android`}
+              contextRange={combinedLatestDate ? formatAsOfDate(combinedLatestDate) : undefined}
               icon={Download}
               color="emerald"
             />
@@ -127,6 +164,7 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
               label="Apple Installs"
               value={formatNumber(appleTotal)}
               sublabel={`${appleCount} App Store ${appleCount === 1 ? 'App' : 'Apps'} • ${appleShare} Share`}
+              contextRange={appleLatestDate ? formatAsOfDate(appleLatestDate) : undefined}
               icon={AppleStoreIcon}
               color="amber"
             />
@@ -142,6 +180,7 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
               label="Google Installs"
               value={formatNumber(googleTotal)}
               sublabel={`${googleCount} Google Play ${googleCount === 1 ? 'App' : 'Apps'} • ${googleShare} Share`}
+              contextRange={googleLatestDate ? formatAsOfDate(googleLatestDate) : undefined}
               icon={PlayStoreIcon}
               color="blue"
             />
@@ -155,6 +194,7 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
               label={platform === 'apple' ? "Apple Store Installs" : "Google Play Installs"}
               value={formatNumber(platform === 'apple' ? appleTotal : googleTotal)}
               sublabel={platform === 'apple' ? `${appleShare} Portfolio Share` : `${googleShare} Portfolio Share`}
+              contextRange={formatAsOfDate(platform === 'apple' ? appleLatestDate : googleLatestDate)}
               icon={platform === 'apple' ? AppleStoreIcon : PlayStoreIcon}
               color={platform === 'apple' ? "amber" : "emerald"}
             />
@@ -194,7 +234,7 @@ export default function AllPlatformDashboard({ projects = [], filteredProjects, 
       </div>
 
       {/* GitHub Repository Tracking (Stars & Package Downloads) */}
-      <GitHubReposTracker authToken={authToken} isStaticMode={isStaticMode} />
+      <GitHubReposTracker authToken={authToken} isStaticMode={isStaticMode || isDemoMode} />
     </div>
   );
 }
