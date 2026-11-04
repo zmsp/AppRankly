@@ -25,7 +25,10 @@ const asoRouter = require("./routes/aso");
 const { sendNtfyNotification, sendWebhookNotification, sendTelegramNotification, syncNtfyTopicMessages, clearNotifications, markNotificationsRead } = require("./lib/notifier");
 const { checkAndNotifyStats, startPeriodicScheduler, getSchedulerStatus, checkNegativeReviewAlerts } = require("./lib/scheduler");
 const { calculateAppHealthScore } = require("./lib/healthScore");
+const { recordCampaignClick } = require("./lib/aso/campaignLinks");
+const { runNaturalLanguageSql, generateExecutiveBrief } = require("./lib/ai/textToSql");
 const { db } = require("./lib/db");
+const { getTrackedReposSummary, getRepoHistory, pollAllConfiguredRepos, fetchGitHubStats, parseGitHubUrl } = require("./lib/githubTracker");
 
 const execFileAsync = util.promisify(execFile);
 
@@ -241,6 +244,39 @@ app.get("/api/analytics/revenue", authenticate, (req, res) => {
 app.get("/api/status", (req, res) => res.json({ status: "healthy", timestamp: new Date().toISOString() }));
 app.get("/healthz", (req, res) => res.json({ status: "ok", version: require("./package.json").version || "1.0.0", uptime: Math.round(process.uptime()), dbOpen: true }));
 
+// --- Public Smart Redirect for Campaign Attribution Links ---
+app.get("/l/:slug", (req, res) => {
+  try {
+    const link = recordCampaignClick(req.params.slug);
+    if (!link) {
+      return res.status(404).send("Campaign attribution link not found");
+    }
+
+    const ua = (req.headers["user-agent"] || "").toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isAndroid = /android/.test(ua);
+
+    if (isIos && link.apple_url) {
+      return res.redirect(link.apple_url);
+    }
+    if (isAndroid && link.play_url) {
+      return res.redirect(link.play_url);
+    }
+
+    const destination = link.platform === "apple"
+      ? (link.apple_url || link.play_url)
+      : (link.play_url || link.apple_url);
+
+    if (destination) {
+      return res.redirect(destination);
+    }
+
+    res.status(404).send("No active store target configured for this campaign");
+  } catch (err) {
+    res.status(500).send("Redirect error: " + err.message);
+  }
+});
+
 // --- Public SVG Badge Endpoint (Shields.io Compatible) ---
 function generateBadgeSvg(label, value, color = '#3b82f6') {
   const safeLabel = String(label).replace(/[<>&"']/g, '');
@@ -389,6 +425,34 @@ app.post("/api/notes/ai-chat", authenticate, async (req, res) => {
   } catch (err) { res.json({ reply: `Note Assistant: Error contacting AI service (${err.message}).` }); }
 });
 
+// --- AskRankly 2.0: Autonomous Text-to-SQL Analyst ---
+app.post("/api/ai/ask-sql", authenticate, async (req, res) => {
+  const { question, provider, model } = req.body;
+  if (!question || !String(question).trim()) {
+    return res.status(400).json({ success: false, error: "Question is required" });
+  }
+  try {
+    const result = await runNaturalLanguageSql({
+      question: String(question),
+      provider,
+      model
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- AskRankly Portfolio Executive Digest ---
+app.get("/api/ai/executive-brief", authenticate, async (req, res) => {
+  try {
+    const brief = await generateExecutiveBrief();
+    res.json({ success: true, ...brief });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post("/api/test/apple", authenticate, async (req, res) => {
   const baseConfig = getBaseConfig();
   if (!baseConfig) return res.status(400).json({ success: false, error: "No config found" });
@@ -441,6 +505,60 @@ app.post("/api/test/git", authenticate, async (req, res) => {
   } catch (err) {
     const message = (err.message || '').replace(/:[^@:]+@/g, ':***@');
     res.json({ success: false, error: `Failed: ${message}` });
+  }
+});
+
+app.post("/api/test/github", authenticate, async (req, res) => {
+  try {
+    const { url, token } = req.body || {};
+    if (!url) return res.json({ success: false, error: "Repository URL is required" });
+    const baseConfig = getBaseConfig() || {};
+    const authToken = token || baseConfig.githubToken || baseConfig.gitNotes?.password || null;
+    const stats = await fetchGitHubStats(url, { token: authToken });
+    res.json({
+      success: true,
+      message: `Verified GitHub repo "${stats.fullName}". Stars: ${stats.stars}, Downloads: ${stats.totalDownloads}`,
+      stats
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/github/repos", authenticate, (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 30;
+    const repos = getTrackedReposSummary({ getBaseConfig, DATA_DIR, db, days });
+    res.json({ success: true, repos });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/github/history", authenticate, (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: "url query parameter is required" });
+    const days = parseInt(req.query.days, 10) || 30;
+    const history = getRepoHistory(url, { db, dataDir: DATA_DIR, days });
+    res.json({ success: true, url, history });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/github/poll", authenticate, async (req, res) => {
+  try {
+    const { force = true } = req.body || {};
+    const result = await pollAllConfiguredRepos({
+      getBaseConfig,
+      DATA_DIR,
+      db,
+      force: Boolean(force)
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

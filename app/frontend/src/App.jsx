@@ -242,6 +242,8 @@ function App() {
             updateNote={state.updateNote}
             deleteNote={state.deleteNote}
             onOpenQuickNotes={() => state.setQuickNotesOpen(true)}
+            authToken={state.authToken}
+            isStaticMode={state.isStaticMode}
           />
         </React.Suspense>
 

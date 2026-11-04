@@ -8,6 +8,10 @@ const prompts = require('../lib/ai/prompts');
 const scraper = require('../lib/aso/scraper');
 const { validateMetadata, simulateCoverage } = require('../lib/aso/coverage');
 const { startPortfolioJob, cancelPortfolioJob, getPortfolioJobStatus, ensureAppSnapshot } = require('../lib/aso/portfolioJob');
+const { getKeywordHints } = require('../lib/aso/keywordHints');
+const { lintMetadata } = require('../lib/aso/metadataLinter');
+const { calculatePppPricing } = require('../lib/aso/pppPricing');
+const { saveCampaignLink, getCampaignLinks, deleteCampaignLink } = require('../lib/aso/campaignLinks');
 
 const AI_PRICING = {
   openai: { inputPerToken: 0.0000025, outputPerToken: 0.0000100 },
@@ -310,6 +314,35 @@ router.post('/aso/keywords/expand', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * Zero-Auth Keyword Hints & Volume Radar (Apple MZSearchHints & Google Play Suggest)
+ */
+async function handleKeywordHints(req, res) {
+  const term = req.query.term || req.body?.term || req.query.seed || req.body?.seed;
+  const platform = req.query.platform || req.body?.platform || 'all';
+  const country = req.query.country || req.body?.country || 'us';
+  const expand = req.query.expand === 'true' || req.query.expand === '1' || Boolean(req.body?.expand);
+
+  if (!term || !String(term).trim()) {
+    return res.status(400).json({ error: 'term or seed query parameter is required' });
+  }
+
+  try {
+    const hints = await getKeywordHints({
+      term: String(term),
+      platform: String(platform),
+      country: String(country),
+      expand
+    });
+    res.json(hints);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+router.get('/aso/keywords/hints', handleKeywordHints);
+router.post('/aso/keywords/hints', handleKeywordHints);
 
 router.post('/aso/keywords/track', (req, res) => {
   const { packageName, platform = 'play', keywordId, tracked } = req.body;
@@ -920,6 +953,103 @@ router.post('/aso/coverage', (req, res) => {
 
     const simulation = simulateCoverage(trackedKeywords, metadata || {}, platform);
     res.json(simulation);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Pre-Flight Store Policy & Metadata Linter (Byte counting, banned terms, policy violations)
+ */
+router.post('/aso/lint-metadata', (req, res) => {
+  const { platform = 'apple', title, subtitle, shortDescription, keywords, description, promoText } = req.body;
+  try {
+    const result = lintMetadata({
+      platform,
+      title,
+      subtitle,
+      shortDescription,
+      keywords,
+      description,
+      promoText
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Purchasing Power Parity (PPP) Pricing Calculator
+ */
+function handlePppPricing(req, res) {
+  const basePrice = req.query.basePrice || req.body?.basePrice || 9.99;
+  try {
+    const result = calculatePppPricing(Number(basePrice));
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+router.get('/aso/ppp-pricing', handlePppPricing);
+router.post('/aso/ppp-pricing', handlePppPricing);
+
+/**
+ * Zero-SDK Campaign Link Builder & Registry
+ */
+router.get('/aso/campaign-links', (req, res) => {
+  const packageName = req.query.packageName;
+  try {
+    const links = getCampaignLinks(packageName);
+    res.json({ links });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/aso/campaign-links', (req, res) => {
+  const {
+    packageName,
+    platform = 'all',
+    name,
+    channel = 'social',
+    utmSource,
+    utmMedium = 'referral',
+    utmCampaign,
+    appleAppId,
+    appleProviderToken,
+    customProductPageId
+  } = req.body;
+
+  if (!packageName || !name || !utmSource || !utmCampaign) {
+    return res.status(400).json({ error: 'packageName, name, utmSource, and utmCampaign are required' });
+  }
+
+  try {
+    const link = saveCampaignLink({
+      packageName,
+      platform,
+      name,
+      channel,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      appleAppId,
+      appleProviderToken,
+      customProductPageId
+    });
+    res.json({ success: true, link });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/aso/campaign-links/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    const success = deleteCampaignLink(id);
+    res.json({ success });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

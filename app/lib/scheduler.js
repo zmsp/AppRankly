@@ -107,10 +107,12 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
     // Compute current hour considering configured timezone if available
     let currentHour = new Date().getHours();
+    let todayDateStr = new Date().toISOString().split('T')[0];
     if (baseConfig.timezone) {
       try {
         const formattedHour = new Date().toLocaleTimeString('en-US', { timeZone: baseConfig.timezone, hour12: false, hour: 'numeric' });
         currentHour = parseInt(formattedHour, 10);
+        todayDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: baseConfig.timezone }).format(new Date());
       } catch (e) {
         console.warn(`[Scheduler] Invalid timezone config (${baseConfig.timezone}), falling back to system time.`);
       }
@@ -166,6 +168,12 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
       const appKey = `${platform}:${pkgId}`;
       const displayName = baseConfig.appMetadata?.[pkgId]?.displayName || pkg.name || pkgId;
+      const prevRecord = lastKnownStats[appKey];
+
+      // If already checked and notified today for this app, skip checking unless forced
+      if (prevRecord?.lastNotifiedToday === todayDateStr && !options.force) {
+        return null;
+      }
 
       try {
         const viewer = platform === 'apple'
@@ -180,12 +188,24 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           return null;
         }
 
-        const validTrends = trends.filter(t => t.date && (t.dailyInstalls > 0 || t.dailyUserInstalls > 0 || t.netGrowth !== 0 || t.upgrades > 0));
-        const latestTrend = validTrends.length > 0
-          ? validTrends.reduce((max, t) => (t.date > max.date ? t : max), validTrends[0])
-          : trends[trends.length - 1];
+        // Sort trends ascending by date
+        const sortedTrends = [...trends].filter(t => Boolean(t?.date)).sort((a, b) => a.date.localeCompare(b.date));
+        const absoluteLatest = sortedTrends[sortedTrends.length - 1];
+        if (!absoluteLatest || !absoluteLatest.date) return null;
 
-        if (!latestTrend || !latestTrend.date) return null;
+        const hasStats = (t) => {
+          const inst = Number(t.dailyUserInstalls || t.dailyInstalls || 0);
+          const uninst = Number(t.dailyUserUninstalls || t.dailyUninstalls || 0);
+          const growth = Number(t.netGrowth || 0);
+          const upg = Number(t.upgrades || 0);
+          return inst > 0 || uninst > 0 || growth !== 0 || upg > 0;
+        };
+
+        // If newest day has 0 stats, fallback to latest day with activity
+        const activeTrends = sortedTrends.filter(hasStats);
+        const latestTrend = hasStats(absoluteLatest) || activeTrends.length === 0
+          ? absoluteLatest
+          : activeTrends[activeTrends.length - 1];
 
         const currentDailyInstalls = Number(latestTrend.dailyUserInstalls || latestTrend.dailyInstalls || 0);
         const currentDailyUninstalls = Number(latestTrend.dailyUserUninstalls || latestTrend.dailyUninstalls || 0);
@@ -279,26 +299,20 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
           dailyUninstalls: item.uninstalls,
           totalInstalls: item.totalInstalls,
           lastAnomalyDate: item.lastAnomalyDate,
+          lastNotifiedToday: lastKnownStats[item.appKey]?.lastNotifiedToday || null,
           updatedAt: new Date().toISOString()
         };
       }
     }
 
-    // Send single consolidated notification after checking all apps per period
+    // Send separate consolidated notifications per store platform (Apple, Google Play)
     // Filter out apps with no install/uninstall changes and no alerts
     const appsWithChanges = updatedApps.filter(a => a.installs !== 0 || a.uninstalls !== 0 || (a.smartAlerts && a.smartAlerts.length > 0));
 
     if (appsWithChanges.length > 0) {
-      console.log(`[Scheduler] Discovered new stats changes for ${appsWithChanges.length} app(s). Broadcasting consolidated notification...`);
+      console.log(`[Scheduler] Discovered new stats changes for ${appsWithChanges.length} app(s). Broadcasting per-platform notifications...`);
       const appleApps = appsWithChanges.filter(a => a.platform === 'APPLE');
       const androidApps = appsWithChanges.filter(a => a.platform === 'GOOGLE' || a.platform === 'ANDROID');
-
-      let combinedInstalls = 0;
-      let combinedUninstalls = 0;
-      appsWithChanges.forEach(a => {
-        combinedInstalls += a.installs;
-        combinedUninstalls += a.uninstalls;
-      });
 
       const formatApp = (app) => {
         const statParts = [];
@@ -313,36 +327,47 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
         return line;
       };
 
-      const parts = [];
-      if (appleApps.length > 0) {
-        parts.push(`[Apple]\n${appleApps.map(formatApp).join('\n')}`);
-      }
-      if (androidApps.length > 0) {
-        parts.push(`[Android]\n${androidApps.map(formatApp).join('\n')}`);
-      }
+      const platformGroups = [
+        { name: 'Apple App Store', tag: 'apple', apps: appleApps },
+        { name: 'Google Play Store', tag: 'android', apps: androidApps }
+      ];
 
-      const title = appsWithChanges.length === 1
-        ? `App Health & Stats: ${appsWithChanges[0].displayName}`
-        : `App Health & Stats (${appsWithChanges.length} Apps)`;
+      for (const group of platformGroups) {
+        if (!group.apps || group.apps.length === 0) continue;
 
-      const message = `${parts.join('\n\n')}\n\nCombined Total: +${combinedInstalls} installs, -${combinedUninstalls} uninstalls across ${appsWithChanges.length} app(s)`;
+        let combinedInstalls = 0;
+        let combinedUninstalls = 0;
+        group.apps.forEach(a => {
+          combinedInstalls += a.installs;
+          combinedUninstalls += a.uninstalls;
+        });
 
-      const res = await broadcastAlert({
-        title,
-        message,
-        priority: 'high',
-        tags: 'chart_with_upwards_trend,package',
-        topic: ntfyTopic,
-        dataDir: DATA_DIR,
-        webhookUrl,
-        slackWebhookUrl: baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
-        telegram: baseConfig.telegram
-      });
+        const title = group.apps.length === 1
+          ? `[${group.name}] ${group.apps[0].displayName}`
+          : `[${group.name}] Combined Stats (${group.apps.length} Apps)`;
 
-      if (res.ntfyResult?.success || res.webhookResult?.success || res.slackResult?.success || res.telegramResult?.success) {
-        notificationsSent = 1;
-        for (const app of appsWithChanges) {
-          details.push({ app: app.displayName, platform: app.platform, date: app.date, status: 'Notified' });
+        const message = `${group.apps.map(formatApp).join('\n')}\n\nCombined Total: +${combinedInstalls} installs, -${combinedUninstalls} uninstalls across ${group.apps.length} app(s)`;
+
+        const res = await broadcastAlert({
+          title,
+          message,
+          priority: 'high',
+          tags: `${group.tag},chart_with_upwards_trend,package`,
+          topic: ntfyTopic,
+          dataDir: DATA_DIR,
+          webhookUrl,
+          slackWebhookUrl: baseConfig.slackWebhookUrl || process.env.SLACK_WEBHOOK_URL,
+          telegram: baseConfig.telegram
+        });
+
+        if (res.ntfyResult?.success || res.webhookResult?.success || res.slackResult?.success || res.telegramResult?.success) {
+          notificationsSent++;
+          for (const app of group.apps) {
+            details.push({ app: app.displayName, platform: app.platform, date: app.date, status: 'Notified' });
+            if (lastKnownStats[app.appKey]) {
+              lastKnownStats[app.appKey].lastNotifiedToday = todayDateStr;
+            }
+          }
         }
       }
     } else if (updatedApps.length > 0) {
@@ -351,12 +376,31 @@ async function checkAndNotifyStats({ getBaseConfig, DATA_DIR, buildGoogleViewer,
 
     saveLastKnownStats(DATA_DIR, lastKnownStats);
 
+    // Daily polling of configured GitHub repositories (downloads, stars, releases)
+    let githubPollResult = null;
+    try {
+      const { pollAllConfiguredRepos } = require('./githubTracker');
+      const { db } = require('./db');
+      githubPollResult = await pollAllConfiguredRepos({
+        getBaseConfig,
+        DATA_DIR,
+        db,
+        force: Boolean(options.force)
+      });
+      if (githubPollResult?.polledCount > 0) {
+        console.log(`[Scheduler] Polled ${githubPollResult.polledCount} GitHub repo(s) for daily download and star counts.`);
+      }
+    } catch (ghErr) {
+      console.warn('[Scheduler] GitHub polling error:', ghErr.message);
+    }
+
     lastSchedulerRun = new Date();
     lastSchedulerStatus = {
       status: 'completed',
       lastRun: lastSchedulerRun.toISOString(),
       appsChecked,
       notificationsSent,
+      githubPoll: githubPollResult,
       hoursInterval,
       rangeDays,
       activeStartHour: startHour,
@@ -462,5 +506,15 @@ module.exports = {
   checkAndNotifyStats,
   startPeriodicScheduler,
   getSchedulerStatus,
-  checkNegativeReviewAlerts
+  checkNegativeReviewAlerts,
+  pollGithubRepos: (helpers, options) => {
+    const { pollAllConfiguredRepos } = require('./githubTracker');
+    const { db } = require('./db');
+    return pollAllConfiguredRepos({
+      getBaseConfig: helpers.getBaseConfig,
+      DATA_DIR: helpers.DATA_DIR,
+      db,
+      force: Boolean(options?.force)
+    });
+  }
 };

@@ -5,7 +5,7 @@ import {
   TrendingUp, Key, Globe, Shield, RefreshCw, Copy, Plus, AlertCircle, Bot,
   Users, MessageSquare, Sliders, CheckSquare, BookOpen, Info, HelpCircle, Zap,
   BarChart2, ArrowRight, ChevronDown, ChevronUp, Layers, AlertTriangle, FileText,
-  LayoutGrid, Star, Target, Calendar, Award, Trash2, Camera, Check
+  LayoutGrid, Star, Target, Calendar, Award, Trash2, Camera, Check, DollarSign, Link2
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import PortfolioAsoScores from '../components/PortfolioAsoScores';
@@ -13,6 +13,10 @@ import { saveCachedAudit, getCachedAudit, getCachedAuditStats, getAppAsoAudit } 
 import { formatNumber, formatRate } from '../lib/format';
 import { apiFetch } from '../lib/api';
 import AppIcon from '../components/AppIcon';
+import KeywordHintsRadar from '../components/KeywordHintsRadar';
+import MetadataLinterPanel from '../components/MetadataLinterPanel';
+import PppPricingCalculator from '../components/PppPricingCalculator';
+import CampaignLinksManager from '../components/CampaignLinksManager';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { findProject, getProjectUrlSegment } from '../lib/projectUtils';
 
@@ -1373,6 +1377,8 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
           { id: 'reviews', label: 'Review Sentiment', icon: MessageSquare, badge: (asoData?.reviewThemes || []).length },
           { id: 'timeline', label: 'Metadata Timeline', icon: Calendar, badge: (asoData?.timeline || []).length || null },
           { id: 'builder', label: 'Metadata Builder', icon: FileText, badge: 'Live Limits' },
+          { id: 'pricing', label: 'PPP Pricing', icon: DollarSign, badge: 'Global Lift' },
+          { id: 'campaigns', label: 'Campaign Links', icon: Link2, badge: 'Zero-SDK' },
           { id: 'action_plan', label: 'Action Plan', icon: CheckSquare, badge: `${actionItems.filter(i => i.status === 'completed').length}/${actionItems.length}` }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -1857,6 +1863,12 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
       {/* TAB 2: KEYWORD DISCOVERY & FAN-OUT */}
       {activeTab === 'keywords' && (
         <div className="space-y-6 animate-in fade-in duration-150">
+          <KeywordHintsRadar
+            packageName={packageName}
+            platform={platform}
+            onKeywordAdded={fetchAsoOverview}
+          />
+
           <div className="glass-card p-6 border border-white/10 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -2560,6 +2572,12 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
             </div>
           )}
 
+          <MetadataLinterPanel
+            platform={platform}
+            metadata={metadataInputs}
+            onApplyFixes={(fixes) => setMetadataInputs(prev => ({ ...prev, ...fixes }))}
+          />
+
           <div className="glass-card p-6 border border-white/10 space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Interactive Metadata Live Input Fields */}
@@ -2926,6 +2944,20 @@ export default function StoreASO({ stats, isDemoMode, projects: rawProjects = []
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 7: PURCHASING POWER PARITY (PPP) PRICING */}
+      {activeTab === 'pricing' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <PppPricingCalculator />
+        </div>
+      )}
+
+      {/* TAB 8: ZERO-SDK CAMPAIGN LINKS & ATTRIBUTION */}
+      {activeTab === 'campaigns' && (
+        <div className="space-y-6 animate-in fade-in duration-150">
+          <CampaignLinksManager packageName={packageName} />
         </div>
       )}
     </div>

@@ -26,9 +26,66 @@ function formatDate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+/**
+ * Parses a tab-separated Apple sales report into row objects keyed by header.
+ * @param {string} rawTxt
+ * @returns {Promise<object[]>}
+ */
+function parseSalesReport(rawTxt) {
+  return new Promise((resolve) => {
+    const rows = [];
+    csv.parseString(rawTxt, { headers: true, delimiter: '\t' })
+      .on('data', (row) => rows.push(row))
+      .on('error', (err) => {
+        console.error('[Apple API] Could not parse sales report:', err.message);
+        resolve(rows);
+      })
+      .on('end', () => resolve(rows));
+  });
+}
+
+/**
+ * Decides whether a sales report row belongs to an app.
+ * - 'app': the row is the app itself (downloads, updates, paid app sales).
+ * - 'in_app': an in-app purchase or subscription of the app. These rows carry
+ *   the purchase's own Apple Identifier; the link to the app is the app's SKU
+ *   in the "Parent Identifier" column.
+ * - null: the row belongs to another app.
+ * @param {object} row
+ * @param {string|number} numericId
+ * @param {Set<string>} appSkus
+ * @returns {'app'|'in_app'|null}
+ */
+function classifySalesRow(row, numericId, appSkus) {
+  if ((row['Apple Identifier'] || '').trim() === String(numericId)) return 'app';
+  const parent = (row['Parent Identifier'] || '').trim();
+  if (parent && appSkus && appSkus.has(parent)) return 'in_app';
+  return null;
+}
+
+/**
+ * Picks the app whose bundle ID matches exactly.
+ * App Store Connect's `filter[bundleId]` also returns apps whose bundle ID merely
+ * starts with the filter value (`com.example.app` also yields `com.example.app.pro`),
+ * so taking the first result can resolve to a different app.
+ * @param {Array<{id: string, attributes?: {bundleId?: string}}>} apps
+ * @param {string} bundleId
+ * @returns {object|null}
+ */
+function selectAppByBundleId(apps, bundleId) {
+  const wanted = String(bundleId || '').trim().toLowerCase();
+  if (!wanted) return null;
+  return (apps || []).find(a => String(a?.attributes?.bundleId || '').trim().toLowerCase() === wanted) || null;
+}
+
 function generateDateArray(startDateStr, endDateStr) {
-  let start = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 86400000);
-  let end = endDateStr ? new Date(endDateStr) : new Date(Date.now() - 86400000);
+  let start = startDateStr
+    ? new Date(startDateStr.includes('T') ? startDateStr : `${startDateStr}T00:00:00`)
+    : new Date(Date.now() - 30 * 86400000);
+  let end = endDateStr
+    ? new Date(endDateStr.includes('T') ? endDateStr : `${endDateStr}T00:00:00`)
+    : new Date(Date.now() - 86400000);
 
   if (isNaN(start.getTime())) start = new Date(Date.now() - 30 * 86400000);
   if (isNaN(end.getTime())) end = new Date(Date.now() - 86400000);
@@ -89,10 +146,14 @@ class AppleAppStoreStatsViewer {
       const url = `https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=${this.appId}`;
       try {
         const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const match = selectAppByBundleId(res.data.data, this.appId);
+        if (match) {
+          console.log(`[DEBUG] Resolved ${this.appId} to numeric ID: ${match.id}`);
+          return match.id;
+        }
         if (res.data.data && res.data.data.length > 0) {
-          const resolvedId = res.data.data[0].id;
-          console.log(`[DEBUG] Resolved ${this.appId} to numeric ID: ${resolvedId}`);
-          return resolvedId;
+          const others = res.data.data.map(a => a?.attributes?.bundleId).join(', ');
+          console.warn(`[Apple API] filter[bundleId]=${this.appId} returned only other apps (${others}); none matches exactly.`);
         }
       } catch (err) {
         console.error(`[DEBUG] Failed to resolve bundleId ${this.appId}:`, err.response?.data || err.message);
@@ -102,6 +163,26 @@ class AppleAppStoreStatsViewer {
     });
 
     return this.numericAppId;
+  }
+
+  /**
+   * Reads the app's SKU, which in-app purchase rows reference as "Parent Identifier".
+   * Falls back to the SKUs seen in the sales reports (logged) when the API call fails.
+   * @param {string} numericId
+   * @returns {Promise<string|null>}
+   */
+  async getAppSku(numericId) {
+    try {
+      return await resolver.resolve('apple:appsku', { issuerId: this.issuerId, keyId: this.keyId, appId: numericId }, async () => {
+        const token = this.generateToken();
+        const url = `https://api.appstoreconnect.apple.com/v1/apps/${numericId}?fields[apps]=sku`;
+        const res = await axios.get(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        return res.data?.data?.attributes?.sku || null;
+      });
+    } catch (err) {
+      console.warn(`[Apple API] Could not read SKU of app ${numericId} (${err.response?.status || err.message}); in-app purchases are matched only by SKUs seen in the sales reports.`);
+      return null;
+    }
   }
 
   generateToken(force = false) {
@@ -343,52 +424,65 @@ class AppleAppStoreStatsViewer {
       })
     );
 
+    const parsedReports = [];
     for (const { dateStr, rawTxt } of reports) {
       if (!rawTxt || rawTxt === '__EMPTY__') continue;
+      parsedReports.push({ dateStr, rows: await parseSalesReport(rawTxt) });
+    }
 
-      await new Promise((resolve) => {
-        csv.parseString(rawTxt, { headers: true, delimiter: '\t' })
-          .on('data', (row) => {
-            const appleId = (row['Apple Identifier'] || '').trim();
-            if (appleId !== String(numericId)) return;
+    // In-app purchase and subscription rows carry their own Apple Identifier;
+    // they belong to the app whose SKU is in their "Parent Identifier".
+    const appSkus = new Set();
+    const apiSku = await this.getAppSku(numericId);
+    if (apiSku) appSkus.add(apiSku);
+    for (const { rows } of parsedReports) {
+      for (const row of rows) {
+        if ((row['Apple Identifier'] || '').trim() === String(numericId) && (row['SKU'] || '').trim()) {
+          appSkus.add(row['SKU'].trim());
+        }
+      }
+    }
 
-            const rowDate = parseMMDDYYYY(row['Begin Date']) || dateStr;
-            const trend = mergedTrends.get(rowDate) || {
-              date: rowDate,
-              dailyInstalls: 0,
-              dailyUninstalls: 0,
-              dailyUserInstalls: 0,
-              dailyUserUninstalls: 0,
-              netGrowth: 0,
-              activeDevices: 0,
-              upgrades: 0,
-              revenue: 0,
-              netRevenue: 0,
-              impressions: 0,
-              pageViews: 0,
-              sessions: 0,
-              crashes: 0
-            };
+    for (const { dateStr, rows } of parsedReports) {
+      for (const row of rows) {
+        const rowKind = classifySalesRow(row, numericId, appSkus);
+        if (!rowKind) continue;
 
-            const units = parseInt(row['Units']) || 0;
-            const proceeds = parseFloat(row['Developer Proceeds']) || 0;
-            const productType = (row['Product Type Identifier'] || '').trim();
+        const rowDate = parseMMDDYYYY(row['Begin Date']) || dateStr;
+        const trend = mergedTrends.get(rowDate) || {
+          date: rowDate,
+          dailyInstalls: 0,
+          dailyUninstalls: 0,
+          dailyUserInstalls: 0,
+          dailyUserUninstalls: 0,
+          netGrowth: 0,
+          activeDevices: 0,
+          upgrades: 0,
+          revenue: 0,
+          netRevenue: 0,
+          impressions: 0,
+          pageViews: 0,
+          sessions: 0,
+          crashes: 0
+        };
 
-            if (FIRST_INSTALL_TYPES.has(productType)) {
-              trend.dailyInstalls += units;
-            } else if (REDOWNLOAD_TYPES.has(productType) || UPDATE_TYPES.has(productType)) {
-              trend.upgrades += units;
-            }
+        const units = parseInt(row['Units']) || 0;
+        const proceeds = parseFloat(row['Developer Proceeds']) || 0;
+        const productType = (row['Product Type Identifier'] || '').trim();
 
-            trend.revenue += proceeds * units;
-            trend.netRevenue = trend.revenue;
-            trend.dailyUserInstalls = trend.dailyInstalls;
-            trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
+        if (rowKind === 'app' && FIRST_INSTALL_TYPES.has(productType)) {
+          trend.dailyInstalls += units;
+        } else if (rowKind === 'app' && (REDOWNLOAD_TYPES.has(productType) || UPDATE_TYPES.has(productType))) {
+          trend.upgrades += units;
+        }
 
-            mergedTrends.set(rowDate, trend);
-          })
-          .on('end', () => resolve());
-      });
+        trend.revenue += proceeds * units;
+        trend.netRevenue = trend.revenue;
+        trend.dailyUserInstalls = trend.dailyInstalls;
+        trend.netGrowth = trend.dailyInstalls - trend.dailyUninstalls;
+
+        mergedTrends.set(rowDate, trend);
+      }
     }
 
     const dailyTrends = Array.from(mergedTrends.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -553,3 +647,5 @@ class AppleAppStoreStatsViewer {
 }
 
 module.exports = AppleAppStoreStatsViewer;
+module.exports.classifySalesRow = classifySalesRow;
+module.exports.selectAppByBundleId = selectAppByBundleId;
